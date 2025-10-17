@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    environment:
+      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=proyecto_turnos.settings
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=planificador_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=devpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A proyecto_turnos worker -l debug --concurrency=1
+    volumes:
+      - ./:/app
+    env_file:
+      - .env.dev
+    environment:
+      - DEBUG=True
+    depends_on:
+      - db
+      - redis
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: planificador_mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - planificador_network
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  planificador_network:
+    driver: bridge

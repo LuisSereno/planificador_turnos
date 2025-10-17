@@ -1,0 +1,16 @@
+Django~=5.2.7
+celery~=5.5.3
+ortools~=9.14.6206
+Faker==22.0.0
+# Exportación
+openpyxl==3.1.2
+reportlab==4.0.7
+python-dotenv==1.0.0
+redis==5.0.1
+django-cors-headers==4.3.1
+djangorestframework==3.15.2
+gunicorn==23.0.0
+whitenoise==6.6.0
+icalendar==5.0.11
+WeasyPrint==60.1
+python-dateutil

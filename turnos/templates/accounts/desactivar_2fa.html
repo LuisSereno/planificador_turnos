@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Desactivar Autenticación de Dos Factores" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:perfil' %}">{% trans "Perfil" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Desactivar 2FA" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-warning text-white text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-shield-alt fa-4x"></i>
+                </div>
+                <h3 class="font-weight-light mb-0">{% trans "Desactivar 2FA" %}</h3>
+                <p class="mb-0">{% trans "Autenticación de Dos Factores" %}</p>
+            </div>
+            <div class="card-body p-5">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>{% trans "¡Advertencia!" %}</h5>
+                    <p class="mb-0">
+                        {% trans "Estás a punto de desactivar la autenticación de dos factores. Esto reducirá significativamente la seguridad de tu cuenta." %}
+                    </p>
+                </div>
+
+                <div class="alert alert-info">
+                    <h6>{% trans "¿Por qué mantener 2FA activado?" %}</h6>
+                    <ul class="mb-0">
+                        <li>{% trans "Protección contra accesos no autorizados" %}</li>
+                        <li>{% trans "Mayor seguridad incluso si tu contraseña es comprometida" %}</li>
+                        <li>{% trans "Cumplimiento con estándares de seguridad" %}</li>
+                    </ul>
+                </div>
+
+                <form method="post" action="{% url 'accounts:desactivar_2fa' %}">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="id_password" class="form-label fw-bold">
+                            <i class="fas fa-lock me-2"></i>{% trans "Confirma tu contraseña:" %}
+                        </label>
+                        <input type="password" 
+                               class="form-control form-control-lg {% if form.password.errors %}is-invalid{% endif %}" 
+                               id="id_password" 
+                               name="password" 
+                               placeholder="{% trans 'Tu contraseña actual' %}"
+                               required
+                               autofocus>
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.password.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text">
+                                {% trans "Por seguridad, necesitamos verificar tu identidad" %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="id_token" class="form-label fw-bold">
+                            <i class="fas fa-mobile-alt me-2"></i>{% trans "Código de verificación:" %}
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg text-center {% if form.token.errors %}is-invalid{% endif %}" 
+                               id="id_token" 
+                               name="token" 
+                               placeholder="000000"
+                               maxlength="6"
+                               pattern="[0-9]{6}"
+                               required
+                               style="letter-spacing: 0.5rem; font-size: 1.5rem;">
+                        {% if form.token.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.token.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text text-center">
+                                {% trans "Introduce el código actual de tu aplicación de autenticación" %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="id_confirmar" 
+                               name="confirmar" 
+                               required>
+                        <label class="form-check-label" for="id_confirmar">
+                            {% trans "Entiendo que esto reducirá la seguridad de mi cuenta" %}
+                        </label>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'turnos:perfil' %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                        <button type="submit" class="btn btn-warning btn-lg">
+                            <i class="fas fa-times-circle me-2"></i>{% trans "Desactivar 2FA" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-formatear el input del código
+    document.getElementById('id_token').addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+</script>
+{% endblock %}

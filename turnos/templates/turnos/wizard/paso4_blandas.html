@@ -1,0 +1,148 @@
+{% extends 'turnos/wizard/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block wizard_content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-warning text-dark">
+        <h4 class="mb-0">
+            <i class="fas fa-balance-scale me-2"></i>{% trans "Paso 4: Restricciones Blandas" %}
+        </h4>
+    </div>
+    <div class="card-body p-4">
+        <div class="alert alert-warning">
+            <h6><i class="fas fa-info-circle me-2"></i>{% trans "Restricciones Opcionales" %}</h6>
+            <p class="mb-0">
+                {% trans "Las restricciones blandas son preferencias que el sistema intentará cumplir, pero no son obligatorias. Asigna un peso para indicar su importancia." %}
+            </p>
+        </div>
+
+        <form method="post" id="form-paso4">
+            {% csrf_token %}
+            <input type="hidden" name="paso" value="4">
+            {{ form.restricciones_blandas }}
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>
+                    {% trans "Restricciones Configuradas:" %} 
+                    <span id="contador-restricciones-blandas" class="badge bg-warning text-dark">0</span>
+                </h5>
+                <button type="button" 
+                        id="btn-agregar-restriccion-blanda" 
+                        class="btn btn-warning text-dark">
+                    <i class="fas fa-plus me-2"></i>{% trans "Agregar Restricción" %}
+                </button>
+            </div>
+
+            <div id="restricciones-blandas-contenedor" class="mb-4">
+                <!-- Restricciones dinámicas -->
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-weight me-2"></i>{% trans "Sobre los Pesos" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="small mb-0">
+                                <li>{% trans "El peso determina la importancia relativa" %}</li>
+                                <li>{% trans "Valores más altos = mayor prioridad" %}</li>
+                                <li>{% trans "Rango: 0.5 - 10.0" %}</li>
+                                <li>{% trans "El sistema minimiza la suma ponderada" %}</li>
+                            </ul>
+                            
+                            <div class="mt-3">
+                                <small class="text-muted">{% trans "Ejemplo:" %}</small>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="small">{% trans "Baja" %}</span>
+                                    <span class="badge bg-secondary">0.5 - 2.0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="small">{% trans "Media" %}</span>
+                                    <span class="badge bg-info">2.0 - 5.0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="small">{% trans "Alta" %}</span>
+                                    <span class="badge bg-warning text-dark">5.0 - 8.0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="small">{% trans "Crítica" %}</span>
+                                    <span class="badge bg-danger">8.0 - 10.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-list me-2"></i>{% trans "Restricciones Blandas Disponibles" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled small mb-0">
+                                <li class="mb-2">
+                                    <i class="fas fa-heart text-warning me-2"></i>
+                                    <strong>{% trans "Preferencias de Turno" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-calendar-heart text-warning me-2"></i>
+                                    <strong>{% trans "Preferencias de Días Libres" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-balance-scale text-warning me-2"></i>
+                                    <strong>{% trans "Distribución Equitativa de Noches" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-arrows-rotate text-warning me-2"></i>
+                                    <strong>{% trans "Minimizar Cambios de Turno" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-object-group text-warning me-2"></i>
+                                    <strong>{% trans "Evitar Turnos Aislados" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-bullseye text-warning me-2"></i>
+                                    <strong>{% trans "Cumplir Demanda Óptima" %}</strong>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-chart-pie text-warning me-2"></i>
+                                    <strong>{% trans "Balanceo de Carga Total" %}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-secondary" onclick="history.back()">
+                    <i class="fas fa-arrow-left me-2"></i>{% trans "Anterior" %}
+                </button>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-check me-2"></i>{% trans "Crear Configuración" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_help %}
+<p class="small">
+    <strong>{% trans "Paso 4: Restricciones Blandas" %}</strong>
+</p>
+<p class="small">
+    {% trans "Las restricciones blandas son preferencias opcionales. El sistema las cumplirá en la medida de lo posible." %}
+</p>
+<ul class="small mb-0">
+    <li>{% trans "Son opcionales pero recomendadas" %}</li>
+    <li>{% trans "Asigna pesos según importancia" %}</li>
+    <li>{% trans "Mejoran la calidad de la solución" %}</li>
+</ul>
+{% endblock %}

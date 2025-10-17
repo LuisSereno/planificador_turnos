@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/wizard.css' %}">
+<style>
+    .wizard-wrapper {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    .wizard-sidebar {
+        position: sticky;
+        top: 90px;
+        height: fit-content;
+    }
+    
+    .step-indicator {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .step-indicator-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .step-indicator-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .step-indicator-item.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+    
+    .step-indicator-item.completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .step-indicator-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+        background-color: rgba(255,255,255,0.2);
+    }
+    
+    .step-indicator-item.active .step-indicator-number {
+        background-color: rgba(255,255,255,0.3);
+    }
+    
+    .step-indicator-item.completed .step-indicator-number {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .wizard-help {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:config_lista' %}">{% trans "Configuraciones" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Wizard de Configuración" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-wrapper">
+    <div class="row">
+        <!-- Sidebar con indicadores -->
+        <div class="col-lg-3">
+            <div class="wizard-sidebar">
+                <div class="step-indicator">
+                    <h6 class="mb-3 fw-bold">{% trans "Pasos" %}</h6>
+                    {% block wizard_steps %}
+                    <div class="step-indicator-item active" data-step="1">
+                        <div class="step-indicator-number">1</div>
+                        <div>
+                            <div class="fw-bold">{% trans "Datos Básicos" %}</div>
+                            <small>{% trans "Información general" %}</small>
+                        </div>
+                    </div>
+                    <div class="step-indicator-item" data-step="2">
+                        <div class="step-indicator-number">2</div>
+                        <div>
+                            <div class="fw-bold">{% trans "Demanda" %}</div>
+                            <small>{% trans "Requisitos por turno" %}</small>
+                        </div>
+                    </div>
+                    <div class="step-indicator-item" data-step="3">
+                        <div class="step-indicator-number">3</div>
+                        <div>
+                            <div class="fw-bold">{% trans "Restricciones Duras" %}</div>
+                            <small>{% trans "Reglas obligatorias" %}</small>
+                        </div>
+                    </div>
+                    <div class="step-indicator-item" data-step="4">
+                        <div class="step-indicator-number">4</div>
+                        <div>
+                            <div class="fw-bold">{% trans "Restricciones Blandas" %}</div>
+                            <small>{% trans "Preferencias" %}</small>
+                        </div>
+                    </div>
+                    {% endblock %}
+                </div>
+
+                <div class="wizard-help">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-question-circle me-2"></i>{% trans "Ayuda" %}
+                    </h6>
+                    <div id="help-content">
+                        {% block wizard_help %}
+                        <p class="small mb-0">
+                            {% trans "Sigue los pasos para crear una nueva configuración de planificación." %}
+                        </p>
+                        {% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido principal del wizard -->
+        <div class="col-lg-9">
+            {% block wizard_content %}
+            <!-- Contenido del paso actual -->
+            {% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/wizard.js' %}"></script>
+<script src="{% static 'js/restricciones.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{{ config.nombre }}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:config_lista' %}">{% trans "Configuraciones" %}</a></li>
+    <li class="breadcrumb-item active">{{ config.nombre }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{{ config.nombre }}</h2>
+    <div>
+        <a href="{% url 'turnos:config_editar' config.id %}" class="btn btn-outline-secondary me-2">
+            <i class="fas fa-edit"></i> {% trans "Editar" %}
+        </a>
+        <form method="post" action="{% url 'turnos:config_eliminar' config.id %}" class="d-inline-block" onsubmit="return confirm('¿Eliminar esta configuración?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="fas fa-trash"></i> {% trans "Eliminar" %}
+            </button>
+        </form>
+        <a href="{% url 'turnos:config_duplicar' config.id %}" class="btn btn-outline-info ms-2">
+            <i class="fas fa-clone"></i> {% trans "Duplicar" %}
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{% trans "Detalles de la Configuración" %}</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>{% trans "Nombre:" %}</strong> {{ config.nombre }}</p>
+                <p><strong>{% trans "Descripción:" %}</strong> {{ config.descripcion }}</p>
+                <p><strong>{% trans "Número de días:" %}</strong> {{ config.num_dias }}</p>
+                <p><strong>{% trans "Trabajadores requeridos:" %}</strong> {{ config.num_trabajadores }}</p>
+                <p><strong>{% trans "Fecha de inicio:" %}</strong> {{ config.fecha_inicio|date:"d/m/Y" }}</p>
+                <p><strong>{% trans "Activa:" %}</strong> {{ config.activa|yesno:"Sí,No" }}</p>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{% trans "Demanda por Tipo de Turno" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Turno" %}</th>
+                                <th>{% trans "Mínimo" %}</th>
+                                <th>{% trans "Óptimo" %}</th>
+                                <th>{% trans "Máximo" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for nombre, demanda in config.demanda_por_turno.items %}
+                            <tr>
+                                <td>{{ nombre }}</td>
+                                <td>{{ demanda.min }}</td>
+                                <td>{{ demanda.optimo }}</td>
+                                <td>{{ demanda.max }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% if config.restricciones_duras %}
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">{% trans "Restricciones Duras" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul>
+                    {% for rest in config.restricciones_duras %}
+                    <li>
+                        <strong>{{ rest.nombre|capfirst }}</strong>
+                        <span class="text-muted small">{% if rest.parametros %}({{ rest.parametros|jsonify }}){% endif %}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+        {% if config.restricciones_blandas %}
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">{% trans "Restricciones Blandas" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul>
+                    {% for rest in config.restricciones_blandas %}
+                    <li>
+                        <strong>{{ rest.nombre|capfirst }}</strong>
+                        <span class="badge bg-warning text-dark">{{ rest.peso }}</span>
+                        <span class="text-muted small">{% if rest.parametros %}({{ rest.parametros|jsonify }}){% endif %}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0">{% trans "Enfermeras Seleccionadas" %}</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for enf in config.enfermeras.all %}
+                    <li class="list-group-item">
+                        {{ enf.nombre }}
+                        {% if enf.activa %}<span class="badge bg-success ms-2">✔</span>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0">{% trans "Turnos Seleccionados" %}</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for turno in config.turnos.all %}
+                    <li class="list-group-item">
+                        {{ turno.nombre }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

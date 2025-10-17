@@ -1,0 +1,316 @@
+[
+  {
+    "model": "turnos.configuracionplanificacion",
+    "pk": 1,
+    "fields": {
+      "nombre": "Configuración Estándar - Septiembre 2025",
+      "descripcion": "Planificación típica para un mes completo con rotación de turnos equilibrada y restricciones estándar de enfermería.",
+      "num_dias": 30,
+      "fecha_inicio": "2025-09-01",
+      "activa": true,
+      "tiempo_maximo_segundos": 120.0,
+      "num_trabajadores": 4,
+      "demanda_por_turno": {
+        "MAÑANA": {
+          "min": 3,
+          "max": 5,
+          "optimo": 4
+        },
+        "TARDE": {
+          "min": 2,
+          "max": 4,
+          "optimo": 3
+        },
+        "NOCHE": {
+          "min": 2,
+          "max": 3,
+          "optimo": 2
+        }
+      },
+      "dias_alta_demanda": [5, 6, 12, 13, 19, 20, 26, 27],
+      "restricciones_duras": [
+        {
+          "nombre": "cobertura_minima",
+          "activa": true,
+          "parametros": {
+            "incremento_fines_semana": 1
+          }
+        },
+        {
+          "nombre": "cobertura_maxima",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "un_turno_por_dia",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "descanso_minimo",
+          "activa": true,
+          "parametros": {
+            "horas_descanso": 12
+          }
+        },
+        {
+          "nombre": "horas_semanales_max",
+          "activa": true,
+          "parametros": {
+            "max_turnos_semana": 5
+          }
+        },
+        {
+          "nombre": "horas_semanales_min",
+          "activa": true,
+          "parametros": {
+            "min_turnos_semana": 3
+          }
+        },
+        {
+          "nombre": "turnos_consecutivos_max",
+          "activa": true,
+          "parametros": {
+            "max_dias_consecutivos": 5
+          }
+        },
+        {
+          "nombre": "dias_libres_minimos_semana",
+          "activa": true,
+          "parametros": {
+            "min_dias_libres_semana": 2
+          }
+        },
+        {
+          "nombre": "turnos_nocturnos_consecutivos_max",
+          "activa": true,
+          "parametros": {
+            "max_noches_consecutivas": 3
+          }
+        },
+        {
+          "nombre": "fines_semana_max",
+          "activa": true,
+          "parametros": {
+            "max_fines_semana": 2,
+            "patron_finde": [[5, 6], [12, 13], [19, 20], [26, 27]]
+          }
+        }
+      ],
+      "restricciones_blandas": [
+        {
+          "nombre": "distribucion_equitativa_noches",
+          "activa": true,
+          "peso": 5.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "minimizar_cambios_turno",
+          "activa": true,
+          "peso": 2.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "evitar_turnos_aislados",
+          "activa": true,
+          "peso": 3.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "cumplir_demanda_optima",
+          "activa": true,
+          "peso": 1.5,
+          "parametros": {}
+        },
+        {
+          "nombre": "balanceo_carga_total",
+          "activa": true,
+          "peso": 4.0,
+          "parametros": {}
+        }
+      ],
+      "fecha_creacion": "2025-08-15T10:00:00Z"
+    }
+  },
+  {
+    "model": "turnos.configuracionplanificacion",
+    "pk": 2,
+    "fields": {
+      "nombre": "Planificación Semanal Rápida",
+      "descripcion": "Configuración ligera para pruebas rápidas de una semana con restricciones básicas.",
+      "num_dias": 7,
+      "fecha_inicio": "2025-10-01",
+      "activa": true,
+      "tiempo_maximo_segundos": 30.0,
+      "num_trabajadores": 2,
+      "demanda_por_turno": {
+        "MAÑANA": {
+          "min": 2,
+          "max": 4,
+          "optimo": 3
+        },
+        "TARDE": {
+          "min": 2,
+          "max": 3,
+          "optimo": 2
+        },
+        "NOCHE": {
+          "min": 1,
+          "max": 2,
+          "optimo": 2
+        }
+      },
+      "dias_alta_demanda": [5, 6],
+      "restricciones_duras": [
+        {
+          "nombre": "cobertura_minima",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "cobertura_maxima",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "un_turno_por_dia",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "descanso_minimo",
+          "activa": true,
+          "parametros": {
+            "horas_descanso": 11
+          }
+        }
+      ],
+      "restricciones_blandas": [
+        {
+          "nombre": "distribucion_equitativa_noches",
+          "activa": true,
+          "peso": 3.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "balanceo_carga_total",
+          "activa": true,
+          "peso": 2.0,
+          "parametros": {}
+        }
+      ],
+      "fecha_creacion": "2025-09-20T14:30:00Z"
+    }
+  },
+  {
+    "model": "turnos.configuracionplanificacion",
+    "pk": 3,
+    "fields": {
+      "nombre": "Planificación Intensiva - 14 Días",
+      "descripcion": "Configuración para dos semanas con alta demanda y restricciones estrictas. Ideal para periodos de alta ocupación hospitalaria.",
+      "num_dias": 14,
+      "fecha_inicio": "2025-10-15",
+      "activa": true,
+      "tiempo_maximo_segundos": 90.0,
+      "num_trabajadores": 4,
+      "demanda_por_turno": {
+        "MAÑANA": {
+          "min": 4,
+          "max": 6,
+          "optimo": 5
+        },
+        "TARDE": {
+          "min": 3,
+          "max": 5,
+          "optimo": 4
+        },
+        "NOCHE": {
+          "min": 2,
+          "max": 4,
+          "optimo": 3
+        }
+      },
+      "dias_alta_demanda": [5, 6, 12, 13],
+      "restricciones_duras": [
+        {
+          "nombre": "cobertura_minima",
+          "activa": true,
+          "parametros": {
+            "incremento_fines_semana": 2
+          }
+        },
+        {
+          "nombre": "cobertura_maxima",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "un_turno_por_dia",
+          "activa": true,
+          "parametros": {}
+        },
+        {
+          "nombre": "descanso_minimo",
+          "activa": true,
+          "parametros": {
+            "horas_descanso": 16
+          }
+        },
+        {
+          "nombre": "horas_semanales_max",
+          "activa": true,
+          "parametros": {
+            "max_turnos_semana": 6
+          }
+        },
+        {
+          "nombre": "turnos_consecutivos_max",
+          "activa": true,
+          "parametros": {
+            "max_dias_consecutivos": 4
+          }
+        },
+        {
+          "nombre": "turnos_nocturnos_consecutivos_max",
+          "activa": true,
+          "parametros": {
+            "max_noches_consecutivas": 2
+          }
+        }
+      ],
+      "restricciones_blandas": [
+        {
+          "nombre": "distribucion_equitativa_noches",
+          "activa": true,
+          "peso": 8.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "minimizar_cambios_turno",
+          "activa": true,
+          "peso": 4.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "evitar_turnos_aislados",
+          "activa": true,
+          "peso": 5.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "cumplir_demanda_optima",
+          "activa": true,
+          "peso": 6.0,
+          "parametros": {}
+        },
+        {
+          "nombre": "balanceo_carga_total",
+          "activa": true,
+          "peso": 7.0,
+          "parametros": {}
+        }
+      ],
+      "fecha_creacion": "2025-09-25T16:00:00Z"
+    }
+  }
+]

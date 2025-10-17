@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Registro" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header bg-gradient text-white text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-user-plus fa-4x"></i>
+                    </div>
+                    <h3 class="font-weight-light mb-0">{% trans "Crear Cuenta" %}</h3>
+                    <p class="mb-0">{% trans "Únete al Planificador de Turnos" %}</p>
+                </div>
+                <div class="card-body p-5">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" action="{% url 'accounts:registro' %}" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" 
+                                           class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+                                           id="id_username" 
+                                           name="username" 
+                                           placeholder="{% trans 'Usuario' %}"
+                                           value="{{ form.username.value|default:'' }}"
+                                           required>
+                                    <label for="id_username">
+                                        <i class="fas fa-user me-2"></i>{% trans "Usuario" %} *
+                                    </label>
+                                    {% if form.username.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.username.errors.0 }}
+                                        </div>
+                                    {% else %}
+                                        <div class="form-text">
+                                            {% trans "Mínimo 4 caracteres. Solo letras, números y @/./+/-/_" %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="email" 
+                                           class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+                                           id="id_email" 
+                                           name="email" 
+                                           placeholder="{% trans 'Email' %}"
+                                           value="{{ form.email.value|default:'' }}"
+                                           required>
+                                    <label for="id_email">
+                                        <i class="fas fa-envelope me-2"></i>{% trans "Email" %} *
+                                    </label>
+                                    {% if form.email.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.email.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" 
+                                           class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" 
+                                           id="id_first_name" 
+                                           name="first_name" 
+                                           placeholder="{% trans 'Nombre' %}"
+                                           value="{{ form.first_name.value|default:'' }}"
+                                           required>
+                                    <label for="id_first_name">
+                                        <i class="fas fa-id-card me-2"></i>{% trans "Nombre" %} *
+                                    </label>
+                                    {% if form.first_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.first_name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" 
+                                           class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" 
+                                           id="id_last_name" 
+                                           name="last_name" 
+                                           placeholder="{% trans 'Apellidos' %}"
+                                           value="{{ form.last_name.value|default:'' }}"
+                                           required>
+                                    <label for="id_last_name">
+                                        <i class="fas fa-id-card me-2"></i>{% trans "Apellidos" %} *
+                                    </label>
+                                    {% if form.last_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.last_name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="password" 
+                                           class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
+                                           id="id_password1" 
+                                           name="password1" 
+                                           placeholder="{% trans 'Contraseña' %}"
+                                           required>
+                                    <label for="id_password1">
+                                        <i class="fas fa-lock me-2"></i>{% trans "Contraseña" %} *
+                                    </label>
+                                    {% if form.password1.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.password1.errors.0 }}
+                                        </div>
+                                    {% else %}
+                                        <div class="form-text">
+                                            {% trans "Mínimo 8 caracteres. No solo numérica." %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="password" 
+                                           class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
+                                           id="id_password2" 
+                                           name="password2" 
+                                           placeholder="{% trans 'Confirmar Contraseña' %}"
+                                           required>
+                                    <label for="id_password2">
+                                        <i class="fas fa-lock me-2"></i>{% trans "Confirmar Contraseña" %} *
+                                    </label>
+                                    {% if form.password2.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.password2.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <input type="tel" 
+                                   class="form-control {% if form.telefono.errors %}is-invalid{% endif %}" 
+                                   id="id_telefono" 
+                                   name="telefono" 
+                                   placeholder="{% trans 'Teléfono' %}"
+                                   value="{{ form.telefono.value|default:'' }}">
+                            <label for="id_telefono">
+                                <i class="fas fa-phone me-2"></i>{% trans "Teléfono" %}
+                            </label>
+                            {% if form.telefono.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.telefono.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input {% if form.aceptar_terminos.errors %}is-invalid{% endif %}" 
+                                   type="checkbox" 
+                                   name="aceptar_terminos" 
+                                   id="id_aceptar_terminos"
+                                   required>
+                            <label class="form-check-label" for="id_aceptar_terminos">
+                                {% trans "Acepto los" %} 
+                                <a href="{% url 'turnos:terminos' %}" target="_blank">{% trans "términos y condiciones" %}</a> 
+                                {% trans "y la" %} 
+                                <a href="{% url 'turnos:privacidad' %}" target="_blank">{% trans "política de privacidad" %}</a>
+                            </label>
+                            {% if form.aceptar_terminos.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.aceptar_terminos.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-user-plus me-2"></i>{% trans "Crear Cuenta" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <span class="text-muted">{% trans "¿Ya tienes cuenta?" %}</span>
+                        <a href="{% url 'accounts:login' %}" class="text-decoration-none fw-bold">
+                            {% trans "Inicia sesión aquí" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+</style>
+{% endblock %}

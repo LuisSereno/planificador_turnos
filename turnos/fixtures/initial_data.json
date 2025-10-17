@@ -1,0 +1,38 @@
+[
+  {
+    "model": "turnos.tipoturno",
+    "pk": 1,
+    "fields": {
+      "nombre": "MAÑANA",
+      "hora_inicio": "07:00:00",
+      "hora_fin": "15:00:00",
+      "color": "#ffc107",
+      "activo": true,
+      "fecha_creacion": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "turnos.tipoturno",
+    "pk": 2,
+    "fields": {
+      "nombre": "TARDE",
+      "hora_inicio": "15:00:00",
+      "hora_fin": "23:00:00",
+      "color": "#17a2b8",
+      "activo": true,
+      "fecha_creacion": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "turnos.tipoturno",
+    "pk": 3,
+    "fields": {
+      "nombre": "NOCHE",
+      "hora_inicio": "23:00:00",
+      "hora_fin": "07:00:00",
+      "color": "#6f42c1",
+      "activo": true,
+      "fecha_creacion": "2025-01-01T00:00:00Z"
+    }
+  }
+]

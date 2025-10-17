@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Ejecución Rápida" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:config_lista' %}">{% trans "Configuraciones" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Ejecución Rápida" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-success text-white text-center py-4">
+                <i class="fas fa-bolt fa-3x mb-3"></i>
+                <h3>{% trans "Ejecución Rápida" %}</h3>
+                <p class="mb-0">{% trans "Planificación con configuración predeterminada" %}</p>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    <strong>{% trans "¿Qué es Ejecución Rápida?" %}</strong>
+                    <p class="mb-0 mt-2 small">
+                        {% trans "Genera una planificación usando parámetros optimizados y restricciones básicas. Ideal para pruebas rápidas o planificaciones simples." %}
+                    </p>
+                </div>
+
+                <form method="post" action="{% url 'turnos:ejecutar_rapido' %}">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="id_nombre" class="form-label fw-bold">
+                            <i class="fas fa-tag me-2"></i>{% trans "Nombre" %}
+                        </label>
+                        <input type="text"
+                               class="form-control"
+                               id="id_nombre"
+                               name="nombre"
+                               placeholder="{% trans 'Ej: Planificación Rápida' %}"
+                               required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar-alt me-2"></i>{% trans "Días a Planificar" %}
+                                </label>
+                                <input type="number"
+                                       class="form-control"
+                                       name="num_dias"
+                                       min="7"
+                                       max="30"
+                                       value="14"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar-day me-2"></i>{% trans "Fecha de Inicio" %}
+                                </label>
+                                <input type="date"
+                                       class="form-control"
+                                       name="fecha_inicio"
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-user-nurse me-2"></i>{% trans "Enfermeras" %}
+                        </label>
+                        <select class="form-select" name="enfermeras" multiple size="5" required>
+                            {% for enfermera in enfermeras %}
+                                <option value="{{ enfermera.id }}" selected>{{ enfermera.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            {% trans "Mantén Ctrl presionado para seleccionar múltiples" %}
+                        </small>
+                    </div>
+
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="fw-bold">{% trans "Configuración Predeterminada:" %}</h6>
+                            <ul class="small mb-0">
+                                <li>{% trans "Turnos: Mañana, Tarde, Noche" %}</li>
+                                <li>{% trans "Cobertura: 2-4 enfermeras por turno" %}</li>
+                                <li>{% trans "Restricciones básicas activas" %}</li>
+                                <li>{% trans "Tiempo máximo: 60 segundos" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-rocket me-2"></i>{% trans "Generar Planificación Rápida" %}
+                        </button>
+                        <a href="{% url 'turnos:config_wizard' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-cog me-2"></i>{% trans "Configuración Completa" %}
+                        </a>
+                        <a href="{% url 'turnos:dashboard' %}" class="btn btn-secondary">
+                            {% trans "Cancelar" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Establecer fecha de hoy como mínimo
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.querySelector('[name="fecha_inicio"]').value = hoy;
+    document.querySelector('[name="fecha_inicio"]').min = hoy;
+});
+</script>
+{% endblock %}

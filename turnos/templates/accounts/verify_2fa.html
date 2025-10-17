@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Verificación de Dos Factores" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header bg-gradient text-white text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-mobile-alt fa-4x"></i>
+                    </div>
+                    <h3 class="font-weight-light mb-0">{% trans "Verificación 2FA" %}</h3>
+                    <p class="mb-0">{% trans "Introduce tu código de autenticación" %}</p>
+                </div>
+                <div class="card-body p-5">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Abre tu aplicación de autenticación e introduce el código de 6 dígitos" %}
+                    </div>
+
+                    <form method="post" action="{% url 'accounts:verify_2fa' %}">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <input type="text" 
+                                   class="form-control form-control-lg text-center {% if form.token.errors %}is-invalid{% endif %}" 
+                                   id="id_token" 
+                                   name="token" 
+                                   placeholder="000000"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   required
+                                   autofocus
+                                   style="letter-spacing: 0.8rem; font-size: 2.5rem; font-weight: bold;">
+                            {% if form.token.errors %}
+                                <div class="invalid-feedback text-center">
+                                    {{ form.token.errors.0 }}
+                                </div>
+                            {% else %}
+                                <div class="form-text text-center mt-2">
+                                    {% trans "Código de 6 dígitos" %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <input type="hidden" name="next" value="{{ next }}">
+
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check me-2"></i>{% trans "Verificar" %}
+                            </button>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="button" class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#backupCodes">
+                                {% trans "Usar código de respaldo" %}
+                            </button>
+                        </div>
+
+                        <div class="collapse mt-3" id="backupCodes">
+                            <div class="alert alert-secondary">
+                                <label for="id_backup_code" class="form-label">
+                                    <i class="fas fa-key me-2"></i>{% trans "Código de respaldo:" %}
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="id_backup_code" 
+                                       name="backup_code" 
+                                       placeholder="XXXX-XXXX-XXXX">
+                                <small class="form-text text-muted">
+                                    {% trans "Introduce uno de tus códigos de respaldo si no tienes acceso a tu dispositivo" %}
+                                </small>
+                            </div>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <p class="text-muted mb-2">{% trans "¿Problemas para acceder?" %}</p>
+                        <a href="{% url 'accounts:recuperar_password' %}" class="text-decoration-none">
+                            {% trans "Recuperar cuenta" %}
+                        </a>
+                        <span class="mx-2">|</span>
+                        <a href="{% url 'accounts:logout' %}" class="text-decoration-none">
+                            {% trans "Cancelar" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contador de intentos -->
+            {% if intentos_restantes %}
+                <div class="alert alert-warning mt-3 text-center">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% blocktrans count counter=intentos_restantes %}
+                        Te queda {{ counter }} intento
+                    {% plural %}
+                        Te quedan {{ counter }} intentos
+                    {% endblocktrans %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    #id_token {
+        border: 3px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    #id_token:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+</style>
+
+<script>
+    // Auto-formatear el input del código
+    document.getElementById('id_token').addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        
+        // Auto-submit cuando se completan 6 dígitos
+        if (this.value.length === 6) {
+            // Opcional: descomentar para auto-submit
+            // this.form.submit();
+        }
+    });
+
+    // Focus automático
+    document.getElementById('id_token').focus();
+</script>
+{% endblock %}

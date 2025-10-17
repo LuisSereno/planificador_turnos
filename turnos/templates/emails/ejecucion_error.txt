@@ -1,0 +1,41 @@
+============================================
+ERROR EN PLANIFICACIÓN
+Planificador de Turnos
+============================================
+
+Hola {{ nombre_completo }},
+
+Lamentamos informarte que la planificación "{{ configuracion.nombre }}" ha encontrado un error y no pudo completarse.
+
+============================================
+
+DETALLES DEL ERROR:
+
+{% if mensajes_error %}
+{% for error in mensajes_error %}
+- {{ error }}
+{% endfor %}
+{% endif %}
+
+============================================
+
+POSIBLES SOLUCIONES:
+
+1. Revisa que las restricciones no sean demasiado estrictas
+2. Verifica que haya suficientes enfermeras disponibles
+3. Ajusta la demanda mínima y máxima por turno
+4. Aumenta el tiempo máximo de ejecución
+
+============================================
+
+Puedes intentar ajustar la configuración y ejecutar la planificación nuevamente:
+{{ site_url }}/turnos/configuraciones/
+
+Si el problema persiste, no dudes en contactar con nuestro equipo de soporte.
+
+============================================
+
+{{ site_name }}
+{{ site_url }}
+
+Soporte: {{ support_email }}

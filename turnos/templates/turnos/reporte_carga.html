@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Reporte de Carga de Trabajo" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/reportes.css' %}">
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:reportes' %}">{% trans "Reportes" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Carga de Trabajo" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-chart-line me-2"></i>{% trans "Reporte de Carga de Trabajo" %}
+    </h2>
+    <div class="btn-group">
+        <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="fas fa-download me-2"></i>{% trans "Exportar" %}
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="?formato=pdf">
+                    <i class="fas fa-file-pdf me-2 text-danger"></i>PDF
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="?formato=excel">
+                    <i class="fas fa-file-excel me-2 text-success"></i>Excel
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="?formato=csv">
+                    <i class="fas fa-file-csv me-2 text-info"></i>CSV
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Desde" %}</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Hasta" %}</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">{% trans "Enfermeras" %}</label>
+                <select class="form-select" name="enfermeras" multiple>
+                    {% for enfermera in enfermeras %}
+                        <option value="{{ enfermera.id }}" {% if enfermera.id in filtros.enfermeras %}selected{% endif %}>
+                            {{ enfermera.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-2"></i>{% trans "Filtrar" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resumen General -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon primary">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ resumen.total_enfermeras }}</div>
+                <div class="stat-card-label">{% trans "Enfermeras" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon success">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ resumen.total_turnos }}</div>
+                <div class="stat-card-label">{% trans "Total Turnos" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ resumen.horas_totales }}</div>
+                <div class="stat-card-label">{% trans "Horas Totales" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon info">
+                <i class="fas fa-balance-scale"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ resumen.promedio_por_enfermera|floatformat:1 }}</div>
+                <div class="stat-card-label">{% trans "Promedio Turnos" %}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Carga -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-bar me-2"></i>{% trans "Distribución de Carga por Enfermera" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <canvas id="chart-carga-enfermeras" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Tabla Detallada -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>{% trans "Detalle por Enfermera" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>{% trans "Enfermera" %}</th>
+                        <th class="text-center">{% trans "Mañanas" %}</th>
+                        <th class="text-center">{% trans "Tardes" %}</th>
+                        <th class="text-center">{% trans "Noches" %}</th>
+                        <th class="text-center">{% trans "Total Turnos" %}</th>
+                        <th class="text-center">{% trans "Horas Totales" %}</th>
+                        <th class="text-center">{% trans "% Carga" %}</th>
+                        <th class="text-center">{% trans "Estado" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dato in datos_enfermeras %}
+                    <tr>
+                        <td>
+                            <strong>{{ dato.enfermera.nombre }}</strong>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-warning text-dark">{{ dato.turnos_manana }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ dato.turnos_tarde }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-dark">{{ dato.turnos_noche }}</span>
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ dato.total_turnos }}</strong>
+                        </td>
+                        <td class="text-center">
+                            {{ dato.horas_totales }}h
+                        </td>
+                        <td class="text-center">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-{{ dato.porcentaje_carga|progress_color }}"
+                                     role="progressbar"
+                                     style="width: {{ dato.porcentaje_carga }}%">
+                                    {{ dato.porcentaje_carga|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            {% if dato.porcentaje_carga < 70 %}
+                                <span class="badge bg-success">{% trans "Baja" %}</span>
+                            {% elif dato.porcentaje_carga < 90 %}
+                                <span class="badge bg-warning text-dark">{% trans "Normal" %}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{% trans "Alta" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>{% trans "TOTALES" %}</th>
+                        <th class="text-center">{{ totales.mananas }}</th>
+                        <th class="text-center">{{ totales.tardes }}</th>
+                        <th class="text-center">{{ totales.noches }}</th>
+                        <th class="text-center">{{ totales.total }}</th>
+                        <th class="text-center">{{ totales.horas }}h</th>
+                        <th colspan="2"></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Gráfico de carga por enfermera
+const ctx = document.getElementById('chart-carga-enfermeras').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ datos_chart.labels|safe }},
+        datasets: [
+            {
+                label: '{% trans "Mañana" %}',
+                data: {{ datos_chart.manana|safe }},
+                backgroundColor: '#ffc107'
+            },
+            {
+                label: '{% trans "Tarde" %}',
+                data: {{ datos_chart.tarde|safe }},
+                backgroundColor: '#17a2b8'
+            },
+            {
+                label: '{% trans "Noche" %}',
+                data: {{ datos_chart.noche|safe }},
+                backgroundColor: '#343a40'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            x: { stacked: true },
+            y: {
+                stacked: true,
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: '{% trans "Número de Turnos" %}'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top'
+            },
+            title: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

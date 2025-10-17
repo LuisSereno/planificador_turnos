@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if enfermera %}
+        {% trans "Editar Enfermera" %}
+    {% else %}
+        {% trans "Nueva Enfermera" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:enfermera_lista' %}">{% trans "Enfermeras" %}</a></li>
+    {% if enfermera %}
+        <li class="breadcrumb-item"><a href="{% url 'turnos:enfermera_detalle' enfermera.id %}">{{ enfermera.nombre }}</a></li>
+        <li class="breadcrumb-item active">{% trans "Editar" %}</li>
+    {% else %}
+        <li class="breadcrumb-item active">{% trans "Nueva" %}</li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    {% if enfermera %}
+                        <i class="fas fa-user-edit me-2"></i>{% trans "Editar Enfermera" %}
+                    {% else %}
+                        <i class="fas fa-user-plus me-2"></i>{% trans "Nueva Enfermera" %}
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="" class="needs-validation" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Datos Básicos -->
+                    <div class="form-section mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-user me-2 text-primary"></i>{% trans "Datos Básicos" %}
+                        </h5>
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="{{ form.nombre.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.nombre.label }} *
+                                    </label>
+                                    {{ form.nombre }}
+                                    {% if form.nombre.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.nombre.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">{% trans "Estado" %}</label>
+                                    <div class="form-check form-switch">
+                                        {{ form.activa }}
+                                        <label class="form-check-label" for="{{ form.activa.id_for_label }}">
+                                            {% trans "Enfermera activa" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.email.label }} *
+                                    </label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.email.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.telefono.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.telefono.label }}
+                                    </label>
+                                    {{ form.telefono }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.dni.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.dni.label }}
+                                    </label>
+                                    {{ form.dni }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.fecha_alta.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.fecha_alta.label }}
+                                    </label>
+                                    {{ form.fecha_alta }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.notas.id_for_label }}" class="form-label fw-bold">
+                                {{ form.notas.label }}
+                            </label>
+                            {{ form.notas }}
+                            <small class="form-text text-muted">
+                                {% trans "Información adicional sobre la enfermera" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Preferencias -->
+                    <div class="form-section mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-heart me-2 text-primary"></i>{% trans "Preferencias (Opcional)" %}
+                        </h5>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% trans "Las preferencias se utilizarán en las restricciones blandas para mejorar la satisfacción del personal." %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{% trans "Turnos Preferidos" %}</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="turno_pref_manana" id="turno_pref_manana">
+                                        <label class="form-check-label" for="turno_pref_manana">
+                                            <i class="fas fa-sun text-warning me-1"></i>{% trans "Mañana" %}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="turno_pref_tarde" id="turno_pref_tarde">
+                                        <label class="form-check-label" for="turno_pref_tarde">
+                                            <i class="fas fa-cloud-sun text-info me-1"></i>{% trans "Tarde" %}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="turno_pref_noche" id="turno_pref_noche">
+                                        <label class="form-check-label" for="turno_pref_noche">
+                                            <i class="fas fa-moon text-dark me-1"></i>{% trans "Noche" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{% trans "Días Libres Preferidos" %}</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="dia_libre_sabado" id="dia_libre_sabado">
+                                        <label class="form-check-label" for="dia_libre_sabado">
+                                            {% trans "Sábados" %}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="dia_libre_domingo" id="dia_libre_domingo">
+                                        <label class="form-check-label" for="dia_libre_domingo">
+                                            {% trans "Domingos" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if enfermera %}{% url 'turnos:enfermera_detalle' enfermera.id %}{% else %}{% url 'turnos:enfermera_lista' %}{% endif %}"
+                           class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>
+                            {% if enfermera %}
+                                {% trans "Guardar Cambios" %}
+                            {% else %}
+                                {% trans "Crear Enfermera" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

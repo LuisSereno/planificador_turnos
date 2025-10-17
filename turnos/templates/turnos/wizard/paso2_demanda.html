@@ -1,0 +1,111 @@
+{% extends 'turnos/wizard/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block wizard_content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-chart-bar me-2"></i>{% trans "Paso 2: Demanda por Turno" %}
+        </h4>
+    </div>
+    <div class="card-body p-4">
+        <div class="alert alert-info">
+            <i class="fas fa-lightbulb me-2"></i>
+            {% trans "Define cuántas enfermeras necesitas en cada tipo de turno. Especifica valores mínimos, óptimos y máximos." %}
+        </div>
+
+        <form method="post" id="form-paso2">
+            {% csrf_token %}
+            <input type="hidden" name="paso" value="2">
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="25%">{% trans "Tipo de Turno" %}</th>
+                            <th width="25%" class="text-center">
+                                <i class="fas fa-arrow-down text-danger me-1"></i>{% trans "Mínimo" %}
+                            </th>
+                            <th width="25%" class="text-center">
+                                <i class="fas fa-bullseye text-success me-1"></i>{% trans "Óptimo" %}
+                            </th>
+                            <th width="25%" class="text-center">
+                                <i class="fas fa-arrow-up text-warning me-1"></i>{% trans "Máximo" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for field_name, field in form.fields.items %}
+                        {% if 'demanda_min' in field_name %}
+                            {% with turno_nombre=field_name|cut:'demanda_min_' %}
+                            <tr>
+                                <td>
+                                    <strong>{{ turno_nombre|title }}</strong>
+                                    <div class="text-muted small">
+                                        <i class="fas fa-clock me-1"></i>Horario del turno
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ form|attr:field_name }}
+                                </td>
+                                <td>
+                                    {{ form|attr:'demanda_optimo_'|add:turno_nombre }}
+                                </td>
+                                <td>
+                                    {{ form|attr:'demanda_max_'|add:turno_nombre }}
+                                </td>
+                            </tr>
+                            {% endwith %}
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>{% trans "Importante" %}</h6>
+                        <ul class="mb-0 small">
+                            <li>{% trans "Debe cumplirse: Mínimo ≤ Óptimo ≤ Máximo" %}</li>
+                            <li>{% trans "El valor óptimo es el objetivo del sistema" %}</li>
+                            <li>{% trans "Los valores mín/máx son restricciones duras" %}</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">{% trans "Vista Previa" %}</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="demandaPreviewChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-secondary" onclick="history.back()">
+                    <i class="fas fa-arrow-left me-2"></i>{% trans "Anterior" %}
+                </button>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    {% trans "Siguiente" %}<i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_help %}
+<p class="small">
+    <strong>{% trans "Paso 2: Demanda por Turno" %}</strong>
+</p>
+<ul class="small mb-0">
+    <li>{% trans "Mínimo: cantidad mínima requerida" %}</li>
+    <li>{% trans "Óptimo: valor objetivo a alcanzar" %}</li>
+    <li>{% trans "Máximo: límite superior permitido" %}</li>
+</ul>
+{% endblock %}

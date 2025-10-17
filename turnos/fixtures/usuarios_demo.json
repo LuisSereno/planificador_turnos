@@ -1,0 +1,103 @@
+[
+  {
+    "model": "turnos.usuario",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$randomsalt123$hashedpassword",
+      "last_login": null,
+      "is_superuser": true,
+      "username": "admin",
+      "first_name": "Administrador",
+      "last_name": "Sistema",
+      "email": "admin@planificador.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-01-01T00:00:00Z",
+      "rol": "ADMIN",
+      "telefono": "+34 600 000 001",
+      "fecha_ultimo_acceso": "2025-10-04T10:00:00Z",
+      "intentos_fallidos": 0,
+      "cuenta_bloqueada": false,
+      "requiere_cambio_password": false,
+      "two_factor_enabled": false,
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "turnos.usuario",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$randomsalt456$hashedpassword",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "gestor",
+      "first_name": "Juan",
+      "last_name": "Pérez Administrador",
+      "email": "gestor@planificador.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-02-01T00:00:00Z",
+      "rol": "GESTOR",
+      "telefono": "+34 600 000 002",
+      "fecha_ultimo_acceso": "2025-10-03T15:30:00Z",
+      "intentos_fallidos": 0,
+      "cuenta_bloqueada": false,
+      "requiere_cambio_password": false,
+      "two_factor_enabled": false,
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "turnos.usuario",
+    "pk": 3,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$randomsalt789$hashedpassword",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "supervisor",
+      "first_name": "María",
+      "last_name": "López Supervisora",
+      "email": "supervisor@planificador.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-03-01T00:00:00Z",
+      "rol": "SUPERVISOR",
+      "telefono": "+34 600 000 003",
+      "fecha_ultimo_acceso": "2025-10-04T09:00:00Z",
+      "intentos_fallidos": 0,
+      "cuenta_bloqueada": false,
+      "requiere_cambio_password": false,
+      "two_factor_enabled": true,
+      "two_factor_secret": "BASE32SECRETKEY123456",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "turnos.usuario",
+    "pk": 4,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$randomsalt012$hashedpassword",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "viewer",
+      "first_name": "Carlos",
+      "last_name": "García Consultor",
+      "email": "viewer@planificador.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-04-01T00:00:00Z",
+      "rol": "VIEWER",
+      "telefono": "+34 600 000 004",
+      "fecha_ultimo_acceso": "2025-10-02T11:45:00Z",
+      "intentos_fallidos": 0,
+      "cuenta_bloqueada": false,
+      "requiere_cambio_password": false,
+      "two_factor_enabled": false,
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]

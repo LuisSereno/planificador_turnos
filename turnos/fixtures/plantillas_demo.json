@@ -1,0 +1,91 @@
+[
+  {
+    "model": "turnos.plantillaconfiguracion",
+    "pk": 1,
+    "fields": {
+      "nombre": "Plantilla Estándar Mensual",
+      "descripcion": "Configuración base para planificaciones mensuales con rotación equilibrada. Ideal para hospitales de tamaño medio.",
+      "configuracion_json": {
+        "num_dias": 30,
+        "demanda_por_turno": {
+          "MAÑANA": {"min": 3, "max": 5, "optimo": 4},
+          "TARDE": {"min": 2, "max": 4, "optimo": 3},
+          "NOCHE": {"min": 2, "max": 3, "optimo": 2}
+        },
+        "restricciones_duras": [
+          {"nombre": "cobertura_minima", "activa": true, "parametros": {}},
+          {"nombre": "un_turno_por_dia", "activa": true, "parametros": {}},
+          {"nombre": "descanso_minimo", "activa": true, "parametros": {"horas_descanso": 12}},
+          {"nombre": "horas_semanales_max", "activa": true, "parametros": {"max_turnos_semana": 5}}
+        ],
+        "restricciones_blandas": [
+          {"nombre": "distribucion_equitativa_noches", "activa": true, "peso": 5.0},
+          {"nombre": "balanceo_carga_total", "activa": true, "peso": 4.0}
+        ]
+      },
+      "es_publica": true,
+      "veces_usada": 15,
+      "fecha_creacion": "2025-01-15T12:00:00Z"
+    }
+  },
+  {
+    "model": "turnos.plantillaconfiguracion",
+    "pk": 2,
+    "fields": {
+      "nombre": "Plantilla Semanal Básica",
+      "descripcion": "Configuración ligera para planificaciones semanales. Perfecta para equipos pequeños o periodos cortos.",
+      "configuracion_json": {
+        "num_dias": 7,
+        "demanda_por_turno": {
+          "MAÑANA": {"min": 2, "max": 3, "optimo": 2},
+          "TARDE": {"min": 1, "max": 2, "optimo": 2},
+          "NOCHE": {"min": 1, "max": 2, "optimo": 1}
+        },
+        "restricciones_duras": [
+          {"nombre": "cobertura_minima", "activa": true, "parametros": {}},
+          {"nombre": "un_turno_por_dia", "activa": true, "parametros": {}},
+          {"nombre": "descanso_minimo", "activa": true, "parametros": {"horas_descanso": 11}}
+        ],
+        "restricciones_blandas": [
+          {"nombre": "distribucion_equitativa_noches", "activa": true, "peso": 3.0}
+        ]
+      },
+      "es_publica": true,
+      "veces_usada": 42,
+      "fecha_creacion": "2025-02-01T09:00:00Z"
+    }
+  },
+  {
+    "model": "turnos.plantillaconfiguracion",
+    "pk": 3,
+    "fields": {
+      "nombre": "Plantilla UCI - Alta Demanda",
+      "descripcion": "Configuración para unidades de cuidados intensivos con alta demanda de personal y restricciones estrictas de descanso.",
+      "configuracion_json": {
+        "num_dias": 14,
+        "demanda_por_turno": {
+          "MAÑANA": {"min": 5, "max": 7, "optimo": 6},
+          "TARDE": {"min": 4, "max": 6, "optimo": 5},
+          "NOCHE": {"min": 3, "max": 5, "optimo": 4}
+        },
+        "restricciones_duras": [
+          {"nombre": "cobertura_minima", "activa": true, "parametros": {"incremento_fines_semana": 2}},
+          {"nombre": "un_turno_por_dia", "activa": true, "parametros": {}},
+          {"nombre": "descanso_minimo", "activa": true, "parametros": {"horas_descanso": 16}},
+          {"nombre": "horas_semanales_max", "activa": true, "parametros": {"max_turnos_semana": 5}},
+          {"nombre": "turnos_consecutivos_max", "activa": true, "parametros": {"max_dias_consecutivos": 3}},
+          {"nombre": "turnos_nocturnos_consecutivos_max", "activa": true, "parametros": {"max_noches_consecutivas": 2}}
+        ],
+        "restricciones_blandas": [
+          {"nombre": "distribucion_equitativa_noches", "activa": true, "peso": 8.0},
+          {"nombre": "minimizar_cambios_turno", "activa": true, "peso": 5.0},
+          {"nombre": "cumplir_demanda_optima", "activa": true, "peso": 6.0},
+          {"nombre": "balanceo_carga_total", "activa": true, "peso": 7.0}
+        ]
+      },
+      "es_publica": true,
+      "veces_usada": 8,
+      "fecha_creacion": "2025-03-10T14:30:00Z"
+    }
+  }
+]

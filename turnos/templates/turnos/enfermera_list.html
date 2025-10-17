@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Enfermeras" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Enfermeras" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{% trans "Gestión de Enfermeras" %}</h2>
+    <div class="btn-group">
+        <a href="{% url 'turnos:enfermera_nueva' %}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-2"></i>{% trans "Añadir Enfermera" %}
+        </a>
+        <a href="{% url 'turnos:enfermera_importar' %}" class="btn btn-success">
+            <i class="fas fa-file-import me-2"></i>{% trans "Importar Excel" %}
+        </a>
+    </div>
+</div>
+
+<!-- Filtros y Búsqueda -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label">{% trans "Buscar" %}</label>
+                <input type="text"
+                       name="q"
+                       class="form-control"
+                       value="{{ request.GET.q|default:'' }}"
+                       placeholder="{% trans 'Nombre, email, DNI...' %}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Estado" %}</label>
+                <select name="estado" class="form-select">
+                    <option value="">{% trans "Todas" %}</option>
+                    <option value="activa" {% if request.GET.estado == "activa" %}selected{% endif %}>
+                        {% trans "Activas" %}
+                    </option>
+                    <option value="inactiva" {% if request.GET.estado == "inactiva" %}selected{% endif %}>
+                        {% trans "Inactivas" %}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{% trans "Ordenar" %}</label>
+                <select name="orden" class="form-select">
+                    <option value="nombre" {% if request.GET.orden == "nombre" %}selected{% endif %}>
+                        {% trans "Nombre" %}
+                    </option>
+                    <option value="email" {% if request.GET.orden == "email" %}selected{% endif %}>
+                        {% trans "Email" %}
+                    </option>
+                    <option value="fecha" {% if request.GET.orden == "fecha" %}selected{% endif %}>
+                        {% trans "Fecha de Alta" %}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>{% trans "Filtrar" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Enfermeras -->
+{% if enfermeras %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for enfermera in enfermeras %}
+    <div class="col">
+        <div class="card h-100 enfermera-card {% if not enfermera.activa %}inactive{% endif %}">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="user-avatar me-3">
+                        {{ enfermera.nombre|first|upper }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            <a href="{% url 'turnos:enfermera_detalle' enfermera.id %}" class="text-decoration-none">
+                                {{ enfermera.nombre }}
+                            </a>
+                        </h5>
+                        <small class="text-muted">{{ enfermera.email }}</small>
+                    </div>
+                    <div>
+                        {{ enfermera.activa|activo_badge }}
+                    </div>
+                </div>
+
+                {% if enfermera.telefono %}
+                <p class="mb-2 small">
+                    <i class="fas fa-phone text-muted me-2"></i>{{ enfermera.telefono }}
+                </p>
+                {% endif %}
+
+                {% if enfermera.dni %}
+                <p class="mb-2 small">
+                    <i class="fas fa-id-card text-muted me-2"></i>{{ enfermera.dni }}
+                </p>
+                {% endif %}
+
+                <p class="mb-3 small">
+                    <i class="fas fa-calendar text-muted me-2"></i>
+                    {% trans "Alta:" %} {{ enfermera.fecha_alta|date:"d/m/Y" }}
+                </p>
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'turnos:enfermera_detalle' enfermera.id %}"
+                       class="btn btn-sm btn-outline-primary flex-grow-1">
+                        <i class="fas fa-eye me-1"></i>{% trans "Ver" %}
+                    </a>
+                    <a href="{% url 'turnos:enfermera_editar' enfermera.id %}"
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{% url 'turnos:enfermera_eliminar' enfermera.id %}"
+                       class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Paginación -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info text-center my-5">
+    <i class="fas fa-user-nurse fa-3x mb-3"></i>
+    <h4>{% trans "No hay enfermeras registradas" %}</h4>
+    <p>{% trans "Añade enfermeras para comenzar a crear planificaciones" %}</p>
+    <div class="btn-group mt-3">
+        <a href="{% url 'turnos:enfermera_nueva' %}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-2"></i>{% trans "Añadir Enfermera" %}
+        </a>
+        <a href="{% url 'turnos:enfermera_importar' %}" class="btn btn-success">
+            <i class="fas fa-file-import me-2"></i>{% trans "Importar desde Excel" %}
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.enfermera-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.enfermera-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    transform: translateY(-5px);
+}
+
+.enfermera-card.inactive {
+    opacity: 0.7;
+}
+
+.user-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+</style>
+{% endblock %}

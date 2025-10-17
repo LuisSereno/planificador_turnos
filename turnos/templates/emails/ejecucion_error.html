@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error en Planificación</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error-box {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Error en Planificación</h1>
+            <p>Planificador de Turnos</p>
+        </div>
+
+        <div class="content">
+            <h2>Hola {{ nombre_completo }},</h2>
+
+            <p>Lamentamos informarte que la planificación "<strong>{{ configuracion.nombre }}</strong>" ha encontrado un error y no pudo completarse.</p>
+
+            {% if mensajes_error %}
+            <div class="error-box">
+                <h3 style="margin-top: 0;">🔍 Detalles del Error:</h3>
+                <ul>
+                    {% for error in mensajes_error %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <h3>💡 Posibles soluciones:</h3>
+            <ol>
+                <li>Revisa que las restricciones no sean demasiado estrictas</li>
+                <li>Verifica que haya suficientes enfermeras disponibles</li>
+                <li>Ajusta la demanda mínima y máxima por turno</li>
+                <li>Aumenta el tiempo máximo de ejecución</li>
+            </ol>
+
+            <p>Puedes intentar ajustar la configuración y ejecutar la planificación nuevamente.</p>
+
+            <center>
+                <a href="{{ site_url }}/turnos/configuraciones/" class="button">⚙️ Editar Configuración</a>
+            </center>
+
+            <p style="color: #666; font-size: 14px;">
+                Si el problema persiste, no dudes en contactar con nuestro equipo de soporte. Estaremos encantados de ayudarte.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>{{ site_name }}</strong></p>
+            <p>{{ site_url }}</p>
+            <p><strong>Soporte:</strong> {{ support_email }}</p>
+        </div>
+    </div>
+</body>
+</html>

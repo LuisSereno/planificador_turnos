@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Nueva Configuración" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:config_lista' %}">{% trans "Configuraciones" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Nueva" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{% trans "Nueva Configuración de Planificación" %}</h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="{% url 'turnos:config_nueva' %}" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    {% include "turnos/config/form_fields.html" with form=form %}
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'turnos:config_lista' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>{% trans "Crear Configuración" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

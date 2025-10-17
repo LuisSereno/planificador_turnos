@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+<div class="step-content" data-step="2" style="display: none;">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar me-2"></i>{% trans "Paso 2: Demanda por Turno" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                {% trans "Define cuántas enfermeras necesitas en cada tipo de turno. El sistema intentará cumplir con estos valores." %}
+            </div>
+
+            <div class="form-section">
+                <h5 class="form-section-title">{% trans "Requisitos de Personal" %}</h5>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">{% trans "Tipo de Turno" %}</th>
+                                <th width="25%">{% trans "Mínimo" %}</th>
+                                <th width="25%">{% trans "Óptimo" %}</th>
+                                <th width="25%">{% trans "Máximo" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for turno in tipos_turno %}
+                            <tr>
+                                <td>
+                                    <strong>{{ turno.get_nombre_display }}</strong>
+                                    <div class="text-muted small">
+                                        {{ turno.hora_inicio|time:"H:i" }} - {{ turno.hora_fin|time:"H:i" }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="number"
+                                           class="form-control demanda-input"
+                                           name="demanda_min_{{ turno.nombre }}"
+                                           min="0"
+                                           max="20"
+                                           value="2"
+                                           data-turno="{{ turno.nombre }}"
+                                           data-tipo="min"
+                                           required>
+                                </td>
+                                <td>
+                                    <input type="number"
+                                           class="form-control demanda-input"
+                                           name="demanda_optimo_{{ turno.nombre }}"
+                                           min="0"
+                                           max="20"
+                                           value="3"
+                                           data-turno="{{ turno.nombre }}"
+                                           data-tipo="optimo"
+                                           required>
+                                </td>
+                                <td>
+                                    <input type="number"
+                                           class="form-control demanda-input"
+                                           name="demanda_max_{{ turno.nombre }}"
+                                           min="0"
+                                           max="20"
+                                           value="5"
+                                           data-turno="{{ turno.nombre }}"
+                                           data-tipo="max"
+                                           required>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-warning mt-3">
+                    <strong><i class="fas fa-exclamation-triangle me-2"></i>{% trans "Importante:" %}</strong>
+                    <ul class="mb-0">
+                        <li>{% trans "Mínimo ≤ Óptimo ≤ Máximo" %}</li>
+                        <li>{% trans "El valor óptimo es el que el sistema intentará alcanzar" %}</li>
+                        <li>{% trans "Los valores mínimo y máximo son restricciones duras" %}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Incremento en fines de semana -->
+            <div class="form-section">
+                <h5 class="form-section-title">{% trans "Configuración Adicional" %}</h5>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_incremento_finde" class="form-label fw-bold">
+                                <i class="fas fa-calendar-week me-2"></i>{% trans "Incremento en Fines de Semana" %}
+                            </label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="id_incremento_finde"
+                                   name="incremento_fines_semana"
+                                   min="0"
+                                   max="5"
+                                   value="1">
+                            <div class="form-text">
+                                {% trans "Enfermeras adicionales requeridas sábados y domingos" %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-chart-line me-2"></i>{% trans "Vista Previa" %}
+                            </label>
+                            <div class="card">
+                                <div class="card-body">
+                                    <canvas id="demandaChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validación de demanda
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.demanda-input');
+
+    inputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const turno = this.dataset.turno;
+            const min = parseInt(document.querySelector(`[name="demanda_min_${turno}"]`).value);
+            const optimo = parseInt(document.querySelector(`[name="demanda_optimo_${turno}"]`).value);
+            const max = parseInt(document.querySelector(`[name="demanda_max_${turno}"]`).value);
+
+            if (min > optimo || optimo > max) {
+                this.classList.add('is-invalid');
+                alert('Error: Debe cumplirse Mínimo ≤ Óptimo ≤ Máximo');
+            } else {
+                document.querySelectorAll(`[data-turno="${turno}"]`).forEach(inp => {
+                    inp.classList.remove('is-invalid');
+                });
+            }
+        });
+    });
+});
+</script>

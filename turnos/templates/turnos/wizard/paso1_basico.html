@@ -1,0 +1,222 @@
+{% extends 'turnos/wizard/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block wizard_content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-info-circle me-2"></i>{% trans "Paso 1: Datos Básicos" %}
+        </h4>
+    </div>
+    <div class="card-body p-4">
+        <div class="alert alert-info">
+            <i class="fas fa-lightbulb me-2"></i>
+            {% trans "Proporciona la información básica para tu configuración de planificación. Esta información será utilizada para generar el horario óptimo." %}
+        </div>
+
+        <form method="post" id="form-paso1">
+            {% csrf_token %}
+            <input type="hidden" name="paso" value="1">
+
+            <!-- Información General -->
+            <div class="mb-4">
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-file-alt me-2 text-primary"></i>{% trans "Información General" %}
+                </h5>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            {{ form.nombre.label_tag }}
+                            {{ form.nombre }}
+                            {% if form.nombre.help_text %}
+                                <small class="form-text text-muted">{{ form.nombre.help_text }}</small>
+                            {% endif %}
+                            {% if form.nombre.errors %}
+                                <div class="invalid-feedback d-block">{{ form.nombre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">{% trans "Estado" %}</label>
+                        <div class="form-check form-switch">
+                            {{ form.activa }}
+                            <label class="form-check-label" for="{{ form.activa.id_for_label }}">
+                                {% trans "Configuración activa" %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.descripcion.label_tag }}
+                    {{ form.descripcion }}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.num_dias.label_tag }}
+                            {{ form.num_dias }}
+                            {% if form.num_dias.help_text %}
+                                <small class="form-text text-muted">{{ form.num_dias.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.fecha_inicio.label_tag }}
+                            {{ form.fecha_inicio }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.num_trabajadores.label_tag }}
+                            {{ form.num_trabajadores }}
+                            {% if form.num_trabajadores.help_text %}
+                                <small class="form-text text-muted">{{ form.num_trabajadores.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.tiempo_maximo_segundos.label_tag }}
+                            {{ form.tiempo_maximo_segundos }}
+                            {% if form.tiempo_maximo_segundos.help_text %}
+                                <small class="form-text text-muted">{{ form.tiempo_maximo_segundos.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.seed.label_tag }}
+                            {{ form.seed }}
+                            {% if form.seed.help_text %}
+                                <small class="form-text text-muted">{{ form.seed.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selección de Enfermeras -->
+            <div class="mb-4">
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-user-nurse me-2 text-primary"></i>{% trans "Enfermeras Participantes" %}
+                </h5>
+
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <input type="text" 
+                               class="form-control" 
+                               id="buscar-enfermeras" 
+                               placeholder="{% trans 'Buscar enfermera por nombre...' %}">
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="seleccionarTodasEnfermeras()">
+                            <i class="fas fa-check-double me-1"></i>{% trans "Seleccionar todas" %}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deseleccionarTodasEnfermeras()">
+                            <i class="fas fa-times me-1"></i>{% trans "Ninguna" %}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="selection-list" style="max-height: 400px; overflow-y: auto;">
+                    {% for enfermera in form.enfermeras %}
+                        {{ enfermera }}
+                    {% endfor %}
+                </div>
+
+                <div class="mt-2">
+                    <span class="badge bg-primary" id="contador-enfermeras">0 seleccionadas</span>
+                </div>
+            </div>
+
+            <!-- Selección de Turnos -->
+            <div class="mb-4">
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-clock me-2 text-primary"></i>{% trans "Tipos de Turno" %}
+                </h5>
+
+                <div class="row">
+                    {% for turno in form.turnos %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 turno-card">
+                            <div class="card-body">
+                                {{ turno }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'turnos:config_lista' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-2"></i>{% trans "Cancelar" %}
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    {% trans "Siguiente" %}<i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_help %}
+<p class="small">
+    <strong>{% trans "Paso 1: Datos Básicos" %}</strong>
+</p>
+<ul class="small mb-0">
+    <li>{% trans "Define el nombre y período de planificación" %}</li>
+    <li>{% trans "Selecciona las enfermeras que participarán" %}</li>
+    <li>{% trans "Elige los tipos de turno a usar" %}</li>
+</ul>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+function seleccionarTodasEnfermeras() {
+    document.querySelectorAll('input[name="enfermeras"]').forEach(cb => cb.checked = true);
+    actualizarContador();
+}
+
+function deseleccionarTodasEnfermeras() {
+    document.querySelectorAll('input[name="enfermeras"]').forEach(cb => cb.checked = false);
+    actualizarContador();
+}
+
+function actualizarContador() {
+    const seleccionadas = document.querySelectorAll('input[name="enfermeras"]:checked').length;
+    document.getElementById('contador-enfermeras').textContent = `${seleccionadas} seleccionadas`;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Actualizar contador
+    document.querySelectorAll('input[name="enfermeras"]').forEach(cb => {
+        cb.addEventListener('change', actualizarContador);
+    });
+    actualizarContador();
+
+    // Búsqueda
+    document.getElementById('buscar-enfermeras').addEventListener('input', function(e) {
+        const termino = e.target.value.toLowerCase();
+        document.querySelectorAll('.selection-list .form-check').forEach(item => {
+            const texto = item.textContent.toLowerCase();
+            item.style.display = texto.includes(termino) ? '' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

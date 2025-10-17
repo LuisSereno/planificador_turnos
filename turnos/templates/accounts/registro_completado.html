@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Registro Completado{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-envelope-circle-check fa-5x text-success"></i>
+                </div>
+                
+                <h2 class="mb-3">¡Revisa tu email!</h2>
+                
+                <p class="lead">
+                    Te hemos enviado un email de verificación.
+                </p>
+                
+                <p class="text-muted">
+                    Por favor revisa tu bandeja de entrada (y la carpeta de spam)
+                    y haz clic en el enlace para activar tu cuenta.
+                </p>
+                
+                <div class="alert alert-info mt-4">
+                    <strong>💡 Consejo:</strong> El enlace expirará en 24 horas.
+                    Si no lo recibes, puedes solicitar uno nuevo.
+                </div>
+                
+                <div class="mt-4">
+                    <a href="{% url 'accounts:reenviar_verificacion' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-paper-plane"></i> Reenviar email
+                    </a>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-link">
+                        Volver al login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

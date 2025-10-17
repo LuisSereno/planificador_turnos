@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Cerrar Sesión" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header bg-warning text-white text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-sign-out-alt fa-4x"></i>
+                    </div>
+                    <h3 class="font-weight-light mb-0">{% trans "Cerrar Sesión" %}</h3>
+                </div>
+                <div class="card-body p-5 text-center">
+                    <p class="lead mb-4">
+                        {% trans "¿Estás seguro de que deseas cerrar sesión?" %}
+                    </p>
+
+                    <form method="post" action="{% url 'accounts:logout' %}">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-sign-out-alt me-2"></i>{% trans "Sí, cerrar sesión" %}
+                            </button>
+                            <a href="{% url 'turnos:dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

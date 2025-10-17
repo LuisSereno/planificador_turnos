@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Estadísticas del Resultado" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/estadisticas.css' %}">
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_lista' %}">{% trans "Ejecuciones" %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_detalle' ejecucion.id %}">{{ ejecucion.configuracion.nombre }}</a></li>
+    <li class="breadcrumb-item active">{% trans "Estadísticas" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-chart-bar me-2"></i>{% trans "Estadísticas Detalladas" %}
+    </h2>
+    <button type="button" class="btn btn-primary" onclick="window.print()">
+        <i class="fas fa-print me-2"></i>{% trans "Imprimir" %}
+    </button>
+</div>
+
+<!-- Resumen General -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon primary">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ estadisticas.dias_totales }}</div>
+                <div class="stat-card-label">{% trans "Días Totales" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon success">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ estadisticas.turnos_asignados }}</div>
+                <div class="stat-card-label">{% trans "Turnos Asignados" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon warning">
+                <i class="fas fa-user-nurse"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ estadisticas.enfermeras_activas }}</div>
+                <div class="stat-card-label">{% trans "Enfermeras" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon info">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value">{{ estadisticas.horas_totales }}</div>
+                <div class="stat-card-label">{% trans "Horas Totales" %}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <!-- Distribución de Turnos -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-pie-chart me-2"></i>{% trans "Distribución de Turnos" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="chart-distribucion-turnos" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carga por Enfermera -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-clock me-2"></i>{% trans "Carga por Enfermera" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="chart-carga-enfermera" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Turnos por Día de la Semana -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-calendar-week me-2"></i>{% trans "Distribución por Día de la Semana" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <canvas id="chart-turnos-semana" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Estadísticas por Enfermera -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>{% trans "Estadísticas por Enfermera" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>{% trans "Enfermera" %}</th>
+                        <th class="text-center">{% trans "Total Turnos" %}</th>
+                        <th class="text-center">{% trans "Mañanas" %}</th>
+                        <th class="text-center">{% trans "Tardes" %}</th>
+                        <th class="text-center">{% trans "Noches" %}</th>
+                        <th class="text-center">{% trans "Fines de Semana" %}</th>
+                        <th class="text-center">{% trans "Horas Totales" %}</th>
+                        <th class="text-center">{% trans "Días Libres" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in estadisticas_enfermeras %}
+                    <tr>
+                        <td><strong>{{ stat.enfermera.nombre }}</strong></td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ stat.total_turnos }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-warning text-dark">{{ stat.mananas }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ stat.tardes }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-dark">{{ stat.noches }}</span>
+                        </td>
+                        <td class="text-center">{{ stat.fines_semana }}</td>
+                        <td class="text-center">{{ stat.horas_totales }}h</td>
+                        <td class="text-center">
+                            <span class="badge bg-success">{{ stat.dias_libres }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>{% trans "TOTALES" %}</th>
+                        <th class="text-center">{{ totales.turnos }}</th>
+                        <th class="text-center">{{ totales.mananas }}</th>
+                        <th class="text-center">{{ totales.tardes }}</th>
+                        <th class="text-center">{{ totales.noches }}</th>
+                        <th class="text-center">{{ totales.fines_semana }}</th>
+                        <th class="text-center">{{ totales.horas }}h</th>
+                        <th class="text-center">-</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas de Calidad -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-star me-2"></i>{% trans "Métricas de Calidad" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="quality-metric">
+                    <div class="metric-label">{% trans "Equidad de Distribución" %}</div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ metricas.equidad }}%"
+                             role="progressbar">
+                            {{ metricas.equidad|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="quality-metric">
+                    <div class="metric-label">{% trans "Cumplimiento de Preferencias" %}</div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar bg-info" 
+                             style="width: {{ metricas.preferencias }}%"
+                             role="progressbar">
+                            {{ metricas.preferencias|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="quality-metric">
+                    <div class="metric-label">{% trans "Satisfacción General" %}</div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar bg-warning" 
+                             style="width: {{ metricas.satisfaccion }}%"
+                             role="progressbar">
+                            {{ metricas.satisfaccion|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Gráfico de Distribución de Turnos
+const ctxDistribucion = document.getElementById('chart-distribucion-turnos').getContext('2d');
+new Chart(ctxDistribucion, {
+    type: 'pie',
+    data: {
+        labels: ['{% trans "Mañana" %}', '{% trans "Tarde" %}', '{% trans "Noche" %}'],
+        datasets: [{
+            data: {{ distribucion_turnos|safe }},
+            backgroundColor: ['#ffc107', '#17a2b8', '#343a40']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Gráfico de Carga por Enfermera
+const ctxCarga = document.getElementById('chart-carga-enfermera').getContext('2d');
+new Chart(ctxCarga, {
+    type: 'bar',
+    data: {
+        labels: {{ labels_enfermeras|safe }},
+        datasets: [{
+            label: '{% trans "Turnos Asignados" %}',
+            data: {{ datos_carga_enfermeras|safe }},
+            backgroundColor: '#667eea'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Gráfico de Turnos por Día de la Semana
+const ctxSemana = document.getElementById('chart-turnos-semana').getContext('2d');
+new Chart(ctxSemana, {
+    type: 'bar',
+    data: {
+        labels: ['{% trans "Lun" %}', '{% trans "Mar" %}', '{% trans "Mié" %}', 
+                 '{% trans "Jue" %}', '{% trans "Vie" %}', '{% trans "Sáb" %}', '{% trans "Dom" %}'],
+        datasets: [
+            {
+                label: '{% trans "Mañana" %}',
+                data: {{ datos_semana_manana|safe }},
+                backgroundColor: '#ffc107'
+            },
+            {
+                label: '{% trans "Tarde" %}',
+                data: {{ datos_semana_tarde|safe }},
+                backgroundColor: '#17a2b8'
+            },
+            {
+                label: '{% trans "Noche" %}',
+                data: {{ datos_semana_noche|safe }},
+                backgroundColor: '#343a40'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            x: { stacked: true },
+            y: { 
+                stacked: true,
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

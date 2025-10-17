@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Importar Enfermeras" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:enfermera_lista' %}">{% trans "Enfermeras" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Importar" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-file-import me-2"></i>{% trans "Importar Enfermeras desde Excel" %}
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>{% trans "Instrucciones" %}</h6>
+                    <ol class="mb-0">
+                        <li>{% trans "Descarga la plantilla Excel" %}</li>
+                        <li>{% trans "Rellena los datos de las enfermeras" %}</li>
+                        <li>{% trans "Sube el archivo completado" %}</li>
+                    </ol>
+                </div>
+
+                <!-- Descargar Plantilla -->
+                <div class="text-center mb-4">
+                    <a href="{% url 'turnos:enfermera_plantilla_excel' %}" class="btn btn-success btn-lg">
+                        <i class="fas fa-download me-2"></i>{% trans "Descargar Plantilla Excel" %}
+                    </a>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Formulario de Importación -->
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="archivo" class="form-label fw-bold">
+                            <i class="fas fa-file-excel me-2"></i>{% trans "Archivo Excel" %}
+                        </label>
+                        <input type="file"
+                               class="form-control"
+                               id="archivo"
+                               name="archivo"
+                               accept=".xlsx,.xls"
+                               required>
+                        <small class="form-text text-muted">
+                            {% trans "Formatos aceptados: .xlsx, .xls" %}
+                        </small>
+                    </div>
+
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold">{% trans "Columnas requeridas:" %}</h6>
+                            <ul class="mb-0">
+                                <li><strong>nombre</strong> - {% trans "Nombre completo (obligatorio)" %}</li>
+                                <li><strong>email</strong> - {% trans "Email (obligatorio, único)" %}</li>
+                                <li><strong>telefono</strong> - {% trans "Teléfono (opcional)" %}</li>
+                                <li><strong>dni</strong> - {% trans "DNI (opcional)" %}</li>
+                                <li><strong>activa</strong> - {% trans "Sí/No (opcional, por defecto Sí)" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload me-2"></i>{% trans "Importar Enfermeras" %}
+                        </button>
+                        <a href="{% url 'turnos:enfermera_lista' %}" class="btn btn-secondary">
+                            {% trans "Cancelar" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

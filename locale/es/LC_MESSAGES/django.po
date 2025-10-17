@@ -1,0 +1,773 @@
+# TRADUCCIÓN ESPAÑOL - PLANIFICADOR DE TURNOS
+# Copyright (C) 2025
+# This file is distributed under the same license as the Planificador Turnos package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Planificador Turnos 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-04 17:52+0200\n"
+"PO-Revision-Date: 2025-10-04 17:52+0200\n"
+"Last-Translator: Admin <admin@planificador.com>\n"
+"Language-Team: Spanish <es@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ==========================================
+# GENERAL
+# ==========================================
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Dashboard"
+msgstr "Panel de Control"
+
+msgid "Back"
+msgstr "Volver"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "Filter"
+msgstr "Filtrar"
+
+msgid "Export"
+msgstr "Exportar"
+
+msgid "Import"
+msgstr "Importar"
+
+msgid "Download"
+msgstr "Descargar"
+
+msgid "Upload"
+msgstr "Subir"
+
+msgid "Actions"
+msgstr "Acciones"
+
+msgid "Settings"
+msgstr "Configuración"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "Logout"
+msgstr "Cerrar Sesión"
+
+msgid "Login"
+msgstr "Iniciar Sesión"
+
+msgid "Register"
+msgstr "Registrarse"
+
+msgid "Yes"
+msgstr "Sí"
+
+msgid "No"
+msgstr "No"
+
+msgid "Active"
+msgstr "Activo"
+
+msgid "Inactive"
+msgstr "Inactivo"
+
+msgid "Loading..."
+msgstr "Cargando..."
+
+msgid "Please wait"
+msgstr "Por favor espere"
+
+msgid "Success"
+msgstr "Éxito"
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Warning"
+msgstr "Advertencia"
+
+msgid "Info"
+msgstr "Información"
+
+# ==========================================
+# MODELOS - ENFERMERA
+# ==========================================
+
+msgid "Nurse"
+msgstr "Enfermera"
+
+msgid "Nurses"
+msgstr "Enfermeras"
+
+msgid "Nurse name"
+msgstr "Nombre de enfermera"
+
+msgid "Nurse list"
+msgstr "Lista de enfermeras"
+
+msgid "Add nurse"
+msgstr "Añadir enfermera"
+
+msgid "Edit nurse"
+msgstr "Editar enfermera"
+
+msgid "Delete nurse"
+msgstr "Eliminar enfermera"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Email"
+msgstr "Correo electrónico"
+
+msgid "Phone"
+msgstr "Teléfono"
+
+msgid "DNI"
+msgstr "DNI"
+
+msgid "Date joined"
+msgstr "Fecha de alta"
+
+msgid "Is active"
+msgstr "Está activa"
+
+msgid "Notes"
+msgstr "Notas"
+
+# ==========================================
+# MODELOS - TIPO DE TURNO
+# ==========================================
+
+msgid "Shift type"
+msgstr "Tipo de turno"
+
+msgid "Shift types"
+msgstr "Tipos de turno"
+
+msgid "Morning"
+msgstr "Mañana"
+
+msgid "Afternoon"
+msgstr "Tarde"
+
+msgid "Night"
+msgstr "Noche"
+
+msgid "Start time"
+msgstr "Hora de inicio"
+
+msgid "End time"
+msgstr "Hora de fin"
+
+msgid "Duration"
+msgstr "Duración"
+
+msgid "Color"
+msgstr "Color"
+
+# ==========================================
+# MODELOS - CONFIGURACIÓN
+# ==========================================
+
+msgid "Configuration"
+msgstr "Configuración"
+
+msgid "Configurations"
+msgstr "Configuraciones"
+
+msgid "Configuration name"
+msgstr "Nombre de configuración"
+
+msgid "Configuration list"
+msgstr "Lista de configuraciones"
+
+msgid "Create configuration"
+msgstr "Crear configuración"
+
+msgid "Edit configuration"
+msgstr "Editar configuración"
+
+msgid "Delete configuration"
+msgstr "Eliminar configuración"
+
+msgid "Description"
+msgstr "Descripción"
+
+msgid "Number of days"
+msgstr "Número de días"
+
+msgid "Start date"
+msgstr "Fecha de inicio"
+
+msgid "End date"
+msgstr "Fecha de fin"
+
+msgid "Max time (seconds)"
+msgstr "Tiempo máximo (segundos)"
+
+msgid "Number of workers"
+msgstr "Número de hilos"
+
+msgid "Hard constraints"
+msgstr "Restricciones duras"
+
+msgid "Soft constraints"
+msgstr "Restricciones blandas"
+
+msgid "Demand per shift"
+msgstr "Demanda por turno"
+
+msgid "Minimum"
+msgstr "Mínimo"
+
+msgid "Maximum"
+msgstr "Máximo"
+
+msgid "Optimal"
+msgstr "Óptimo"
+
+# ==========================================
+# MODELOS - EJECUCIÓN
+# ==========================================
+
+msgid "Execution"
+msgstr "Ejecución"
+
+msgid "Executions"
+msgstr "Ejecuciones"
+
+msgid "Execution list"
+msgstr "Lista de ejecuciones"
+
+msgid "View execution"
+msgstr "Ver ejecución"
+
+msgid "Delete execution"
+msgstr "Eliminar ejecución"
+
+msgid "Status"
+msgstr "Estado"
+
+msgid "Pending"
+msgstr "Pendiente"
+
+msgid "Processing"
+msgstr "Procesando"
+
+msgid "Completed"
+msgstr "Completada"
+
+msgid "Failed"
+msgstr "Fallida"
+
+msgid "Canceled"
+msgstr "Cancelada"
+
+msgid "Start datetime"
+msgstr "Fecha de inicio"
+
+msgid "End datetime"
+msgstr "Fecha de fin"
+
+msgid "Execution time"
+msgstr "Tiempo de ejecución"
+
+msgid "Total penalty"
+msgstr "Penalización total"
+
+msgid "Is optimal"
+msgstr "Es óptima"
+
+msgid "Planning"
+msgstr "Planificación"
+
+msgid "Results"
+msgstr "Resultados"
+
+msgid "Messages"
+msgstr "Mensajes"
+
+# ==========================================
+# RESTRICCIONES
+# ==========================================
+
+msgid "Constraints"
+msgstr "Restricciones"
+
+msgid "Hard constraint"
+msgstr "Restricción dura"
+
+msgid "Soft constraint"
+msgstr "Restricción blanda"
+
+msgid "Constraint name"
+msgstr "Nombre de restricción"
+
+msgid "Weight"
+msgstr "Peso"
+
+msgid "Parameters"
+msgstr "Parámetros"
+
+msgid "Minimum coverage"
+msgstr "Cobertura mínima"
+
+msgid "Maximum coverage"
+msgstr "Cobertura máxima"
+
+msgid "One shift per day"
+msgstr "Un turno por día"
+
+msgid "Minimum rest"
+msgstr "Descanso mínimo"
+
+msgid "Maximum weekly hours"
+msgstr "Horas semanales máximas"
+
+msgid "Minimum weekly hours"
+msgstr "Horas semanales mínimas"
+
+msgid "Maximum consecutive shifts"
+msgstr "Turnos consecutivos máximos"
+
+msgid "Incompatibilities"
+msgstr "Incompatibilidades"
+
+msgid "Partial availability"
+msgstr "Disponibilidad parcial"
+
+msgid "Mandatory days off"
+msgstr "Días libres obligatorios"
+
+msgid "Minimum days off per week"
+msgstr "Días libres mínimos por semana"
+
+msgid "Maximum consecutive nights"
+msgstr "Noches consecutivas máximas"
+
+msgid "Maximum weekends"
+msgstr "Fines de semana máximos"
+
+msgid "Shift preferences"
+msgstr "Preferencias de turno"
+
+msgid "Days off preferences"
+msgstr "Preferencias de días libres"
+
+msgid "Equitable night distribution"
+msgstr "Distribución equitativa de noches"
+
+msgid "Minimize shift changes"
+msgstr "Minimizar cambios de turno"
+
+msgid "Avoid isolated shifts"
+msgstr "Evitar turnos aislados"
+
+msgid "Meet optimal demand"
+msgstr "Cumplir demanda óptima"
+
+msgid "Balance workload"
+msgstr "Balancear carga de trabajo"
+
+# ==========================================
+# AUTENTICACIÓN
+# ==========================================
+
+msgid "Username"
+msgstr "Usuario"
+
+msgid "Password"
+msgstr "Contraseña"
+
+msgid "Confirm password"
+msgstr "Confirmar contraseña"
+
+msgid "Remember me"
+msgstr "Recordarme"
+
+msgid "Forgot password?"
+msgstr "¿Olvidaste tu contraseña?"
+
+msgid "Sign in"
+msgstr "Iniciar sesión"
+
+msgid "Sign up"
+msgstr "Registrarse"
+
+msgid "Sign out"
+msgstr "Cerrar sesión"
+
+msgid "First name"
+msgstr "Nombre"
+
+msgid "Last name"
+msgstr "Apellidos"
+
+msgid "Current password"
+msgstr "Contraseña actual"
+
+msgid "New password"
+msgstr "Nueva contraseña"
+
+msgid "Change password"
+msgstr "Cambiar contraseña"
+
+msgid "Email verification"
+msgstr "Verificación de email"
+
+msgid "Password reset"
+msgstr "Recuperación de contraseña"
+
+msgid "Two-factor authentication"
+msgstr "Autenticación de dos factores"
+
+msgid "Enable 2FA"
+msgstr "Activar 2FA"
+
+msgid "Disable 2FA"
+msgstr "Desactivar 2FA"
+
+msgid "Verification code"
+msgstr "Código de verificación"
+
+# ==========================================
+# MENSAJES DE ERROR
+# ==========================================
+
+msgid "This field is required."
+msgstr "Este campo es obligatorio."
+
+msgid "Invalid email address."
+msgstr "Dirección de email inválida."
+
+msgid "Passwords do not match."
+msgstr "Las contraseñas no coinciden."
+
+msgid "Username already exists."
+msgstr "El nombre de usuario ya existe."
+
+msgid "Email already registered."
+msgstr "El email ya está registrado."
+
+msgid "Invalid username or password."
+msgstr "Usuario o contraseña incorrectos."
+
+msgid "Your account is locked."
+msgstr "Tu cuenta está bloqueada."
+
+msgid "Your account is inactive."
+msgstr "Tu cuenta está inactiva."
+
+msgid "Session expired."
+msgstr "La sesión ha expirado."
+
+msgid "Access denied."
+msgstr "Acceso denegado."
+
+msgid "Not found."
+msgstr "No encontrado."
+
+msgid "Server error."
+msgstr "Error del servidor."
+
+msgid "Invalid token."
+msgstr "Token inválido."
+
+msgid "Token expired."
+msgstr "Token expirado."
+
+# ==========================================
+# MENSAJES DE ÉXITO
+# ==========================================
+
+msgid "Successfully saved."
+msgstr "Guardado exitosamente."
+
+msgid "Successfully deleted."
+msgstr "Eliminado exitosamente."
+
+msgid "Successfully created."
+msgstr "Creado exitosamente."
+
+msgid "Successfully updated."
+msgstr "Actualizado exitosamente."
+
+msgid "Successfully executed."
+msgstr "Ejecutado exitosamente."
+
+msgid "Email sent successfully."
+msgstr "Email enviado exitosamente."
+
+msgid "Password changed successfully."
+msgstr "Contraseña cambiada exitosamente."
+
+msgid "Account created successfully."
+msgstr "Cuenta creada exitosamente."
+
+msgid "Email verified successfully."
+msgstr "Email verificado exitosamente."
+
+# ==========================================
+# DASHBOARD
+# ==========================================
+
+msgid "Welcome"
+msgstr "Bienvenido"
+
+msgid "Total nurses"
+msgstr "Total de enfermeras"
+
+msgid "Active configurations"
+msgstr "Configuraciones activas"
+
+msgid "Recent executions"
+msgstr "Ejecuciones recientes"
+
+msgid "Success rate"
+msgstr "Tasa de éxito"
+
+msgid "Average penalty"
+msgstr "Penalización promedio"
+
+msgid "Quick actions"
+msgstr "Acciones rápidas"
+
+msgid "Statistics"
+msgstr "Estadísticas"
+
+msgid "Recent activity"
+msgstr "Actividad reciente"
+
+# ==========================================
+# EXPORTACIÓN
+# ==========================================
+
+msgid "Export to Excel"
+msgstr "Exportar a Excel"
+
+msgid "Export to PDF"
+msgstr "Exportar a PDF"
+
+msgid "Export to CSV"
+msgstr "Exportar a CSV"
+
+msgid "Export to JSON"
+msgstr "Exportar a JSON"
+
+msgid "Export to iCal"
+msgstr "Exportar a iCal"
+
+msgid "Download file"
+msgstr "Descargar archivo"
+
+# ==========================================
+# VISTAS
+# ==========================================
+
+msgid "Calendar view"
+msgstr "Vista de calendario"
+
+msgid "Table view"
+msgstr "Vista de tabla"
+
+msgid "By nurse view"
+msgstr "Vista por enfermera"
+
+msgid "Statistics view"
+msgstr "Vista de estadísticas"
+
+msgid "Day"
+msgstr "Día"
+
+msgid "Week"
+msgstr "Semana"
+
+msgid "Month"
+msgstr "Mes"
+
+# ==========================================
+# WIZARD
+# ==========================================
+
+msgid "Step"
+msgstr "Paso"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Previous"
+msgstr "Anterior"
+
+msgid "Finish"
+msgstr "Finalizar"
+
+msgid "Basic information"
+msgstr "Información básica"
+
+msgid "Shift demand"
+msgstr "Demanda de turnos"
+
+msgid "Hard constraints configuration"
+msgstr "Configuración de restricciones duras"
+
+msgid "Soft constraints configuration"
+msgstr "Configuración de restricciones blandas"
+
+# ==========================================
+# CONFIRMACIONES
+# ==========================================
+
+msgid "Are you sure?"
+msgstr "¿Estás seguro?"
+
+msgid "This action cannot be undone."
+msgstr "Esta acción no se puede deshacer."
+
+msgid "Confirm deletion"
+msgstr "Confirmar eliminación"
+
+msgid "Confirm execution"
+msgstr "Confirmar ejecución"
+
+msgid "Do you want to continue?"
+msgstr "¿Deseas continuar?"
+
+# ==========================================
+# EMAILS
+# ==========================================
+
+msgid "Email subject: Welcome"
+msgstr "Bienvenido a Planificador de Turnos"
+
+msgid "Email subject: Verification"
+msgstr "Verifica tu cuenta"
+
+msgid "Email subject: Password reset"
+msgstr "Recuperación de contraseña"
+
+msgid "Email subject: Password changed"
+msgstr "Contraseña cambiada"
+
+msgid "Verify your email"
+msgstr "Verifica tu email"
+
+msgid "Reset your password"
+msgstr "Restablece tu contraseña"
+
+msgid "Click here"
+msgstr "Haz clic aquí"
+
+msgid "If you didn't request this, ignore this email."
+msgstr "Si no solicitaste esto, ignora este email."
+
+# ==========================================
+# ROLES
+# ==========================================
+
+msgid "Administrator"
+msgstr "Administrador"
+
+msgid "Manager"
+msgstr "Gestor"
+
+msgid "Supervisor"
+msgstr "Supervisor"
+
+msgid "Viewer"
+msgstr "Visualizador"
+
+msgid "Role"
+msgstr "Rol"
+
+msgid "Permissions"
+msgstr "Permisos"
+
+# ==========================================
+# FECHAS Y HORAS
+# ==========================================
+
+msgid "Today"
+msgstr "Hoy"
+
+msgid "Yesterday"
+msgstr "Ayer"
+
+msgid "Tomorrow"
+msgstr "Mañana"
+
+msgid "This week"
+msgstr "Esta semana"
+
+msgid "This month"
+msgstr "Este mes"
+
+msgid "Last week"
+msgstr "Semana pasada"
+
+msgid "Last month"
+msgstr "Mes pasado"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "Time"
+msgstr "Hora"
+
+msgid "Created at"
+msgstr "Creado el"
+
+msgid "Updated at"
+msgstr "Actualizado el"
+
+# ==========================================
+# PLURALES
+# ==========================================
+
+#, python-format
+msgid "%(count)d nurse"
+msgid_plural "%(count)d nurses"
+msgstr[0] "%(count)d enfermera"
+msgstr[1] "%(count)d enfermeras"
+
+#, python-format
+msgid "%(count)d configuration"
+msgid_plural "%(count)d configurations"
+msgstr[0] "%(count)d configuración"
+msgstr[1] "%(count)d configuraciones"
+
+#, python-format
+msgid "%(count)d execution"
+msgid_plural "%(count)d executions"
+msgstr[0] "%(count)d ejecución"
+msgstr[1] "%(count)d ejecuciones"
+
+#, python-format
+msgid "%(count)d day"
+msgid_plural "%(count)d days"
+msgstr[0] "%(count)d día"
+msgstr[1] "%(count)d días"

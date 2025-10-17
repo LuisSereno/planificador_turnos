@@ -1,0 +1,126 @@
+{% extends 'turnos/wizard/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block wizard_content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-danger text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-shield-alt me-2"></i>{% trans "Paso 3: Restricciones Duras" %}
+        </h4>
+    </div>
+    <div class="card-body p-4">
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>{% trans "Restricciones Obligatorias" %}</h6>
+            <p class="mb-0">
+                {% trans "Las restricciones duras DEBEN cumplirse. Si no se cumplen, el sistema no generará una planificación." %}
+            </p>
+        </div>
+
+        <form method="post" id="form-paso3">
+            {% csrf_token %}
+            <input type="hidden" name="paso" value="3">
+            {{ form.restricciones_duras }}
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>
+                    {% trans "Restricciones Configuradas:" %} 
+                    <span id="contador-restricciones-duras" class="badge bg-danger">0</span>
+                </h5>
+                <button type="button" 
+                        id="btn-agregar-restriccion-dura" 
+                        class="btn btn-danger">
+                    <i class="fas fa-plus me-2"></i>{% trans "Agregar Restricción" %}
+                </button>
+            </div>
+
+            <div id="restricciones-duras-contenedor" class="mb-4">
+                <!-- Restricciones dinámicas -->
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-book me-2"></i>{% trans "Catálogo de Restricciones Duras" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Cobertura Mínima" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Mínimo de enfermeras por turno" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Un Turno por Día" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Una enfermera no trabaja dos turnos el mismo día" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Descanso Mínimo" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Horas mínimas entre turnos" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Turnos Consecutivos Máximos" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Máximo de días trabajando seguidos" %}</p>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Horas Semanales Máximas" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Máximo de turnos por semana" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Días Libres Mínimos" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Días libres mínimos por semana" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Incompatibilidades" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Enfermeras que no pueden trabajar juntas" %}</p>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-danger me-2"></i>
+                                    <strong>{% trans "Disponibilidad Parcial" %}</strong>
+                                    <p class="text-muted small mb-0">{% trans "Disponibilidad limitada a ciertos turnos" %}</p>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-secondary" onclick="history.back()">
+                    <i class="fas fa-arrow-left me-2"></i>{% trans "Anterior" %}
+                </button>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    {% trans "Siguiente" %}<i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_help %}
+<p class="small">
+    <strong>{% trans "Paso 3: Restricciones Duras" %}</strong>
+</p>
+<p class="small">
+    {% trans "Las restricciones duras son reglas que DEBEN cumplirse obligatoriamente." %}
+</p>
+<ul class="small mb-0">
+    <li>{% trans "Haz clic en 'Agregar Restricción'" %}</li>
+    <li>{% trans "Selecciona el tipo de restricción" %}</li>
+    <li>{% trans "Configura los parámetros necesarios" %}</li>
+</ul>
+{% endblock %}
