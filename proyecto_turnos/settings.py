@@ -18,6 +18,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
+    # Third party apps
+    'widget_tweaks',  # ✅ AGREGAR ESTO
+    'formtools',
+
     'turnos',
 ]
 

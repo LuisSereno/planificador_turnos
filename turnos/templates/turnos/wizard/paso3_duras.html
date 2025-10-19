@@ -1,126 +1,178 @@
-{% extends 'turnos/wizard/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
-{% load i18n %}
+{% load widget_tweaks %}
 
-{% block wizard_content %}
-<div class="card shadow-sm">
-    <div class="card-header bg-danger text-white">
-        <h4 class="mb-0">
-            <i class="fas fa-shield-alt me-2"></i>{% trans "Paso 3: Restricciones Duras" %}
-        </h4>
-    </div>
-    <div class="card-body p-4">
-        <div class="alert alert-danger">
-            <h6><i class="fas fa-exclamation-triangle me-2"></i>{% trans "Restricciones Obligatorias" %}</h6>
-            <p class="mb-0">
-                {% trans "Las restricciones duras DEBEN cumplirse. Si no se cumplen, el sistema no generará una planificación." %}
-            </p>
-        </div>
+{% block title %}Paso 3: Restricciones Duras{% endblock %}
 
-        <form method="post" id="form-paso3">
-            {% csrf_token %}
-            <input type="hidden" name="paso" value="3">
-            {{ form.restricciones_duras }}
+{% block extra_css %}
+<style>
+.wizard-progress {
+    height: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+}
 
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>
-                    {% trans "Restricciones Configuradas:" %} 
-                    <span id="contador-restricciones-duras" class="badge bg-danger">0</span>
-                </h5>
-                <button type="button" 
-                        id="btn-agregar-restriccion-dura" 
-                        class="btn btn-danger">
-                    <i class="fas fa-plus me-2"></i>{% trans "Agregar Restricción" %}
-                </button>
-            </div>
+.example-box {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 1.25rem;
+    margin-top: 1rem;
+    border-radius: 6px;
+}
 
-            <div id="restricciones-duras-contenedor" class="mb-4">
-                <!-- Restricciones dinámicas -->
-            </div>
+.example-box pre {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    overflow-x: auto;
+    margin-bottom: 0;
+}
 
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0">
-                        <i class="fas fa-book me-2"></i>{% trans "Catálogo de Restricciones Duras" %}
-                    </h6>
-                </div>
+.info-box {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.help-text {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Cabecera con progreso -->
+            <div class="card shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Cobertura Mínima" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Mínimo de enfermeras por turno" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Un Turno por Día" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Una enfermera no trabaja dos turnos el mismo día" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Descanso Mínimo" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Horas mínimas entre turnos" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Turnos Consecutivos Máximos" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Máximo de días trabajando seguidos" %}</p>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Horas Semanales Máximas" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Máximo de turnos por semana" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Días Libres Mínimos" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Días libres mínimos por semana" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Incompatibilidades" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Enfermeras que no pueden trabajar juntas" %}</p>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check text-danger me-2"></i>
-                                    <strong>{% trans "Disponibilidad Parcial" %}</strong>
-                                    <p class="text-muted small mb-0">{% trans "Disponibilidad limitada a ciertos turnos" %}</p>
-                                </li>
-                            </ul>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-magic me-2 text-primary"></i>
+                            Asistente de Configuración
+                        </h4>
+                        <span class="badge bg-primary fs-6">
+                            Paso {{ wizard.steps.step1 }} de {{ wizard.steps.count }}
+                        </span>
+                    </div>
+
+                    <!-- Barra de progreso -->
+                    <div class="progress wizard-progress">
+                        {% widthratio wizard.steps.step1 wizard.steps.count 100 as progress_percent %}
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: {{ progress_percent }}%">
+                            {{ progress_percent }}% Completado
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-4">
-                <button type="button" class="btn btn-secondary" onclick="history.back()">
-                    <i class="fas fa-arrow-left me-2"></i>{% trans "Anterior" %}
-                </button>
-                <button type="submit" class="btn btn-primary btn-lg">
-                    {% trans "Siguiente" %}<i class="fas fa-arrow-right ms-2"></i>
-                </button>
+            <!-- Formulario -->
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Restricciones Duras (Obligatorias)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>Restricciones obligatorias:</strong> El solver debe cumplir estas reglas siempre.
+                        Si no puede cumplirlas, no generará ninguna planificación.
+                    </div>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {{ wizard.management_form }}
+
+                        {% if wizard.form.errors %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Por favor, corrige los errores en el formulario.
+                            </div>
+                        {% endif %}
+
+                        <!-- Campo de restricciones duras -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-code text-warning me-2"></i>
+                                Restricciones Duras (JSON)
+                            </label>
+                            {{ wizard.form.restricciones_duras|add_class:"form-control font-monospace"|attr:"rows:10"|attr:"placeholder:Opcional: deja vacío para usar valores predeterminados" }}
+                            <div class="help-text">
+                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                Opcional: Define restricciones personalizadas o deja vacío para usar las predeterminadas
+                            </div>
+                            {% if wizard.form.restricciones_duras.errors %}
+                                <div class="invalid-feedback d-block">{{ wizard.form.restricciones_duras.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Ejemplo de restricciones -->
+                        <div class="example-box">
+                            <h6 class="text-warning mb-3">
+                                <i class="fas fa-copy me-2"></i>
+                                Ejemplo de restricciones (opcional):
+                            </h6>
+                            <pre><code>[
+  {"nombre": "un_turno_por_dia"},
+  {"nombre": "cobertura_minima", "parametros": {"min": 2}},
+  {"nombre": "descanso_minimo", "parametros": {"horas": 11}},
+  {"nombre": "turnos_consecutivos_max", "parametros": {"max": 5}}
+]</code></pre>
+                        </div>
+
+                        <!-- Información de restricciones disponibles -->
+                        <div class="info-box">
+                            <h6 class="text-dark mb-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Restricciones Duras Disponibles:
+                            </h6>
+                            <ul class="mb-0">
+                                <li class="mb-2">
+                                    <strong>un_turno_por_dia:</strong> Una enfermera solo puede trabajar un turno por día
+                                </li>
+                                <li class="mb-2">
+                                    <strong>cobertura_minima:</strong> Garantiza un número mínimo de enfermeras por turno
+                                </li>
+                                <li class="mb-2">
+                                    <strong>cobertura_maxima:</strong> Limita el número máximo de enfermeras por turno
+                                </li>
+                                <li class="mb-2">
+                                    <strong>descanso_minimo:</strong> Descanso obligatorio entre turnos (ej: 11 horas)
+                                </li>
+                                <li class="mb-2">
+                                    <strong>turnos_consecutivos_max:</strong> Máximo de días trabajados consecutivos
+                                </li>
+                                <li>
+                                    <strong>turnos_semanales_max:</strong> Máximo de turnos por semana
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Botones de navegación -->
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" name="wizard_goto_step" value="{{ wizard.steps.prev }}"
+                                    class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Anterior
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                Siguiente<i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </form>
+        </div>
     </div>
 </div>
-{% endblock %}
-
-{% block wizard_help %}
-<p class="small">
-    <strong>{% trans "Paso 3: Restricciones Duras" %}</strong>
-</p>
-<p class="small">
-    {% trans "Las restricciones duras son reglas que DEBEN cumplirse obligatoriamente." %}
-</p>
-<ul class="small mb-0">
-    <li>{% trans "Haz clic en 'Agregar Restricción'" %}</li>
-    <li>{% trans "Selecciona el tipo de restricción" %}</li>
-    <li>{% trans "Configura los parámetros necesarios" %}</li>
-</ul>
 {% endblock %}

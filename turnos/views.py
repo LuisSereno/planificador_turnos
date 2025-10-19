@@ -2,6 +2,7 @@
 Views for turnos app
 """
 import logging
+import json
 from datetime import timedelta
 
 from django.contrib import messages
@@ -17,11 +18,16 @@ from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView,
     TemplateView, View
 )
+from formtools.wizard.views import SessionWizardView
 
 from .forms import (
     EnfermeraForm, TipoTurnoForm, ConfiguracionPlanificacionForm,
     EjecucionRapidaForm,
-    ImportarEnfermerasForm
+    ImportarEnfermerasForm,
+    ConfiguracionWizardStep1Form,
+    ConfiguracionWizardStep2DemandaForm,
+    ConfiguracionWizardStep3DurasForm,
+    ConfiguracionWizardStep4BlandasForm
 )
 from .mixins import (
     OwnerRequiredMixin,
@@ -184,6 +190,61 @@ class ConfiguracionDuplicarView(LoginRequiredMixin, View):
 
         messages.success(request, 'Configuración duplicada con éxito.')
         return redirect('turnos:config_detalle', pk=config_nueva.pk)
+
+
+# ========== Asistente de Configuración (Wizard) ==========
+
+FORMS = [
+    ("paso1", ConfiguracionWizardStep1Form),
+    ("paso2", ConfiguracionWizardStep2DemandaForm),
+    ("paso3", ConfiguracionWizardStep3DurasForm),
+    ("paso4", ConfiguracionWizardStep4BlandasForm),
+]
+
+TEMPLATES = {
+    "paso1": "turnos/wizard/paso1_basico.html",
+    "paso2": "turnos/wizard/paso2_demanda.html",
+    "paso3": "turnos/wizard/paso3_duras.html",
+    "paso4": "turnos/wizard/paso4_blandas.html",
+}
+
+class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
+    """Wizard para crear configuración paso a paso"""
+    url_name = 'turnos:config_wizard_step'
+
+    def get_template_names(self):
+        return [TEMPLATES[self.steps.current]]
+
+    def done(self, form_list, **kwargs):
+        form_data = self.get_all_cleaned_data()
+
+        # Procesar datos JSON
+        demanda_por_turno = form_data.get('demanda_por_turno')
+        restricciones_duras = form_data.get('restricciones_duras')
+        restricciones_blandas = form_data.get('restricciones_blandas')
+
+        # Crear instancia del modelo
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre=form_data['nombre'],
+            descripcion=form_data.get('descripcion', ''),
+            num_dias=form_data['num_dias'],
+            fecha_inicio=form_data['fecha_inicio'],
+            demanda_por_turno=json.loads(demanda_por_turno) if demanda_por_turno else {},
+            restricciones_duras=json.loads(restricciones_duras) if restricciones_duras else [],
+            restricciones_blandas=json.loads(restricciones_blandas) if restricciones_blandas else [],
+            num_trabajadores=form_data.get('num_trabajadores', 4),
+            tiempo_maximo_segundos=form_data.get('tiempo_maximo_segundos', 60),
+            seed=form_data.get('seed'),
+            creado_por=self.request.user,
+            activa=True  # Activar por defecto
+        )
+
+        # Añadir relaciones ManyToMany
+        config.enfermeras.set(form_data['enfermeras'])
+        config.turnos.set(form_data['turnos'])
+
+        messages.success(self.request, f'Configuración "{config.nombre}" creada con éxito.')
+        return redirect('turnos:config_detalle', pk=config.pk)
 
 
 # ========== Ejecuciones ==========

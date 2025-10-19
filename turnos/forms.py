@@ -1,6 +1,8 @@
 """
 Forms for turnos app
 """
+import json
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -263,6 +265,123 @@ class ConfiguracionWizardStep1Form(forms.Form):
         label=_('Tipos de turno'),
         widget=forms.CheckboxSelectMultiple()
     )
+
+    def clean_enfermeras(self):
+        """Valida que haya enfermeras seleccionadas"""
+        enfermeras = self.cleaned_data.get('enfermeras')
+        if not enfermeras or enfermeras.count() < 2:
+            raise ValidationError(_('Debe seleccionar al menos 2 enfermeras.'))
+        return enfermeras
+
+    def clean_turnos(self):
+        """Valida que haya turnos seleccionados"""
+        turnos = self.cleaned_data.get('turnos')
+        if not turnos or turnos.count() < 1:
+            raise ValidationError(_('Debe seleccionar al menos 1 tipo de turno.'))
+        return turnos
+
+
+class ConfiguracionWizardStep2DemandaForm(forms.Form):
+    """Formulario para el paso 2 del wizard: Demanda por turno"""
+
+    demanda_por_turno = forms.CharField(
+        required=False,
+        label=_('Demanda por turno (JSON)'),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 5,
+            'placeholder': 'Ej: {"MANANA": {"min": 2, "optimo": 3, "max": 5}}'
+        }),
+        help_text=_('Opcional. Introduce la demanda esperada por tipo de turno en formato JSON.')
+    )
+
+    def clean_demanda_por_turno(self):
+        data = self.cleaned_data.get('demanda_por_turno')
+        if data:
+            try:
+                json.loads(data)
+            except json.JSONDecodeError:
+                raise ValidationError(_('Formato JSON inválido para la demanda por turno.'))
+        return data
+
+
+class ConfiguracionWizardStep3DurasForm(forms.Form):
+    """Formulario para el paso 3 del wizard: Restricciones duras"""
+
+    restricciones_duras = forms.CharField(
+        required=False,
+        label=_('Restricciones duras (JSON)'),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 5,
+            'placeholder': 'Ej: [{"nombre": "un_turno_por_dia"}]'
+        }),
+        help_text=_('Opcional. Introduce las restricciones duras en formato JSON.')
+    )
+
+    def clean_restricciones_duras(self):
+        data = self.cleaned_data.get('restricciones_duras')
+        if data:
+            try:
+                json.loads(data)
+            except json.JSONDecodeError:
+                raise ValidationError(_('Formato JSON inválido para las restricciones duras.'))
+        return data
+
+
+class ConfiguracionWizardStep4BlandasForm(forms.Form):
+    """Formulario para el paso 4 del wizard: Restricciones blandas y Solver"""
+
+    restricciones_blandas = forms.CharField(
+        required=False,
+        label=_('Restricciones blandas (JSON)'),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 5,
+            'placeholder': 'Ej: [{"nombre": "equidad_turnos", "peso": 10.0}]'
+        }),
+        help_text=_('Opcional. Introduce las restricciones blandas en formato JSON.')
+    )
+
+    num_trabajadores = forms.IntegerField(
+        min_value=1,
+        max_value=8,
+        initial=4,
+        label=_('Número de trabajadores paralelos'),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control'
+        }),
+        help_text=_('Número de procesos o hilos a usar para resolver la planificación.')
+    )
+
+    tiempo_maximo_segundos = forms.IntegerField(
+        min_value=10,
+        max_value=600,
+        initial=60,
+        label=_('Tiempo máximo de resolución (segundos)'),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control'
+        }),
+        help_text=_('Tiempo máximo que el solver intentará encontrar una solución.')
+    )
+
+    seed = forms.IntegerField(
+        required=False,
+        label=_('Semilla aleatoria'),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control'
+        }),
+        help_text=_('Opcional. Un número para inicializar el generador de números aleatorios del solver. Útil para reproducibilidad.')
+    )
+
+    def clean_restricciones_blandas(self):
+        data = self.cleaned_data.get('restricciones_blandas')
+        if data:
+            try:
+                json.loads(data)
+            except json.JSONDecodeError:
+                raise ValidationError(_('Formato JSON inválido para las restricciones blandas.'))
+        return data
 
 
 class EjecucionRapidaForm(forms.Form):

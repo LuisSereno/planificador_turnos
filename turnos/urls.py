@@ -13,7 +13,18 @@ urlpatterns = [
     # Configuraciones
     path('configuraciones/', views.ConfiguracionListView.as_view(), name='config_lista'),
     path('configuraciones/nueva/', views.ConfiguracionCreateView.as_view(), name='config_nueva'),
+    # Wizard simple (deprecado - puedes eliminarlo)
     path('configuraciones/wizard/', views.ConfiguracionWizardView.as_view(), name='config_wizard'),
+
+    # Wizard paso a paso (SessionWizardView) - CORREGIDO
+    path('configuraciones/wizard/step-by-step/',
+         views.ConfiguracionWizardViewStepByStep.as_view(views.FORMS),
+         name='config_wizard_step_by_step'),
+
+    path('configuraciones/wizard/step-by-step/<slug:step>/',
+         views.ConfiguracionWizardViewStepByStep.as_view(views.FORMS),
+         name='config_wizard_step'),
+
     path('configuraciones/<int:pk>/', views.ConfiguracionDetailView.as_view(), name='config_detalle'),
     path('configuraciones/<int:pk>/editar/', views.ConfiguracionUpdateView.as_view(), name='config_editar'),
     path('configuraciones/<int:pk>/eliminar/', views.ConfiguracionDeleteView.as_view(), name='config_eliminar'),

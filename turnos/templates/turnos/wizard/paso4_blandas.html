@@ -1,148 +1,251 @@
-{% extends 'turnos/wizard/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
-{% load i18n %}
+{% load widget_tweaks %}
 
-{% block wizard_content %}
-<div class="card shadow-sm">
-    <div class="card-header bg-warning text-dark">
-        <h4 class="mb-0">
-            <i class="fas fa-balance-scale me-2"></i>{% trans "Paso 4: Restricciones Blandas" %}
-        </h4>
-    </div>
-    <div class="card-body p-4">
-        <div class="alert alert-warning">
-            <h6><i class="fas fa-info-circle me-2"></i>{% trans "Restricciones Opcionales" %}</h6>
-            <p class="mb-0">
-                {% trans "Las restricciones blandas son preferencias que el sistema intentará cumplir, pero no son obligatorias. Asigna un peso para indicar su importancia." %}
-            </p>
-        </div>
+{% block title %}Paso 4: Finalizar Configuración{% endblock %}
 
-        <form method="post" id="form-paso4">
-            {% csrf_token %}
-            <input type="hidden" name="paso" value="4">
-            {{ form.restricciones_blandas }}
+{% block extra_css %}
+<style>
+.wizard-progress {
+    height: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+}
 
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>
-                    {% trans "Restricciones Configuradas:" %} 
-                    <span id="contador-restricciones-blandas" class="badge bg-warning text-dark">0</span>
-                </h5>
-                <button type="button" 
-                        id="btn-agregar-restriccion-blanda" 
-                        class="btn btn-warning text-dark">
-                    <i class="fas fa-plus me-2"></i>{% trans "Agregar Restricción" %}
-                </button>
-            </div>
+.example-box {
+    background: #d1e7dd;
+    border-left: 4px solid #198754;
+    padding: 1.25rem;
+    margin-top: 1rem;
+    border-radius: 6px;
+}
 
-            <div id="restricciones-blandas-contenedor" class="mb-4">
-                <!-- Restricciones dinámicas -->
-            </div>
+.example-box pre {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    overflow-x: auto;
+    margin-bottom: 0;
+}
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h6 class="mb-0">
-                                <i class="fas fa-weight me-2"></i>{% trans "Sobre los Pesos" %}
-                            </h6>
+.param-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.help-text {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+
+.success-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.95rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Cabecera con progreso -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-magic me-2 text-primary"></i>
+                            Asistente de Configuración
+                        </h4>
+                        <span class="success-badge">
+                            <i class="fas fa-check-circle me-2"></i>Último Paso
+                        </span>
+                    </div>
+
+                    <!-- Barra de progreso completa -->
+                    <div class="progress wizard-progress">
+                        <div class="progress-bar bg-success"
+                             role="progressbar"
+                             style="width: 100%">
+                            <i class="fas fa-check me-2"></i>100% Completado
                         </div>
-                        <div class="card-body">
-                            <ul class="small mb-0">
-                                <li>{% trans "El peso determina la importancia relativa" %}</li>
-                                <li>{% trans "Valores más altos = mayor prioridad" %}</li>
-                                <li>{% trans "Rango: 0.5 - 10.0" %}</li>
-                                <li>{% trans "El sistema minimiza la suma ponderada" %}</li>
-                            </ul>
-                            
-                            <div class="mt-3">
-                                <small class="text-muted">{% trans "Ejemplo:" %}</small>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <span class="small">{% trans "Baja" %}</span>
-                                    <span class="badge bg-secondary">0.5 - 2.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario -->
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Restricciones Blandas y Parámetros del Solver
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Último paso:</strong> Define restricciones opcionales (blandas) y configura los parámetros del solver.
+                    </div>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {{ wizard.management_form }}
+
+                        {% if wizard.form.errors %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Por favor, corrige los errores en el formulario.
+                            </div>
+                        {% endif %}
+
+                        <!-- Restricciones blandas -->
+                        <h6 class="text-success mb-3 mt-4">
+                            <i class="fas fa-balance-scale me-2"></i>
+                            Restricciones Blandas (Preferencias)
+                        </h6>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-code text-success me-2"></i>
+                                Restricciones Blandas (JSON)
+                            </label>
+                            {{ wizard.form.restricciones_blandas|add_class:"form-control font-monospace"|attr:"rows:8"|attr:"placeholder:Opcional: restricciones que el solver intentará cumplir" }}
+                            <div class="help-text">
+                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                Opcional: El solver intentará cumplirlas, pero no son obligatorias
+                            </div>
+                            {% if wizard.form.restricciones_blandas.errors %}
+                                <div class="invalid-feedback d-block">{{ wizard.form.restricciones_blandas.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Ejemplo -->
+                        <div class="example-box">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-copy me-2"></i>
+                                Ejemplo de restricciones blandas:
+                            </h6>
+                            <pre><code>[
+  {"nombre": "equidad_turnos", "peso": 10.0},
+  {"nombre": "preferencias_turno", "peso": 5.0},
+  {"nombre": "minimizar_noches", "peso": 3.0}
+]</code></pre>
+                            <div class="mt-3 p-2 bg-white border rounded">
+                                <small class="text-muted">
+                                    <strong>peso:</strong> Importancia relativa (mayor peso = mayor prioridad)
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Parámetros del Solver -->
+                        <hr class="my-4">
+                        <h6 class="text-primary mb-3 mt-4">
+                            <i class="fas fa-cogs me-2"></i>
+                            Parámetros de Optimización
+                        </h6>
+
+                        <div class="param-card">
+                            <div class="row">
+                                <!-- Número de trabajadores -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-microchip text-primary me-2"></i>
+                                        Procesos Paralelos
+                                    </label>
+                                    {{ wizard.form.num_trabajadores|add_class:"form-control"|attr:"min:1"|attr:"max:16" }}
+                                    <div class="help-text">
+                                        <i class="fas fa-info-circle text-info me-1"></i>
+                                        Recomendado: 4 (más procesos = más rápido, pero más uso de CPU)
+                                    </div>
+                                    {% if wizard.form.num_trabajadores.errors %}
+                                        <div class="invalid-feedback d-block">{{ wizard.form.num_trabajadores.errors }}</div>
+                                    {% endif %}
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <span class="small">{% trans "Media" %}</span>
-                                    <span class="badge bg-info">2.0 - 5.0</span>
+
+                                <!-- Tiempo máximo -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-clock text-warning me-2"></i>
+                                        Tiempo Máximo (segundos)
+                                    </label>
+                                    {{ wizard.form.tiempo_maximo_segundos|add_class:"form-control"|attr:"min:10"|attr:"max:600" }}
+                                    <div class="help-text">
+                                        <i class="fas fa-info-circle text-info me-1"></i>
+                                        Tiempo máximo que el solver buscará la mejor solución (60-300 seg recomendado)
+                                    </div>
+                                    {% if wizard.form.tiempo_maximo_segundos.errors %}
+                                        <div class="invalid-feedback d-block">{{ wizard.form.tiempo_maximo_segundos.errors }}</div>
+                                    {% endif %}
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <span class="small">{% trans "Alta" %}</span>
-                                    <span class="badge bg-warning text-dark">5.0 - 8.0</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <span class="small">{% trans "Crítica" %}</span>
-                                    <span class="badge bg-danger">8.0 - 10.0</span>
+                            </div>
+
+                            <!-- Semilla aleatoria -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-random text-secondary me-2"></i>
+                                        Semilla Aleatoria (Seed)
+                                    </label>
+                                    {{ wizard.form.seed|add_class:"form-control"|attr:"placeholder:Opcional: número para reproducir resultados exactos" }}
+                                    <div class="help-text">
+                                        <i class="fas fa-lightbulb text-warning me-1"></i>
+                                        Opcional: Usa un número fijo para obtener siempre los mismos resultados.
+                                        Útil para comparar configuraciones.
+                                    </div>
+                                    {% if wizard.form.seed.errors %}
+                                        <div class="invalid-feedback d-block">{{ wizard.form.seed.errors }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="col-md-6">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h6 class="mb-0">
-                                <i class="fas fa-list me-2"></i>{% trans "Restricciones Blandas Disponibles" %}
-                            </h6>
+                        <!-- Mensaje final -->
+                        <div class="alert alert-light border mt-4">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-check-circle text-success fa-3x"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">¡Casi listo!</h6>
+                                    <p class="mb-0 text-muted">
+                                        Al hacer clic en "Crear Configuración", se guardará toda la información
+                                        y podrás ejecutar la planificación cuando quieras.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <ul class="list-unstyled small mb-0">
-                                <li class="mb-2">
-                                    <i class="fas fa-heart text-warning me-2"></i>
-                                    <strong>{% trans "Preferencias de Turno" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-calendar-heart text-warning me-2"></i>
-                                    <strong>{% trans "Preferencias de Días Libres" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-balance-scale text-warning me-2"></i>
-                                    <strong>{% trans "Distribución Equitativa de Noches" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-arrows-rotate text-warning me-2"></i>
-                                    <strong>{% trans "Minimizar Cambios de Turno" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-object-group text-warning me-2"></i>
-                                    <strong>{% trans "Evitar Turnos Aislados" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-bullseye text-warning me-2"></i>
-                                    <strong>{% trans "Cumplir Demanda Óptima" %}</strong>
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-chart-pie text-warning me-2"></i>
-                                    <strong>{% trans "Balanceo de Carga Total" %}</strong>
-                                </li>
-                            </ul>
+
+                        <!-- Botones de navegación -->
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" name="wizard_goto_step" value="{{ wizard.steps.prev }}"
+                                    class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Anterior
+                            </button>
+                            <button type="submit" class="btn btn-success btn-lg px-5 shadow">
+                                <i class="fas fa-save me-2"></i>Crear Configuración
+                            </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-4">
-                <button type="button" class="btn btn-secondary" onclick="history.back()">
-                    <i class="fas fa-arrow-left me-2"></i>{% trans "Anterior" %}
-                </button>
-                <button type="submit" class="btn btn-success btn-lg">
-                    <i class="fas fa-check me-2"></i>{% trans "Crear Configuración" %}
-                </button>
+            <!-- Footer informativo -->
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-shield-alt me-1"></i>
+                    Tus datos se guardarán de forma segura y podrás editarlos más adelante
+                </small>
             </div>
-        </form>
+        </div>
     </div>
 </div>
-{% endblock %}
-
-{% block wizard_help %}
-<p class="small">
-    <strong>{% trans "Paso 4: Restricciones Blandas" %}</strong>
-</p>
-<p class="small">
-    {% trans "Las restricciones blandas son preferencias opcionales. El sistema las cumplirá en la medida de lo posible." %}
-</p>
-<ul class="small mb-0">
-    <li>{% trans "Son opcionales pero recomendadas" %}</li>
-    <li>{% trans "Asigna pesos según importancia" %}</li>
-    <li>{% trans "Mejoran la calidad de la solución" %}</li>
-</ul>
 {% endblock %}
