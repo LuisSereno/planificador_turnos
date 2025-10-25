@@ -1,0 +1,18 @@
+﻿<div class="workspace-selector">
+  <select id="workspace-select" class="form-control">
+    {% for ws in request.user.workspaces.all %}
+      <option value="{{ ws.id }}" {% if workspace and ws.id == workspace.id %}selected{% endif %}>
+        {{ ws.nombre }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
+<script>
+document.getElementById('workspace-select')?.addEventListener('change', function () {
+  fetch('{% url "turnos:cambiar_workspace" %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'workspace_id=' + this.value
+  }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+});
+</script>
