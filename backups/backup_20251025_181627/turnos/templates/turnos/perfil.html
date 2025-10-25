@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Mi Perfil" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Mi Perfil" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- Tarjeta de Usuario -->
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <div class="user-avatar-xxl mb-3">
+                    {{ user.first_name|first|default:user.username|first|upper }}
+                </div>
+                <h4 class="fw-bold">{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted">{{ user.email }}</p>
+                <span class="badge bg-primary">{{ user.get_rol_display|default:"Usuario" }}</span>
+
+                <hr>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'accounts:editar_perfil' %}" class="btn btn-primary">
+                        <i class="fas fa-user-edit me-2"></i>{% trans "Editar Perfil" %}
+                    </a>
+                    <a href="{% url 'accounts:cambiar_password' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-key me-2"></i>{% trans "Cambiar Contraseña" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información de Cuenta -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>{% trans "Información de Cuenta" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "Usuario" %}</small>
+                    <div class="fw-bold">{{ user.username }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "Miembro desde" %}</small>
+                    <div class="fw-bold">{{ user.date_joined|format_date_es:"long" }}</div>
+                </div>
+                <div>
+                    <small class="text-muted">{% trans "Último acceso" %}</small>
+                    <div class="fw-bold">{{ user.last_login|time_ago }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <!-- Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-card-icon primary">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div class="stat-card-content">
+                        <div class="stat-card-value">{{ stats.configuraciones|default:0 }}</div>
+                        <div class="stat-card-label">{% trans "Configuraciones" %}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-card-icon success">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-card-content">
+                        <div class="stat-card-value">{{ stats.ejecuciones|default:0 }}</div>
+                        <div class="stat-card-label">{% trans "Ejecuciones" %}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-card-icon warning">
+                        <i class="fas fa-user-nurse"></i>
+                    </div>
+                    <div class="stat-card-content">
+                        <div class="stat-card-value">{{ stats.enfermeras|default:0 }}</div>
+                        <div class="stat-card-label">{% trans "Enfermeras" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actividad Reciente -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>{% trans "Actividad Reciente" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if actividad_reciente %}
+                <ul class="timeline">
+                    {% for actividad in actividad_reciente %}
+                    <li class="timeline-item">
+                        <div class="timeline-badge {{ actividad.tipo }}">
+                            <i class="fas {{ actividad.icono }}"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6 class="mb-1">{{ actividad.titulo }}</h6>
+                            <p class="text-muted mb-1">{{ actividad.descripcion }}</p>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>{{ actividad.fecha|time_ago }}
+                            </small>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-center text-muted py-4">
+                    {% trans "No hay actividad reciente" %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Preferencias -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-sliders-h me-2"></i>{% trans "Preferencias" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'turnos:guardar_preferencias' %}">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{% trans "Notificaciones" %}</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="notificaciones_email"
+                                   id="notificaciones_email"
+                                   {% if preferencias.notificaciones_email %}checked{% endif %}>
+                            <label class="form-check-label" for="notificaciones_email">
+                                {% trans "Recibir notificaciones por email" %}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{% trans "Idioma" %}</label>
+                        <select class="form-select" name="idioma">
+                            <option value="es" {% if preferencias.idioma == "es" %}selected{% endif %}>Español</option>
+                            <option value="en" {% if preferencias.idioma == "en" %}selected{% endif %}>English</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{% trans "Tema" %}</label>
+                        <select class="form-select" name="tema">
+                            <option value="light" {% if preferencias.tema == "light" %}selected{% endif %}>
+                                {% trans "Claro" %}
+                            </option>
+                            <option value="dark" {% if preferencias.tema == "dark" %}selected{% endif %}>
+                                {% trans "Oscuro" %}
+                            </option>
+                            <option value="auto" {% if preferencias.tema == "auto" %}selected{% endif %}>
+                                {% trans "Automático" %}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>{% trans "Guardar Preferencias" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.user-avatar-xxl {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    font-weight: bold;
+    margin: 0 auto;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.timeline {
+    list-style: none;
+    padding: 0;
+    position: relative;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 60px;
+    margin-bottom: 30px;
+}
+
+.timeline-badge {
+    position: absolute;
+    left: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #667eea;
+    color: white;
+    z-index: 1;
+}
+
+.timeline-badge.create {
+    background: #28a745;
+}
+
+.timeline-badge.update {
+    background: #17a2b8;
+}
+
+.timeline-badge.execute {
+    background: #ffc107;
+    color: #212529;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

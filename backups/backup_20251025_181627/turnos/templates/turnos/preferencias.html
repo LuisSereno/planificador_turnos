@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Preferencias" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Preferencias" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>{% trans "Preferencias del Sistema" %}
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="{% url 'turnos:guardar_preferencias' %}">
+                    {% csrf_token %}
+
+                    <!-- Notificaciones -->
+                    <div class="form-section mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-bell me-2 text-primary"></i>{% trans "Notificaciones" %}
+                        </h5>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="notificaciones_email"
+                                       id="notificaciones_email"
+                                       {% if preferencias.notificaciones_email %}checked{% endif %}>
+                                <label class="form-check-label" for="notificaciones_email">
+                                    <strong>{% trans "Notificaciones por email" %}</strong>
+                                    <div class="text-muted small">
+                                        {% trans "Recibir emails cuando las ejecuciones finalicen" %}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="notificaciones_browser"
+                                       id="notificaciones_browser"
+                                       {% if preferencias.notificaciones_browser %}checked{% endif %}>
+                                <label class="form-check-label" for="notificaciones_browser">
+                                    <strong>{% trans "Notificaciones del navegador" %}</strong>
+                                    <div class="text-muted small">
+                                        {% trans "Mostrar notificaciones en el navegador" %}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interfaz -->
+                    <div class="form-section mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-palette me-2 text-primary"></i>{% trans "Interfaz" %}
+                        </h5>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">{% trans "Idioma" %}</label>
+                                    <select class="form-select" name="idioma">
+                                        <option value="es" {% if preferencias.idioma == "es" %}selected{% endif %}>
+                                            Español
+                                        </option>
+                                        <option value="en" {% if preferencias.idioma == "en" %}selected{% endif %}>
+                                            English
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">{% trans "Tema" %}</label>
+                                    <select class="form-select" name="tema">
+                                        <option value="light" {% if preferencias.tema == "light" %}selected{% endif %}>
+                                            {% trans "Claro" %}
+                                        </option>
+                                        <option value="dark" {% if preferencias.tema == "dark" %}selected{% endif %}>
+                                            {% trans "Oscuro" %}
+                                        </option>
+                                        <option value="auto" {% if preferencias.tema == "auto" %}selected{% endif %}>
+                                            {% trans "Automático" %}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuración de Ejecuciones -->
+                    <div class="form-section mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-rocket me-2 text-primary"></i>{% trans "Configuración de Ejecuciones" %}
+                        </h5>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">{% trans "Trabajadores por defecto" %}</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           name="trabajadores_default"
+                                           min="1"
+                                           max="8"
+                                           value="{{ preferencias.trabajadores_default|default:4 }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">{% trans "Tiempo máximo (segundos)" %}</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           name="tiempo_maximo_default"
+                                           min="10"
+                                           max="600"
+                                           value="{{ preferencias.tiempo_maximo_default|default:60 }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'turnos:dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>{% trans "Guardar Preferencias" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

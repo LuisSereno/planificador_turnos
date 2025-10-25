@@ -1,0 +1,58 @@
+{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>¡Bienvenido/a {{ usuario.first_name }}! 👋</h2>
+
+<p>Gracias por registrarte en <strong>Planificador de Turnos</strong>. Estamos emocionados de tenerte en nuestra plataforma.</p>
+
+<p>Para completar tu registro y activar tu cuenta, necesitamos que verifiques tu dirección de email. Es rápido y sencillo:</p>
+
+<div class="button-container">
+    <a href="{{ url_verificacion }}" class="button">✅ Verificar mi Email</a>
+</div>
+
+<div class="info-box">
+    <strong>🔗 ¿Problemas con el botón?</strong>
+    <p style="margin-top: 8px;">Copia y pega este enlace en tu navegador:</p>
+    <div class="code-block">{{ url_verificacion }}</div>
+</div>
+
+<div class="warning-box">
+    <strong>⏰ Importante - El enlace expirará pronto</strong>
+    <p style="margin-top: 8px;">
+        Por seguridad, este enlace de verificación expirará en <strong>{{ expiracion_horas }} horas</strong>.<br>
+        Si no verificas tu email antes de ese tiempo, deberás solicitar un nuevo enlace de verificación.
+    </p>
+</div>
+
+<div class="divider"></div>
+
+<h3 style="color: #667eea; font-size: 18px;">¿Qué puedes hacer con Planificador de Turnos?</h3>
+
+<ul>
+    <li>✨ <strong>Automatizar</strong> la planificación de turnos de enfermería</li>
+    <li>⚙️ <strong>Configurar</strong> restricciones personalizadas</li>
+    <li>📊 <strong>Generar</strong> reportes y estadísticas detalladas</li>
+    <li>📤 <strong>Exportar</strong> planillas en múltiples formatos</li>
+    <li>👥 <strong>Gestionar</strong> equipos de forma eficiente</li>
+</ul>
+
+<div class="success-box">
+    <strong>🎉 Próximos pasos después de verificar:</strong>
+    <ol style="margin: 8px 0 0 16px; padding: 0;">
+        <li>Completa tu perfil de usuario</li>
+        <li>Añade tu equipo de enfermeras</li>
+        <li>Crea tu primera configuración</li>
+        <li>Explora los tutoriales disponibles</li>
+    </ol>
+</div>
+
+<div class="divider"></div>
+
+<p><strong>Nota de seguridad:</strong> Si no creaste esta cuenta, simplemente ignora este email. Tu información está segura.</p>
+
+<p style="margin-top: 30px;">
+    ¡Estamos aquí para ayudarte!<br>
+    <strong>El equipo de Planificador de Turnos</strong> 💙
+</p>
+{% endblock %}

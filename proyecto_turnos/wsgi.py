@@ -22,6 +22,6 @@ application = get_wsgi_application()
 try:
     from whitenoise import WhiteNoise
     application = WhiteNoise(application)
-    application.add_files('/app/staticfiles/', prefix='static/')
+    application.add_files('./staticfiles/', prefix='static/')
 except ImportError:
     pass

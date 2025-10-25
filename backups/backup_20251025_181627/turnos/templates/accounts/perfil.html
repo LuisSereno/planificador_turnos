@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Mi Perfil" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Mi Perfil" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Información del Usuario -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <div class="user-avatar mx-auto mb-3" style="width: 120px; height: 120px; font-size: 3rem;">
+                    {{ user.first_name|first|default:user.username|first|upper }}
+                </div>
+                <h4>{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted">{{ user.get_rol_display }}</p>
+                <p class="text-muted">
+                    <i class="fas fa-envelope me-2"></i>{{ user.email }}
+                </p>
+                {% if user.telefono %}
+                    <p class="text-muted">
+                        <i class="fas fa-phone me-2"></i>{{ user.telefono }}
+                    </p>
+                {% endif %}
+
+                <hr>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'accounts:editar_perfil' %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>{% trans "Editar Perfil" %}
+                    </a>
+                    <a href="{% url 'accounts:cambiar_password' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-key me-2"></i>{% trans "Cambiar Contraseña" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas del Usuario -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>{% trans "Estadísticas" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "Miembro desde" %}</small>
+                    <div class="fw-bold">{{ user.date_joined|format_date_es:"long" }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "Último acceso" %}</small>
+                    <div class="fw-bold">{{ user.fecha_ultimo_acceso|time_ago }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "Configuraciones creadas" %}</small>
+                    <div class="fw-bold">{{ stats.configuraciones_creadas|default:0 }}</div>
+                </div>
+                <div>
+                    <small class="text-muted">{% trans "Ejecuciones realizadas" %}</small>
+                    <div class="fw-bold">{{ stats.ejecuciones_realizadas|default:0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividad Reciente -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>{% trans "Actividad Reciente" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if actividad_reciente %}
+                    <ul class="list-unstyled">
+                        {% for actividad in actividad_reciente %}
+                            <li class="mb-3 pb-3 border-bottom">
+                                <div class="d-flex">
+                                    <div class="activity-icon me-3 {{ actividad.tipo }}">
+                                        <i class="fas {{ actividad.icono }}"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong>{{ actividad.titulo }}</strong>
+                                        <p class="text-muted mb-1">{{ actividad.descripcion }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>{{ actividad.timestamp|time_ago }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center py-4">
+                        {% trans "No hay actividad reciente" %}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Preferencias -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>{% trans "Preferencias" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'turnos:guardar_preferencias' %}">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Notificaciones por email" %}</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="notificaciones_email"
+                                       {% if preferencias.notificaciones_email %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    {% trans "Recibir notificaciones" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Idioma" %}</label>
+                            <select class="form-select" name="idioma">
+                                <option value="es" {% if preferencias.idioma == 'es' %}selected{% endif %}>Español</option>
+                                <option value="en" {% if preferencias.idioma == 'en' %}selected{% endif %}>English</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>{% trans "Guardar Preferencias" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-avatar {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .activity-icon.create {
+        background-color: var(--success-light);
+        color: var(--success-color);
+    }
+
+    .activity-icon.update {
+        background-color: var(--info-light);
+        color: var(--info-color);
+    }
+
+    .activity-icon.execute {
+        background-color: var(--warning-light);
+        color: var(--warning-color);
+    }
+</style>
+{% endblock %}

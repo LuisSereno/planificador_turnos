@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Planilla de Turnos" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/planilla.css' %}">
+<style>
+    .planilla-table {
+        font-size: 0.85rem;
+    }
+    .planilla-table th {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    .planilla-table td {
+        vertical-align: middle;
+        padding: 0.5rem;
+    }
+    .turno-cell {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .turno-cell:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .turno-manana {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    .turno-tarde {
+        background: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+    }
+    .turno-noche {
+        background: #d6d8db;
+        border-left: 4px solid #343a40;
+    }
+    .dia-libre {
+        background: #d4edda;
+        text-align: center;
+        color: #155724;
+    }
+    .fin-semana {
+        background: #f8f9fa;
+    }
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_lista' %}">{% trans "Ejecuciones" %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_detalle' ejecucion.id %}">{{ ejecucion.configuracion.nombre }}</a></li>
+    <li class="breadcrumb-item active">{% trans "Tabla" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <h2 class="mb-0">
+        <i class="fas fa-table me-2"></i>{% trans "Planilla de Turnos" %}
+    </h2>
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+            <i class="fas fa-print me-2"></i>{% trans "Imprimir" %}
+        </button>
+        <button type="button" class="btn btn-outline-success" onclick="exportarExcel()">
+            <i class="fas fa-file-excel me-2"></i>Excel
+        </button>
+    </div>
+</div>
+
+<!-- Leyenda -->
+<div class="card shadow-sm mb-4 no-print">
+    <div class="card-body">
+        <h6 class="mb-3">{% trans "Leyenda:" %}</h6>
+        <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+                <span class="turno-manana d-inline-block me-2" style="width: 30px; height: 20px; border-radius: 4px;"></span>
+                <span>{% trans "Mañana" %}</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="turno-tarde d-inline-block me-2" style="width: 30px; height: 20px; border-radius: 4px;"></span>
+                <span>{% trans "Tarde" %}</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="turno-noche d-inline-block me-2" style="width: 30px; height: 20px; border-radius: 4px;"></span>
+                <span>{% trans "Noche" %}</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="dia-libre d-inline-block me-2" style="width: 30px; height: 20px; border-radius: 4px;"></span>
+                <span>{% trans "Día Libre" %}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Planificación -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover planilla-table mb-0">
+                <thead>
+                    <tr>
+                        <th rowspan="2" class="text-center align-middle">{% trans "Enfermera" %}</th>
+                        {% for semana in semanas %}
+                            <th colspan="{{ semana.dias }}" class="text-center">
+                                {% trans "Semana" %} {{ forloop.counter }}
+                            </th>
+                        {% endfor %}
+                        <th rowspan="2" class="text-center align-middle">{% trans "Total" %}</th>
+                    </tr>
+                    <tr>
+                        {% for dia in dias %}
+                            <th class="text-center {% if dia.fin_semana %}fin-semana{% endif %}">
+                                {{ dia.nombre }}<br>
+                                <small>{{ dia.fecha|date:"d/m" }}</small>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for enfermera_data in planilla_por_enfermera %}
+                    <tr>
+                        <td class="fw-bold">{{ enfermera_data.enfermera.nombre }}</td>
+                        {% for asignacion in enfermera_data.asignaciones %}
+                            <td class="turno-cell {{ asignacion.clase_css }} {% if asignacion.fin_semana %}fin-semana{% endif %}"
+                                data-bs-toggle="tooltip"
+                                title="{{ asignacion.detalle }}">
+                                {% if asignacion.turno %}
+                                    <div class="text-center">
+                                        <strong>{{ asignacion.turno_display }}</strong>
+                                        <div class="small text-muted">
+                                            {{ asignacion.horario }}
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-times"></i>
+                                        <div class="small">{% trans "Libre" %}</div>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td class="text-center fw-bold">
+                            <span class="badge bg-primary">
+                                {{ enfermera_data.total_turnos }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-light">
+                        <th>{% trans "Enfermeras/Día" %}</th>
+                        {% for total in totales_por_dia %}
+                            <th class="text-center">{{ total }}</th>
+                        {% endfor %}
+                        <th class="text-center">{{ total_general }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="card mt-4 no-print">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-info-circle me-2"></i>{% trans "Resumen" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h4 class="mb-0">{{ resumen.total_turnos }}</h4>
+                    <small class="text-muted">{% trans "Turnos Totales" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h4 class="mb-0">{{ resumen.promedio_por_enfermera|floatformat:1 }}</h4>
+                    <small class="text-muted">{% trans "Promedio por Enfermera" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h4 class="mb-0">{{ resumen.dias_libres_totales }}</h4>
+                    <small class="text-muted">{% trans "Días Libres Totales" %}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h4 class="mb-0">{{ resumen.horas_totales }}</h4>
+                    <small class="text-muted">{% trans "Horas Totales" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Inicializar tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+});
+
+// Función para exportar a Excel
+function exportarExcel() {
+    window.location.href = "{% url 'turnos:ejecucion_exportar_excel' ejecucion.id %}";
+}
+</script>
+{% endblock %}

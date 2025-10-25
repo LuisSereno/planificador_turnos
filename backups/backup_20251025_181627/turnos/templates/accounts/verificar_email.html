@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Verificar Email" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header text-white text-center py-4 {% if verificado %}bg-success{% else %}bg-danger{% endif %}">
+                    <div class="mb-3">
+                        {% if verificado %}
+                            <i class="fas fa-check-circle fa-5x"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle fa-5x"></i>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-weight-light mb-0">
+                        {% if verificado %}
+                            {% trans "Email Verificado" %}
+                        {% else %}
+                            {% trans "Error de Verificación" %}
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body p-5 text-center">
+                    {% if verificado %}
+                        <p class="lead mb-4">
+                            {% trans "¡Felicidades! Tu dirección de email ha sido verificada correctamente." %}
+                        </p>
+                        <p>
+                            {% trans "Ya puedes acceder a todas las funcionalidades del sistema." %}
+                        </p>
+                        <div class="d-grid mt-4">
+                            <a href="{% url 'accounts:login' %}" class="btn btn-success btn-lg">
+                                <i class="fas fa-sign-in-alt me-2"></i>{% trans "Iniciar Sesión" %}
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="lead mb-4">
+                            {% trans "El enlace de verificación es inválido o ha expirado." %}
+                        </p>
+                        <p class="text-muted">
+                            {% trans "Por favor solicita un nuevo enlace de verificación." %}
+                        </p>
+                        <div class="d-grid mt-4">
+                            <a href="{% url 'accounts:reenviar_verificacion' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane me-2"></i>{% trans "Reenviar Email de Verificación" %}
+                            </a>
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'accounts:login' %}" class="text-decoration-none">
+                                {% trans "Volver al inicio de sesión" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

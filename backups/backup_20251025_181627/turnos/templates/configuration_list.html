@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}Lista de Configuraciones{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">Configuraciones</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Configuraciones de Planificación</h2>
+        <p class="text-muted">Gestiona y ejecuta configuraciones de turnos</p>
+    </div>
+    <a href="{% url 'turnos:config_wizard' %}" class="btn btn-primary btn-lg">
+        <i class="fas fa-magic me-2"></i>Nueva Configuración
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text"
+                       name="q"
+                       class="form-control"
+                       placeholder="Buscar por nombre..."
+                       value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-3">
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="activa" {% if request.GET.estado == 'activa' %}selected{% endif %}>Activas</option>
+                    <option value="inactiva" {% if request.GET.estado == 'inactiva' %}selected{% endif %}>Inactivas</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="orden" class="form-select">
+                    <option value="-fecha_creacion">Más recientes</option>
+                    <option value="fecha_creacion">Más antiguas</option>
+                    <option value="nombre">Nombre A-Z</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Configuraciones -->
+{% if object_list %}
+    <div class="row">
+        {% for config in object_list %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ config.nombre }}</h5>
+                    {% if config.activa %}
+                        <span class="badge bg-success">Activa</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactiva</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">{{ config.descripcion|truncatechars:100 }}</p>
+
+                    <div class="config-stats">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="fas fa-calendar me-2 text-primary"></i>Días:</span>
+                            <strong>{{ config.num_dias }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="fas fa-user-nurse me-2 text-primary"></i>Enfermeras:</span>
+                            <strong>{{ config.enfermeras.count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span><i class="fas fa-clock me-2 text-primary"></i>Turnos:</span>
+                            <strong>{{ config.turnos.count }}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'turnos:config_detalle' config.id %}"
+                           class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="fas fa-eye"></i> Ver
+                        </a>
+                        <a href="{% url 'turnos:ejecutar_planificacion' config.id %}"
+                           class="btn btn-sm btn-success flex-grow-1">
+                            <i class="fas fa-play"></i> Ejecutar
+                        </a>
+                        <a href="{% url 'turnos:config_editar' config.id %}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-folder-open fa-5x text-muted mb-4"></i>
+        <h3>No hay configuraciones</h3>
+        <p class="text-muted">Crea tu primera configuración para comenzar</p>
+        <a href="{% url 'turnos:config_wizard' %}" class="btn btn-primary btn-lg mt-3">
+            <i class="fas fa-plus me-2"></i>Crear Primera Configuración
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

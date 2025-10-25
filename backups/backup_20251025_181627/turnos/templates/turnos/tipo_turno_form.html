@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if tipo_turno %}
+        {% trans "Editar Tipo de Turno" %}
+    {% else %}
+        {% trans "Nuevo Tipo de Turno" %}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:tipo_turno_lista' %}">{% trans "Tipos de Turno" %}</a></li>
+    {% if tipo_turno %}
+        <li class="breadcrumb-item active">{% trans "Editar" %}</li>
+    {% else %}
+        <li class="breadcrumb-item active">{% trans "Nuevo" %}</li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    {% if tipo_turno %}
+                        <i class="fas fa-edit me-2"></i>{% trans "Editar Tipo de Turno" %}
+                    {% else %}
+                        <i class="fas fa-plus me-2"></i>{% trans "Nuevo Tipo de Turno" %}
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="" class="needs-validation" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Tipo de Turno -->
+                    <div class="mb-4">
+                        <label for="{{ form.nombre.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-tag me-2"></i>{{ form.nombre.label }} *
+                        </label>
+                        {{ form.nombre }}
+                        {% if form.nombre.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.nombre.errors.0 }}
+                            </div>
+                        {% else %}
+                            <small class="form-text text-muted">
+                                {% trans "Selecciona el tipo de turno (Mañana, Tarde o Noche)" %}
+                            </small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Horarios -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label for="{{ form.hora_inicio.id_for_label }}" class="form-label fw-bold">
+                                    <i class="fas fa-clock me-2"></i>{{ form.hora_inicio.label }} *
+                                </label>
+                                {{ form.hora_inicio }}
+                                {% if form.hora_inicio.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.hora_inicio.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label for="{{ form.hora_fin.id_for_label }}" class="form-label fw-bold">
+                                    <i class="fas fa-clock me-2"></i>{{ form.hora_fin.label }} *
+                                </label>
+                                {{ form.hora_fin }}
+                                {% if form.hora_fin.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.hora_fin.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duración (calculada automáticamente) -->
+                    <div class="mb-4">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>{% trans "Duración:" %}</strong>
+                            <span id="duracion-display">{% trans "Se calculará automáticamente" %}</span>
+                        </div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="mb-4">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-align-left me-2"></i>{{ form.descripcion.label }}
+                        </label>
+                        {{ form.descripcion }}
+                        <small class="form-text text-muted">
+                            {% trans "Información adicional sobre este turno (opcional)" %}
+                        </small>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.activo }}
+                            <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                                <strong>{% trans "Turno activo" %}</strong>
+                                <div class="text-muted small">
+                                    {% trans "Los turnos inactivos no aparecerán en las nuevas configuraciones" %}
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Ejemplos de Horarios -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-3">
+                                <i class="fas fa-lightbulb me-2"></i>{% trans "Ejemplos de Horarios Típicos:" %}
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="example-turno mb-2">
+                                        <strong class="text-warning">☀️ {% trans "Mañana" %}</strong>
+                                        <div class="small">07:00 - 15:00</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="example-turno mb-2">
+                                        <strong class="text-info">🌤️ {% trans "Tarde" %}</strong>
+                                        <div class="small">15:00 - 23:00</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="example-turno mb-2">
+                                        <strong class="text-dark">🌙 {% trans "Noche" %}</strong>
+                                        <div class="small">23:00 - 07:00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'turnos:tipo_turno_lista' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>
+                            {% if tipo_turno %}
+                                {% trans "Guardar Cambios" %}
+                            {% else %}
+                                {% trans "Crear Tipo de Turno" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Calcular duración automáticamente
+function calcularDuracion() {
+    const horaInicio = document.getElementById('{{ form.hora_inicio.id_for_label }}').value;
+    const horaFin = document.getElementById('{{ form.hora_fin.id_for_label }}').value;
+    
+    if (horaInicio && horaFin) {
+        const [hIni, mIni] = horaInicio.split(':').map(Number);
+        const [hFin, mFin] = horaFin.split(':').map(Number);
+        
+        let minutosInicio = hIni * 60 + mIni;
+        let minutosFin = hFin * 60 + mFin;
+        
+        // Si el turno cruza medianoche
+        if (minutosFin < minutosInicio) {
+            minutosFin += 24 * 60;
+        }
+        
+        const duracionMinutos = minutosFin - minutosInicio;
+        const horas = Math.floor(duracionMinutos / 60);
+        const minutos = duracionMinutos % 60;
+        
+        document.getElementById('duracion-display').textContent = 
+            `${horas} hora${horas !== 1 ? 's' : ''} ${minutos > 0 ? `y ${minutos} minutos` : ''}`;
+    }
+}
+
+// Listeners para calcular duración
+document.getElementById('{{ form.hora_inicio.id_for_label }}').addEventListener('change', calcularDuracion);
+document.getElementById('{{ form.hora_fin.id_for_label }}').addEventListener('change', calcularDuracion);
+
+// Calcular al cargar si hay valores
+document.addEventListener('DOMContentLoaded', calcularDuracion);
+</script>
+
+<style>
+.example-turno {
+    padding: 0.5rem;
+    background: white;
+    border-radius: 6px;
+    text-align: center;
+}
+</style>
+{% endblock %}

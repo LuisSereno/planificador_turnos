@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Comparar Resultados" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_lista' %}">{% trans "Ejecuciones" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Comparar" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-columns me-2"></i>{% trans "Comparar Resultados" %}
+    </h2>
+</div>
+
+<!-- Selector de Ejecuciones -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">{% trans "Ejecución A" %}</label>
+                    <select class="form-select" name="ejecucion_a" required>
+                        <option value="">{% trans "Seleccionar..." %}</option>
+                        {% for ejecucion in ejecuciones %}
+                            <option value="{{ ejecucion.id }}" 
+                                    {% if ejecucion.id == ejecucion_a.id %}selected{% endif %}>
+                                {{ ejecucion.configuracion.nombre }} - {{ ejecucion.fecha_inicio|date:"d/m/Y" }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">{% trans "Ejecución B" %}</label>
+                    <select class="form-select" name="ejecucion_b" required>
+                        <option value="">{% trans "Seleccionar..." %}</option>
+                        {% for ejecucion in ejecuciones %}
+                            <option value="{{ ejecucion.id }}" 
+                                    {% if ejecucion.id == ejecucion_b.id %}selected{% endif %}>
+                                {{ ejecucion.configuracion.nombre }} - {{ ejecucion.fecha_inicio|date:"d/m/Y" }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-grid align-self-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-exchange-alt me-2"></i>{% trans "Comparar" %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if ejecucion_a and ejecucion_b %}
+<!-- Tabla Comparativa -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-balance-scale me-2"></i>{% trans "Comparativa Detallada" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30%">{% trans "Métrica" %}</th>
+                        <th width="35%" class="text-center bg-primary text-white">
+                            {{ ejecucion_a.configuracion.nombre }}
+                        </th>
+                        <th width="35%" class="text-center bg-info text-white">
+                            {{ ejecucion_b.configuracion.nombre }}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>{% trans "Estado" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.estado|estado_badge }}</td>
+                        <td class="text-center">{{ ejecucion_b.estado|estado_badge }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Fecha de Ejecución" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.fecha_inicio|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">{{ ejecucion_b.fecha_inicio|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Duración" %}</strong></td>
+                        <td class="text-center">
+                            {% if ejecucion_a.duracion %}
+                                {{ ejecucion_a.duracion|format_duration }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if ejecucion_b.duracion %}
+                                {{ ejecucion_b.duracion|format_duration }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Penalización Total" %}</strong></td>
+                        <td class="text-center">
+                            <span class="badge bg-{{ ejecucion_a.penalizacion_total|progress_color }} fs-6">
+                                {{ ejecucion_a.penalizacion_total|floatformat:2 }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-{{ ejecucion_b.penalizacion_total|progress_color }} fs-6">
+                                {{ ejecucion_b.penalizacion_total|floatformat:2 }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Solución Óptima" %}</strong></td>
+                        <td class="text-center">
+                            {% if ejecucion_a.es_optima %}
+                                <span class="badge bg-success">{% trans "Sí" %}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{% trans "No" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if ejecucion_b.es_optima %}
+                                <span class="badge bg-success">{% trans "Sí" %}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{% trans "No" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Días Planificados" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.configuracion.num_dias }}</td>
+                        <td class="text-center">{{ ejecucion_b.configuracion.num_dias }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Enfermeras Involucradas" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.configuracion.enfermeras.count }}</td>
+                        <td class="text-center">{{ ejecucion_b.configuracion.enfermeras.count }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Restricciones Duras" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.configuracion.restricciones_duras|length }}</td>
+                        <td class="text-center">{{ ejecucion_b.configuracion.restricciones_duras|length }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Restricciones Blandas" %}</strong></td>
+                        <td class="text-center">{{ ejecucion_a.configuracion.restricciones_blandas|length }}</td>
+                        <td class="text-center">{{ ejecucion_b.configuracion.restricciones_blandas|length }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Ganador -->
+<div class="card mt-4">
+    <div class="card-body text-center p-4">
+        <h4 class="mb-3">{% trans "Resultado de la Comparación" %}</h4>
+        {% if comparacion.ganador == 'a' %}
+            <div class="alert alert-success">
+                <i class="fas fa-trophy fa-3x mb-3"></i>
+                <h5>{% trans "La Ejecución A es superior" %}</h5>
+                <p>{{ ejecucion_a.configuracion.nombre }}</p>
+                <p class="mb-0"><strong>{% trans "Razón:" %}</strong> {{ comparacion.razon }}</p>
+            </div>
+        {% elif comparacion.ganador == 'b' %}
+            <div class="alert alert-info">
+                <i class="fas fa-trophy fa-3x mb-3"></i>
+                <h5>{% trans "La Ejecución B es superior" %}</h5>
+                <p>{{ ejecucion_b.configuracion.nombre }}</p>
+                <p class="mb-0"><strong>{% trans "Razón:" %}</strong> {{ comparacion.razon }}</p>
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-balance-scale fa-3x mb-3"></i>
+                <h5>{% trans "Las ejecuciones son equivalentes" %}</h5>
+                <p class="mb-0">{{ comparacion.razon }}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

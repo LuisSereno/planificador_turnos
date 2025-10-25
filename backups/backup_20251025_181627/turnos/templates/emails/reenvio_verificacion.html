@@ -1,0 +1,76 @@
+ç{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>Nuevo Enlace de Verificación 📧</h2>
+
+<p>Hola <strong>{{ usuario.first_name }}</strong>,</p>
+
+<p>Has solicitado un nuevo enlace de verificación para activar tu cuenta en <strong>Planificador de Turnos</strong>.</p>
+
+<div class="info-box">
+    <strong>ℹ️ ¿Por qué necesitas verificar tu email?</strong>
+    <p style="margin-top: 8px;">
+        La verificación de email nos ayuda a:
+    </p>
+    <ul style="margin: 8px 0 0 20px;">
+        <li>Confirmar que eres el propietario de esta cuenta</li>
+        <li>Proteger tu cuenta de accesos no autorizados</li>
+        <li>Asegurar que podemos contactarte cuando sea necesario</li>
+        <li>Recuperar tu cuenta si olvidas tu contraseña</li>
+    </ul>
+</div>
+
+<p>Haz clic en el botón de abajo para verificar tu email y activar todas las funcionalidades:</p>
+
+<div class="button-container">
+    <a href="{{ url_verificacion }}" class="button">✅ Verificar mi Email Ahora</a>
+</div>
+
+<div class="info-box">
+    <strong>🔗 ¿Problemas con el botón?</strong>
+    <p style="margin-top: 8px;">Copia y pega este enlace en tu navegador:</p>
+    <div class="code-block">{{ url_verificacion }}</div>
+</div>
+
+<div class="warning-box">
+    <strong>⏰ Este enlace es temporal</strong>
+    <p style="margin-top: 8px;">
+        Por seguridad, este nuevo enlace de verificación expirará en <strong>{{ expiracion_horas }} horas</strong>.<br>
+        Si no lo usas antes, tu enlace anterior (si existe) quedará invalidado.
+    </p>
+</div>
+
+<div class="divider"></div>
+
+<h3 style="color: #667eea; font-size: 18px;">❓ Problemas Comunes y Soluciones</h3>
+
+<table style="width: 100%; margin: 20px 0;">
+    <tr>
+        <td style="padding: 12px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+            <strong style="color: #667eea;">El enlace no funciona</strong><br>
+            <span style="color: #666; font-size: 14px;">Intenta copiar y pegar el enlace completo en tu navegador. Asegúrate de no añadir espacios al final.</span>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 12px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+            <strong style="color: #667eea;">No encuentro el email</strong><br>
+            <span style="color: #666; font-size: 14px;">Revisa tu carpeta de spam o correo no deseado. Añade noreply@planificador.com a tus contactos.</span>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 12px; background-color: #f8f9fa; border-radius: 8px;">
+            <strong style="color: #667eea;">El enlace expiró</strong><br>
+            <span style="color: #666; font-size: 14px;">Puedes solicitar un nuevo enlace de verificación en cualquier momento desde la página de login.</span>
+        </td>
+    </tr>
+</table>
+
+<div class="divider"></div>
+
+<p><strong>Nota:</strong> Si no solicitaste este enlace de verificación, puedes ignorar este email de forma segura.</p>
+
+<p style="margin-top: 30px;">
+    ¡Estamos listos para ayudarte!<br>
+    <strong>El equipo de Planificador de Turnos</strong> 💬
+</p>
+{% endblock %}

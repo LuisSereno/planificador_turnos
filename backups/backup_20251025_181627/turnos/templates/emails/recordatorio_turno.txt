@@ -1,0 +1,22 @@
+============================================
+RECORDATORIO DE TURNO
+Planificador de Turnos
+============================================
+
+Hola {{ enfermera.nombre }},
+
+Este es un recordatorio de que tienes un turno próximo:
+
+📅 Fecha: {{ turno_fecha|date:"d/m/Y" }}
+⏰ Turno: {{ turno_tipo }}
+
+¡No olvides tu turno!
+
+Asegúrate de estar disponible en el horario correspondiente.
+
+============================================
+
+Este es un recordatorio automático. Si tienes alguna pregunta o necesitas realizar algún cambio, contacta con tu supervisor.
+
+{{ site_name }}
+{{ site_url }}

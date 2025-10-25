@@ -1,0 +1,43 @@
+¡Hola {{ usuario.first_name }}!
+
+Gracias por registrarte en Planificador de Turnos. Estamos emocionados de tenerte en nuestra plataforma.
+
+VERIFICAR MI EMAIL
+==================
+Para completar tu registro y activar tu cuenta, verifica tu dirección de email visitando el siguiente enlace:
+
+{{ url_verificacion }}
+
+IMPORTANTE - El enlace expirará pronto
+========================================
+Por seguridad, este enlace de verificación expirará en {{ expiracion_horas }} horas.
+Si no verificas tu email antes de ese tiempo, deberás solicitar un nuevo enlace.
+
+¿Qué puedes hacer con Planificador de Turnos?
+==============================================
+* Automatizar la planificación de turnos de enfermería
+* Configurar restricciones personalizadas
+* Generar reportes y estadísticas detalladas
+* Exportar planillas en múltiples formatos
+* Gestionar equipos de forma eficiente
+
+PRÓXIMOS PASOS
+==============
+1. Completa tu perfil de usuario
+2. Añade tu equipo de enfermeras
+3. Crea tu primera configuración
+4. Explora los tutoriales disponibles
+
+NOTA DE SEGURIDAD
+=================
+Si no creaste esta cuenta, simplemente ignora este email. Tu información está segura.
+
+¡Estamos aquí para ayudarte!
+El equipo de Planificador de Turnos
+
+---
+{{ site_name }}
+{{ site_url }}
+
+Este es un email automático. Por favor no respondas a este mensaje.
+© {{ year }} {{ site_name }}. Todos los derechos reservados.

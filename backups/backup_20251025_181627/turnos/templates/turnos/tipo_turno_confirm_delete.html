@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Eliminar Tipo de Turno" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:tipo_turno_lista' %}">{% trans "Tipos de Turno" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Eliminar" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-danger text-white text-center py-4">
+                <i class="fas fa-clock fa-4x mb-3"></i>
+                <h3>{% trans "Eliminar Tipo de Turno" %}</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>{% trans "¡Advertencia!" %}</h5>
+                    <p class="mb-0">
+                        {% trans "Estás a punto de eliminar el siguiente tipo de turno:" %}
+                    </p>
+                </div>
+
+                <div class="mb-4 p-3 bg-light rounded text-center">
+                    <h4 class="fw-bold">{{ tipo_turno.get_nombre_display }}</h4>
+                    <p class="text-muted mb-2">
+                        <i class="fas fa-clock me-2"></i>
+                        {{ tipo_turno.hora_inicio|time:"H:i" }} - {{ tipo_turno.hora_fin|time:"H:i" }}
+                    </p>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-hourglass-half me-2"></i>
+                        {{ tipo_turno.duracion_horas }} {% trans "horas" %}
+                    </p>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong><i class="fas fa-info-circle me-2"></i>{% trans "Consecuencias:" %}</strong>
+                    <ul class="mb-0">
+                        <li>{% trans "Se eliminará de todas las configuraciones existentes" %}</li>
+                        <li>{% trans "Las planificaciones ya generadas no se verán afectadas" %}</li>
+                        <li>{% trans "Esta acción no se puede deshacer" %}</li>
+                    </ul>
+                </div>
+
+                <form method="post" action="{% url 'turnos:tipo_turno_eliminar' tipo_turno.id %}">
+                    {% csrf_token %}
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmar" required>
+                        <label class="form-check-label fw-bold" for="confirmar">
+                            {% trans "Confirmo que deseo eliminar este tipo de turno" %}
+                        </label>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger btn-lg" id="btn-eliminar" disabled>
+                            <i class="fas fa-trash me-2"></i>{% trans "Eliminar Tipo de Turno" %}
+                        </button>
+                        <a href="{% url 'turnos:tipo_turno_lista' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Cancelar" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('confirmar').addEventListener('change', function() {
+    document.getElementById('btn-eliminar').disabled = !this.checked;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+============================================
+¡BIENVENIDO!
+Planificador de Turnos
+============================================
+
+¡Hola {{ nombre_completo }}!
+
+Estamos encantados de darte la bienvenida a Planificador de Turnos. Tu cuenta ha sido verificada y está lista para usar.
+
+Ahora puedes disfrutar de todas nuestras funcionalidades para optimizar la gestión de turnos de tu equipo.
+
+Accede a tu dashboard aquí:
+{{ url_dashboard }}
+
+============================================
+
+¿QUÉ PUEDES HACER CON PLANIFICADOR DE TURNOS?
+
+📋 Gestión de Enfermeras
+   Administra tu equipo de enfermeras de forma centralizada.
+
+⚙️ Configuración Flexible
+   Crea configuraciones personalizadas con restricciones duras y blandas.
+
+🤖 Optimización Automática
+   Genera planificaciones óptimas utilizando algoritmos avanzados.
+
+📊 Reportes y Estadísticas
+   Visualiza y exporta tus planificaciones en múltiples formatos.
+
+============================================
+
+PRIMEROS PASOS:
+
+1. Añade enfermeras a tu equipo
+2. Configura los tipos de turno
+3. Crea tu primera configuración
+4. ¡Genera tu planificación!
+
+============================================
+
+Si necesitas ayuda, no dudes en consultar nuestra documentación o contactar con nuestro equipo de soporte.
+
+{{ site_name }}
+{{ site_url }}
+
+Si necesitas ayuda, contacta con: {{ support_email }}

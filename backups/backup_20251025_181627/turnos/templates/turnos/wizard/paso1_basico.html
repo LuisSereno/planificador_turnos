@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Paso 1: Información Básica{% endblock %}
+
+{% block extra_css %}
+<style>
+.wizard-progress {
+    height: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.checkbox-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+}
+
+.checkbox-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.help-text {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Cabecera con progreso -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-magic me-2 text-primary"></i>
+                            Asistente de Configuración
+                        </h4>
+                        <span class="badge bg-primary fs-6">
+                            Paso {{ wizard.steps.step1 }} de {{ wizard.steps.count }}
+                        </span>
+                    </div>
+
+                    <!-- Barra de progreso -->
+                    <div class="progress wizard-progress">
+                        {% widthratio wizard.steps.step1 wizard.steps.count 100 as progress_percent %}
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: {{ progress_percent }}%"
+                             aria-valuenow="{{ progress_percent }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            {{ progress_percent }}% Completado
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información Básica
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {{ wizard.management_form }}
+
+                        {% if wizard.form.errors %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Errores en el formulario:</strong> Por favor, corrige los campos marcados.
+                            </div>
+                        {% endif %}
+
+                        <!-- Nombre -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                Nombre de la Configuración
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ wizard.form.nombre|add_class:"form-control"|attr:"placeholder:Ej: Planificación Octubre 2025" }}
+                            <div class="help-text">
+                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                Ejemplo: "Planificación Octubre 2025" o "Turnos Urgencias Q4"
+                            </div>
+                            {% if wizard.form.nombre.errors %}
+                                <div class="invalid-feedback d-block">{{ wizard.form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Descripción</label>
+                            {{ wizard.form.descripcion|add_class:"form-control"|attr:"rows:3"|attr:"placeholder:Breve descripción de la planificación (opcional)" }}
+                            <div class="help-text">
+                                Opcional: Añade detalles o notas sobre esta configuración
+                            </div>
+                        </div>
+
+                        <!-- Número de días y Fecha -->
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">
+                                    Número de Días
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ wizard.form.num_dias|add_class:"form-control"|attr:"placeholder:28" }}
+                                <div class="help-text">
+                                    <i class="fas fa-info-circle text-info me-1"></i>
+                                    Típicamente: 7, 14, 28 o 30 días
+                                </div>
+                                {% if wizard.form.num_dias.errors %}
+                                    <div class="invalid-feedback d-block">{{ wizard.form.num_dias.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">
+                                    Fecha de Inicio
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ wizard.form.fecha_inicio|add_class:"form-control" }}
+                                {% if wizard.form.fecha_inicio.errors %}
+                                    <div class="invalid-feedback d-block">{{ wizard.form.fecha_inicio.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Enfermeras -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-user-nurse text-primary me-2"></i>
+                                Enfermeras Asignadas
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="checkbox-container">
+                                {% for choice_value, choice_label in wizard.form.enfermeras.field.choices %}
+                                    <div class="d-flex align-items-center mb-3">
+                                        <input type="checkbox"
+                                               class="form-check-input me-2"
+                                               name="{{ wizard.form.enfermeras.html_name }}"
+                                               value="{{ choice_value }}"
+                                               id="id_enfermeras_{{ forloop.counter }}"
+                                               {% if choice_value|stringformat:"s" in wizard.form.enfermeras.value|default:'' %}checked{% endif %}
+                                               style="width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                        <label class="form-check-label mb-0" for="id_enfermeras_{{ forloop.counter }}" style="cursor: pointer;">
+                                            {{ choice_label }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="help-text">
+                                <i class="fas fa-users text-success me-1"></i>
+                                Selecciona al menos 2 enfermeras para la planificación
+                            </div>
+                            {% if wizard.form.enfermeras.errors %}
+                                <div class="invalid-feedback d-block">{{ wizard.form.enfermeras.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Tipos de Turno -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-clock text-warning me-2"></i>
+                                Tipos de Turno
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="checkbox-container" style="max-height: 200px;">
+                                {% for choice_value, choice_label in wizard.form.turnos.field.choices %}
+                                    <div class="d-flex align-items-center mb-3">
+                                        <input type="checkbox"
+                                               class="form-check-input me-2"
+                                               name="{{ wizard.form.turnos.html_name }}"
+                                               value="{{ choice_value }}"
+                                               id="id_turnos_{{ forloop.counter }}"
+                                               {% if choice_value|stringformat:"s" in wizard.form.turnos.value|default:'' %}checked{% endif %}
+                                               style="width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                        <label class="form-check-label mb-0" for="id_turnos_{{ forloop.counter }}" style="cursor: pointer;">
+                                            <strong>{{ choice_label }}</strong>
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="help-text">
+                                <i class="fas fa-calendar-check text-info me-1"></i>
+                                Selecciona los tipos de turnos a incluir
+                            </div>
+                            {% if wizard.form.turnos.errors %}
+                                <div class="invalid-feedback d-block">{{ wizard.form.turnos.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Botones -->
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'turnos:config_lista' %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                Siguiente<i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{{ configuracion.nombre }}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:config_lista' %}">{% trans "Configuraciones" %}</a></li>
+    <li class="breadcrumb-item active">{{ configuracion.nombre }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{{ configuracion.nombre }}</h2>
+    <div class="btn-group">
+        <a href="{% url 'turnos:ejecutar_planificacion' configuracion.id %}" class="btn btn-success">
+            <i class="fas fa-play me-2"></i>{% trans "Ejecutar" %}
+        </a>
+        <a href="{% url 'turnos:config_editar' configuracion.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-edit"></i>
+        </a>
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <span class="visually-hidden">{% trans "Más opciones" %}</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <a class="dropdown-item" href="{% url 'turnos:config_duplicar' configuracion.id %}">
+                    <i class="fas fa-clone me-2"></i>{% trans "Duplicar" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'turnos:config_exportar_json' configuracion.id %}">
+                    <i class="fas fa-download me-2"></i>{% trans "Exportar JSON" %}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-danger" href="{% url 'turnos:config_eliminar' configuracion.id %}">
+                    <i class="fas fa-trash me-2"></i>{% trans "Eliminar" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna Principal -->
+    <div class="col-lg-8">
+        <!-- Información General -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>{% trans "Información General" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block">{% trans "Nombre" %}</small>
+                        <strong>{{ configuracion.nombre }}</strong>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block">{% trans "Estado" %}</small>
+                        {{ configuracion.activa|activo_badge }}
+                    </div>
+                    <div class="col-12 mb-3">
+                        <small class="text-muted d-block">{% trans "Descripción" %}</small>
+                        <p class="mb-0">{{ configuracion.descripcion|default:"—" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <small class="text-muted d-block">{% trans "Días a planificar" %}</small>
+                        <strong>{{ configuracion.num_dias }}</strong>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <small class="text-muted d-block">{% trans "Fecha inicio" %}</small>
+                        <strong>{{ configuracion.fecha_inicio|date:"d/m/Y" }}</strong>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <small class="text-muted d-block">{% trans "Trabajadores paralelos" %}</small>
+                        <strong>{{ configuracion.num_trabajadores }}</strong>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block">{% trans "Tiempo máximo" %}</small>
+                        <strong>{{ configuracion.tiempo_maximo_segundos }}s</strong>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block">{% trans "Semilla aleatoria" %}</small>
+                        <strong>{{ configuracion.seed|default:"—" }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">{% trans "Creado por" %}</small>
+                        <strong>{{ configuracion.creado_por.get_full_name|default:configuracion.creado_por.username }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">{% trans "Fecha de creación" %}</small>
+                        <strong>{{ configuracion.fecha_creacion|date:"d/m/Y H:i" }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demanda por Turno -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>{% trans "Demanda por Tipo de Turno" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Turno" %}</th>
+                                <th class="text-center">{% trans "Mínimo" %}</th>
+                                <th class="text-center">{% trans "Óptimo" %}</th>
+                                <th class="text-center">{% trans "Máximo" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for nombre, demanda in configuracion.demanda_por_turno.items %}
+                            <tr>
+                                <td><strong>{{ nombre|title }}</strong></td>
+                                <td class="text-center">
+                                    <span class="badge bg-danger">{{ demanda.min }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">{{ demanda.optimo }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-warning text-dark">{{ demanda.max }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Restricciones Duras -->
+        {% if configuracion.restricciones_duras %}
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>{% trans "Restricciones Duras" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for restriccion in configuracion.restricciones_duras %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ restriccion.nombre|capfirst }}</strong>
+                                {% if restriccion.parametros %}
+                                    <div class="text-muted small mt-1">
+                                        {{ restriccion.parametros|format_json_params }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-danger">{% trans "Obligatoria" %}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Restricciones Blandas -->
+        {% if configuracion.restricciones_blandas %}
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-balance-scale me-2"></i>{% trans "Restricciones Blandas" %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for restriccion in configuracion.restricciones_blandas %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong>{{ restriccion.nombre|capfirst }}</strong>
+                                {% if restriccion.parametros %}
+                                    <div class="text-muted small mt-1">
+                                        {{ restriccion.parametros|format_json_params }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-warning text-dark">
+                                {% trans "Peso:" %} {{ restriccion.peso }}
+                            </span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Columna Lateral -->
+    <div class="col-lg-4">
+        <!-- Enfermeras -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-user-nurse me-2"></i>{% trans "Enfermeras Asignadas" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if configuracion.enfermeras.all %}
+                    <ul class="list-group list-group-flush">
+                        {% for enfermera in configuracion.enfermeras.all %}
+                        <li class="list-group-item px-0">
+                            <a href="{% url 'turnos:enfermera_detalle' enfermera.id %}">
+                                {{ enfermera.nombre }}
+                            </a>
+                            {% if enfermera.activa %}
+                                <span class="badge bg-success float-end">✓</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">{% trans "No hay enfermeras asignadas" %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tipos de Turno -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>{% trans "Tipos de Turno" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if configuracion.turnos.all %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for turno in configuracion.turnos.all %}
+                        <div class="p-2 rounded {% if turno.nombre == 'MANANA' %}bg-warning bg-opacity-10{% elif turno.nombre == 'TARDE' %}bg-info bg-opacity-10{% else %}bg-dark bg-opacity-10{% endif %}">
+                            <strong>{{ turno.get_nombre_display }}</strong>
+                            <div class="small text-muted">
+                                {{ turno.hora_inicio|time:"H:i" }} - {{ turno.hora_fin|time:"H:i" }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">{% trans "No hay turnos configurados" %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Ejecuciones Recientes -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>{% trans "Ejecuciones Recientes" %}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if ejecuciones_recientes %}
+                    <ul class="list-group list-group-flush">
+                        {% for ejecucion in ejecuciones_recientes %}
+                        <li class="list-group-item px-0">
+                            <a href="{% url 'turnos:ejecucion_detalle' ejecucion.id %}">
+                                {{ ejecucion.fecha_inicio|date:"d/m/Y H:i" }}
+                            </a>
+                            <div class="mt-1">
+                                {{ ejecucion.estado|estado_badge }}
+                                {% if ejecucion.es_optima %}
+                                    <span class="badge bg-success ms-1">
+                                        <i class="fas fa-star"></i>
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{% url 'turnos:ejecucion_lista' %}?config={{ configuracion.id }}"
+                       class="btn btn-sm btn-outline-primary w-100 mt-2">
+                        {% trans "Ver todas" %}
+                    </a>
+                {% else %}
+                    <p class="text-muted mb-0">{% trans "No hay ejecuciones" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

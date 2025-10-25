@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Reporte de Conflictos" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/reportes.css' %}">
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:reportes' %}">{% trans "Reportes" %}</a></li>
+    <li class="breadcrumb-item active">{% trans "Conflictos" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-exclamation-triangle me-2"></i>{% trans "Reporte de Conflictos" %}
+    </h2>
+    <button type="button" class="btn btn-primary" onclick="window.print()">
+        <i class="fas fa-print me-2"></i>{% trans "Imprimir" %}
+    </button>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">{% trans "Configuración" %}</label>
+                <select class="form-select" name="configuracion">
+                    <option value="">{% trans "Todas" %}</option>
+                    {% for config in configuraciones %}
+                        <option value="{{ config.id }}" {% if config.id == filtros.configuracion %}selected{% endif %}>
+                            {{ config.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Tipo de Conflicto" %}</label>
+                <select class="form-select" name="tipo">
+                    <option value="">{% trans "Todos" %}</option>
+                    <option value="restriccion_dura" {% if filtros.tipo == "restriccion_dura" %}selected{% endif %}>
+                        {% trans "Restricción Dura" %}
+                    </option>
+                    <option value="restriccion_blanda" {% if filtros.tipo == "restriccion_blanda" %}selected{% endif %}>
+                        {% trans "Restricción Blanda" %}
+                    </option>
+                    <option value="descanso_minimo" {% if filtros.tipo == "descanso_minimo" %}selected{% endif %}>
+                        {% trans "Descanso Mínimo" %}
+                    </option>
+                    <option value="turnos_consecutivos" {% if filtros.tipo == "turnos_consecutivos" %}selected{% endif %}>
+                        {% trans "Turnos Consecutivos" %}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Severidad" %}</label>
+                <select class="form-select" name="severidad">
+                    <option value="">{% trans "Todas" %}</option>
+                    <option value="alta" {% if filtros.severidad == "alta" %}selected{% endif %}>
+                        {% trans "Alta" %}
+                    </option>
+                    <option value="media" {% if filtros.severidad == "media" %}selected{% endif %}>
+                        {% trans "Media" %}
+                    </option>
+                    <option value="baja" {% if filtros.severidad == "baja" %}selected{% endif %}>
+                        {% trans "Baja" %}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-2"></i>{% trans "Filtrar" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resumen de Conflictos -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card border-danger">
+            <div class="stat-card-icon danger">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value text-danger">{{ resumen.total_conflictos }}</div>
+                <div class="stat-card-label">{% trans "Total Conflictos" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card border-danger">
+            <div class="stat-card-icon danger">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value text-danger">{{ resumen.severidad_alta }}</div>
+                <div class="stat-card-label">{% trans "Severidad Alta" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card border-warning">
+            <div class="stat-card-icon warning">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value text-warning">{{ resumen.severidad_media }}</div>
+                <div class="stat-card-label">{% trans "Severidad Media" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card border-info">
+            <div class="stat-card-icon info">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="stat-card-content">
+                <div class="stat-card-value text-info">{{ resumen.severidad_baja }}</div>
+                <div class="stat-card-label">{% trans "Severidad Baja" %}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Conflictos -->
+{% if conflictos %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>{% trans "Detalle de Conflictos" %}
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+            {% for conflicto in conflictos %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-2">
+                            {% if conflicto.severidad == 'alta' %}
+                                <span class="badge bg-danger me-2">
+                                    <i class="fas fa-exclamation-circle me-1"></i>{% trans "ALTA" %}
+                                </span>
+                            {% elif conflicto.severidad == 'media' %}
+                                <span class="badge bg-warning text-dark me-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>{% trans "MEDIA" %}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info me-2">
+                                    <i class="fas fa-info-circle me-1"></i>{% trans "BAJA" %}
+                                </span>
+                            {% endif %}
+                            <strong>{{ conflicto.tipo_display }}</strong>
+                        </div>
+
+                        <p class="mb-2">{{ conflicto.descripcion }}</p>
+
+                        <div class="conflict-details">
+                            <small class="text-muted">
+                                <i class="fas fa-user-nurse me-1"></i>
+                                <strong>{% trans "Enfermera:" %}</strong> {{ conflicto.enfermera.nombre }}
+                            </small>
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-calendar me-1"></i>
+                                <strong>{% trans "Fecha:" %}</strong> {{ conflicto.fecha|date:"d/m/Y" }}
+                            </small>
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-cog me-1"></i>
+                                <strong>{% trans "Config:" %}</strong> {{ conflicto.configuracion.nombre }}
+                            </small>
+                        </div>
+
+                        {% if conflicto.solucion_sugerida %}
+                        <div class="alert alert-light mt-3 mb-0">
+                            <strong><i class="fas fa-lightbulb me-2"></i>{% trans "Solución sugerida:" %}</strong>
+                            <p class="mb-0 mt-2">{{ conflicto.solucion_sugerida }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="ms-3">
+                        <button class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modal-conflicto-{{ conflicto.id }}">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Paginación -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-success text-center my-5">
+    <i class="fas fa-check-circle fa-3x mb-3"></i>
+    <h4>{% trans "¡No se encontraron conflictos!" %}</h4>
+    <p>{% trans "Todas las configuraciones cumplen con las restricciones establecidas." %}</p>
+</div>
+{% endif %}
+{% endblock %}

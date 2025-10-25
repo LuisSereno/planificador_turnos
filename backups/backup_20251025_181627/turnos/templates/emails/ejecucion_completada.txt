@@ -1,0 +1,37 @@
+============================================
+PLANIFICACIÓN COMPLETADA
+Planificador de Turnos
+============================================
+
+Hola {{ nombre_completo }},
+
+¡Buenas noticias! La planificación que solicitaste ha sido completada exitosamente.
+
+============================================
+
+DETALLES DE LA PLANIFICACIÓN
+
+Nombre: {{ configuracion.nombre }}
+Período: {{ configuracion.num_dias }} días
+Duración del proceso: {{ duracion }} segundos
+Penalización: {{ penalizacion|floatformat:2 }}
+Estado: {% if es_optima %}Óptima{% else %}Factible{% endif %}
+
+============================================
+
+Puedes revisar los resultados y descargar la planilla en:
+{{ url_resultado }}
+
+OPCIONES DE EXPORTACIÓN DISPONIBLES:
+• Excel (.xlsx)
+• PDF
+• CSV
+• JSON
+• iCalendar (.ics)
+
+============================================
+
+{{ site_name }}
+{{ site_url }}
+
+Si necesitas ayuda, contacta con: {{ support_email }}

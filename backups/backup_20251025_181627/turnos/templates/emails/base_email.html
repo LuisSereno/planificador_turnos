@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{ asunto|default:"Planificador de Turnos" }}</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+    </style>
+    <![endif]-->
+    <style>
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+
+        /* Base styles */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f4f7f9;
+        }
+
+        /* Container */
+        .email-wrapper {
+            width: 100%;
+            background-color: #f4f7f9;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Header */
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .email-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .email-header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        /* Body */
+        .email-body {
+            padding: 40px 30px;
+            background-color: #ffffff;
+        }
+
+        .email-body h2 {
+            color: #667eea;
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .email-body p {
+            margin: 0 0 16px 0;
+            color: #555555;
+            line-height: 1.7;
+        }
+
+        .email-body ul {
+            margin: 16px 0;
+            padding-left: 20px;
+        }
+
+        .email-body li {
+            margin-bottom: 8px;
+            color: #555555;
+        }
+
+        /* Button */
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 16px 40px;
+            background-color: #667eea;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+        }
+
+        .button:hover {
+            background-color: #5568d3;
+        }
+
+        .button-secondary {
+            background-color: #6c757d;
+            box-shadow: 0 4px 6px rgba(108, 117, 125, 0.3);
+        }
+
+        .button-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        /* Boxes */
+        .info-box, .warning-box, .success-box, .danger-box {
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #0066cc;
+        }
+
+        .warning-box {
+            background-color: #fff8e1;
+            border-left: 4px solid #ffa726;
+        }
+
+        .success-box {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+
+        .danger-box {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+
+        .info-box strong, .warning-box strong, .success-box strong, .danger-box strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        /* Code block */
+        .code-block {
+            background-color: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 16px 0;
+        }
+
+        /* Link */
+        .link-text {
+            color: #667eea;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .link-text:hover {
+            text-decoration: underline;
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background-color: #e0e0e0;
+            margin: 30px 0;
+        }
+
+        /* Footer */
+        .email-footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .email-footer p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .email-footer a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        .email-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .social-links {
+            margin: 20px 0;
+        }
+
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+            color: #6c757d;
+            font-size: 20px;
+        }
+
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                width: 100% !important;
+                border-radius: 0 !important;
+            }
+
+            .email-header, .email-body, .email-footer {
+                padding: 20px !important;
+            }
+
+            .email-header h1 {
+                font-size: 24px !important;
+            }
+
+            .button {
+                padding: 14px 30px !important;
+                font-size: 15px !important;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .email-wrapper {
+                background-color: #1a1a1a !important;
+            }
+
+            .email-container {
+                background-color: #2d2d2d !important;
+            }
+
+            .email-body {
+                background-color: #2d2d2d !important;
+            }
+
+            .email-body p, .email-body li {
+                color: #e0e0e0 !important;
+            }
+
+            .email-footer {
+                background-color: #1a1a1a !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table role="presentation" class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="email-header">
+                            <div class="icon">🗓️</div>
+                            <h1>Planificador de Turnos</h1>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td class="email-body">
+                            {% block content %}{% endblock %}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="email-footer">
+                            <p><strong>Este es un email automático.</strong> Por favor no respondas a este mensaje.</p>
+
+                            <div class="social-links">
+                                <a href="{{ site_url }}" title="Visitar sitio web">🌐</a>
+                                <a href="{{ site_url }}/ayuda/" title="Centro de ayuda">❓</a>
+                                <a href="{{ site_url }}/contacto/" title="Contacto">✉️</a>
+                            </div>
+
+                            <p>
+                                <a href="{{ site_url }}">{{ site_name }}</a> |
+                                <a href="{{ site_url }}/ayuda/">Centro de Ayuda</a> |
+                                <a href="{{ site_url }}/contacto/">Contacto</a>
+                            </p>
+
+                            <p style="margin-top: 20px; font-size: 12px; color: #999999;">
+                                © {{ year }} {{ site_name }}. Todos los derechos reservados.<br>
+                                Si prefieres no recibir más emails, <a href="{{ site_url }}/cancelar-suscripcion/">cancela tu suscripción</a>.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

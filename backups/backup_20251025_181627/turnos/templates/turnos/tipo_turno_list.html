@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Tipos de Turno" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Tipos de Turno" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{% trans "Gestión de Tipos de Turno" %}</h2>
+    <a href="{% url 'turnos:tipo_turno_nuevo' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>{% trans "Añadir Tipo de Turno" %}
+    </a>
+</div>
+
+<!-- Información -->
+<div class="alert alert-info mb-4">
+    <i class="fas fa-info-circle me-2"></i>
+    {% trans "Los tipos de turno definen los horarios de trabajo. Configura aquí los turnos de Mañana, Tarde y Noche según las necesidades de tu centro." %}
+</div>
+
+<!-- Lista de Tipos de Turno -->
+{% if tipos_turno %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for tipo in tipos_turno %}
+    <div class="col">
+        <div class="card h-100 tipo-turno-card {% if not tipo.activo %}inactive{% endif %}">
+            <div class="card-header {% if tipo.nombre == 'MANANA' %}bg-warning text-dark{% elif tipo.nombre == 'TARDE' %}bg-info text-white{% else %}bg-dark text-white{% endif %}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        {% if tipo.nombre == 'MANANA' %}
+                            <i class="fas fa-sun me-2"></i>
+                        {% elif tipo.nombre == 'TARDE' %}
+                            <i class="fas fa-cloud-sun me-2"></i>
+                        {% else %}
+                            <i class="fas fa-moon me-2"></i>
+                        {% endif %}
+                        {{ tipo.get_nombre_display }}
+                    </h5>
+                    {{ tipo.activo|activo_badge }}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="turno-info mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">
+                            <i class="fas fa-clock me-2"></i>{% trans "Hora Inicio:" %}
+                        </span>
+                        <span class="fw-bold">{{ tipo.hora_inicio|time:"H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">
+                            <i class="fas fa-clock me-2"></i>{% trans "Hora Fin:" %}
+                        </span>
+                        <span class="fw-bold">{{ tipo.hora_fin|time:"H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">
+                            <i class="fas fa-hourglass-half me-2"></i>{% trans "Duración:" %}
+                        </span>
+                        <span class="fw-bold">{{ tipo.duracion_horas }} {% trans "horas" %}</span>
+                    </div>
+                </div>
+
+                {% if tipo.descripcion %}
+                <div class="mb-3">
+                    <small class="text-muted">{{ tipo.descripcion }}</small>
+                </div>
+                {% endif %}
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'turnos:tipo_turno_editar' tipo.id %}" 
+                       class="btn btn-sm btn-outline-primary flex-grow-1">
+                        <i class="fas fa-edit me-1"></i>{% trans "Editar" %}
+                    </a>
+                    <a href="{% url 'turnos:tipo_turno_eliminar' tipo.id %}" 
+                       class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center">
+                <small class="text-muted">
+                    <i class="fas fa-calendar-check me-1"></i>
+                    {% trans "Usado en" %} <strong>{{ tipo.num_configuraciones|default:0 }}</strong> {% trans "configuraciones" %}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info text-center my-5">
+    <i class="fas fa-clock fa-3x mb-3"></i>
+    <h4>{% trans "No hay tipos de turno configurados" %}</h4>
+    <p>{% trans "Añade los tipos de turno que utilizarás en tus planificaciones" %}</p>
+    <a href="{% url 'turnos:tipo_turno_nuevo' %}" class="btn btn-primary mt-3">
+        <i class="fas fa-plus me-2"></i>{% trans "Crear Primer Tipo de Turno" %}
+    </a>
+</div>
+{% endif %}
+
+<!-- Tipos de Turno Sugeridos (si está vacío) -->
+{% if not tipos_turno %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-magic me-2"></i>{% trans "Configuración Rápida" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <p>{% trans "Puedes crear rápidamente una configuración estándar con los tres turnos típicos:" %}</p>
+        <form method="post" action="{% url 'turnos:tipo_turno_crear_predeterminados' %}">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-sun fa-2x text-warning mb-2"></i>
+                            <h6>{% trans "Mañana" %}</h6>
+                            <small class="text-muted">07:00 - 15:00</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-cloud-sun fa-2x text-info mb-2"></i>
+                            <h6>{% trans "Tarde" %}</h6>
+                            <small class="text-muted">15:00 - 23:00</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-moon fa-2x text-dark mb-2"></i>
+                            <h6>{% trans "Noche" %}</h6>
+                            <small class="text-muted">23:00 - 07:00</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-magic me-2"></i>{% trans "Crear Turnos Predeterminados" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.tipo-turno-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.tipo-turno-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.2);
+    transform: translateY(-5px);
+}
+
+.tipo-turno-card.inactive {
+    opacity: 0.6;
+}
+
+.turno-info {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

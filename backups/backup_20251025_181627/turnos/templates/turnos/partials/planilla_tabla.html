@@ -1,0 +1,58 @@
+{% load static %}
+{% load turnos_extras %}
+
+<div class="table-responsive">
+    <table class="table table-bordered table-sm">
+        <thead class="table-light">
+            <tr>
+                <th style="position: sticky; left: 0; background: white; z-index: 10;">Enfermera</th>
+                {% for dia in dias %}
+                <th class="text-center" style="min-width: 100px;">
+                    {{ dia.fecha|date:"d/m" }}<br>
+                    <small>{{ dia.fecha|date:"D" }}</small>
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for enfermera_data in enfermeras_turnos %}
+            <tr>
+                <td style="position: sticky; left: 0; background: white; font-weight: bold; z-index: 5;">
+                    {{ enfermera_data.enfermera.nombre }}
+                </td>
+                {% for turno_data in enfermera_data.turnos %}
+                <td class="text-center">
+                    {% if turno_data.es_libre %}
+                        <span class="badge bg-secondary">LIBRE</span>
+                    {% elif turno_data.turno %}
+                        <span class="badge bg-{{ turno_data.turno_color }}">
+                            {{ turno_data.turno.nombre }}
+                        </span>
+                        <br>
+                        <small class="text-muted">
+                            {{ turno_data.turno.hora_inicio|time:"H:i" }}-{{ turno_data.turno.hora_fin|time:"H:i" }}
+                        </small>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+.table-responsive {
+    max-height: 600px;
+    overflow: auto;
+}
+
+thead th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 2;
+}
+</style>

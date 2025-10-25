@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load turnos_extras %}
+
+{% block title %}{% trans "Configuraciones de Planificación" %}{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">{% trans "Configuraciones" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{% trans "Configuraciones de Planificación" %}</h2>
+    <a href="{% url 'turnos:config_wizard' %}" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus me-2"></i>{% trans "Crear Configuración" %}
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="buscar" class="form-label">{% trans "Buscar" %}</label>
+                <input type="text" id="buscar" name="q" class="form-control" value="{{ request.GET.q|default:'' }}" placeholder="{% trans 'Nombre, descripción...' %}">
+            </div>
+            <div class="col-md-3">
+                <label for="filtro_estado" class="form-label">{% trans "Estado" %}</label>
+                <select name="estado" id="filtro_estado" class="form-select">
+                    <option value="">{% trans "Todos" %}</option>
+                    <option value="activa" {% if request.GET.estado == "activa" %}selected{% endif %}>{% trans "Activa" %}</option>
+                    <option value="inactiva" {% if request.GET.estado == "inactiva" %}selected{% endif %}>{% trans "Inactiva" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="orden" class="form-label">{% trans "Ordenar por" %}</label>
+                <select name="orden" id="orden" class="form-select">
+                    <option value="-fecha_creacion" {% if request.GET.orden == "-fecha_creacion" %}selected{% endif %}>{% trans "Más recientes" %}</option>
+                    <option value="fecha_creacion" {% if request.GET.orden == "fecha_creacion" %}selected{% endif %}>{% trans "Más antiguas" %}</option>
+                    <option value="nombre" {% if request.GET.orden == "nombre" %}selected{% endif %}>{% trans "Nombre A-Z" %}</option>
+                    <option value="-nombre" {% if request.GET.orden == "-nombre" %}selected{% endif %}>{% trans "Nombre Z-A" %}</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-search me-2"></i>{% trans "Filtrar" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if configuraciones %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>{% trans "Nombre" %}</th>
+                <th>{% trans "Días" %}</th>
+                <th>{% trans "Estado" %}</th>
+                <th>{% trans "Enfermeras" %}</th>
+                <th>{% trans "Fecha de Creación" %}</th>
+                <th>{% trans "Acciones" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for config in configuraciones %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    <a href="{% url 'turnos:config_detalle' config.id %}" class="fw-bold">
+                        {{ config.nombre }}
+                    </a>
+                    <div class="text-muted small">{{ config.descripcion|truncatechars:60 }}</div>
+                </td>
+                <td>{{ config.num_dias }}</td>
+                <td>{{ config.activa|activo_badge }}</td>
+                <td>{{ config.enfermeras.count }}</td>
+                <td>{{ config.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'turnos:config_detalle' config.id %}" class="btn btn-outline-primary" title="{% trans 'Ver detalle' %}">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'turnos:ejecutar_planificacion' config.id %}" class="btn btn-outline-success" title="{% trans 'Ejecutar' %}">
+                            <i class="fas fa-play"></i>
+                        </a>
+                        <a href="{% url 'turnos:config_editar' config.id %}" class="btn btn-outline-secondary" title="{% trans 'Editar' %}">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'turnos:config_eliminar' config.id %}" class="btn btn-outline-danger" title="{% trans 'Eliminar' %}">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<nav>
+    <ul class="pagination justify-content-center my-4">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" aria-label="Anterior">&laquo;</a>
+        </li>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a>
+            </li>
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" aria-label="Siguiente">&raquo;</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="alert alert-info text-center my-5">
+    <i class="fas fa-info-circle fa-3x mb-3"></i>
+    <h4>{% trans "No hay configuraciones registradas" %}</h4>
+    <p>{% trans "Crea tu primera configuración para comenzar a generar planificaciones." %}</p>
+    <a href="{% url 'turnos:config_wizard' %}" class="btn btn-primary btn-lg mt-3">
+        <i class="fas fa-magic me-2"></i>{% trans "Crear Primera Configuración" %}
+    </a>
+</div>
+{% endif %}
+{% endblock %}

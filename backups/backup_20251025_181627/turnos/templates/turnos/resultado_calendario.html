@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Vista Calendario" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/calendario.css' %}">
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_lista' %}">{% trans "Ejecuciones" %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_detalle' ejecucion.id %}">{{ ejecucion.configuracion.nombre }}</a></li>
+    <li class="breadcrumb-item active">{% trans "Calendario" %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-calendar-alt me-2"></i>{% trans "Vista Calendario" %}
+    </h2>
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary active" data-view="month">
+            <i class="fas fa-calendar me-1"></i>{% trans "Mes" %}
+        </button>
+        <button type="button" class="btn btn-outline-primary" data-view="week">
+            <i class="fas fa-calendar-week me-1"></i>{% trans "Semana" %}
+        </button>
+        <button type="button" class="btn btn-outline-primary" data-view="day">
+            <i class="fas fa-calendar-day me-1"></i>{% trans "Día" %}
+        </button>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <label class="form-label">{% trans "Enfermera" %}</label>
+                <select class="form-select" id="filtro-enfermera">
+                    <option value="">{% trans "Todas las enfermeras" %}</option>
+                    {% for enfermera in enfermeras %}
+                        <option value="{{ enfermera.id }}">{{ enfermera.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">{% trans "Tipo de Turno" %}</label>
+                <select class="form-select" id="filtro-turno">
+                    <option value="">{% trans "Todos los turnos" %}</option>
+                    {% for turno in tipos_turno %}
+                        <option value="{{ turno.id }}">{{ turno.get_nombre_display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 d-grid align-self-end">
+                <button type="button" class="btn btn-primary" onclick="aplicarFiltros()">
+                    <i class="fas fa-filter me-2"></i>{% trans "Aplicar Filtros" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leyenda de Colores -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h6 class="mb-3">{% trans "Leyenda de Turnos:" %}</h6>
+        <div class="d-flex flex-wrap gap-3">
+            <div class="legend-item">
+                <span class="legend-color bg-warning"></span>
+                <span>{% trans "Mañana" %}</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color bg-info"></span>
+                <span>{% trans "Tarde" %}</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color bg-dark"></span>
+                <span>{% trans "Noche" %}</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color bg-success"></span>
+                <span>{% trans "Día Libre" %}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendario -->
+<div class="card">
+    <div class="card-body">
+        <div id="calendario-container"></div>
+    </div>
+</div>
+
+<!-- Modal de Detalle -->
+<div class="modal fade" id="modalDetalleEvento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Detalle del Turno" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalle-evento-body">
+                <!-- Contenido dinámico -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Cerrar" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 30px;
+    height: 20px;
+    border-radius: 4px;
+    display: inline-block;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendario-container');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        events: {{ eventos_json|safe }},
+        eventClick: function(info) {
+            mostrarDetalleEvento(info.event);
+        },
+        height: 'auto'
+    });
+    calendar.render();
+
+    // Botones de vista
+    document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const view = this.dataset.view;
+            document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (view === 'month') calendar.changeView('dayGridMonth');
+            if (view === 'week') calendar.changeView('timeGridWeek');
+            if (view === 'day') calendar.changeView('timeGridDay');
+        });
+    });
+});
+
+function mostrarDetalleEvento(event) {
+    const html = `
+        <div class="mb-3">
+            <strong>{% trans "Enfermera:" %}</strong> ${event.extendedProps.enfermera}
+        </div>
+        <div class="mb-3">
+            <strong>{% trans "Turno:" %}</strong> ${event.title}
+        </div>
+        <div class="mb-3">
+            <strong>{% trans "Fecha:" %}</strong> ${event.start.toLocaleDateString('es-ES')}
+        </div>
+        <div class="mb-3">
+            <strong>{% trans "Horario:" %}</strong> ${event.extendedProps.horario}
+        </div>
+    `;
+    document.getElementById('detalle-evento-body').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('modalDetalleEvento')).show();
+}
+
+function aplicarFiltros() {
+    const enfermera = document.getElementById('filtro-enfermera').value;
+    const turno = document.getElementById('filtro-turno').value;
+    // Implementar lógica de filtrado
+    location.href = `?enfermera=${enfermera}&turno=${turno}`;
+}
+</script>
+{% endblock %}
