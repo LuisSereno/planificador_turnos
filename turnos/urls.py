@@ -1,12 +1,15 @@
+﻿from .views import CambiarWorkspaceView
 """
 URL configuration for turnos app
 """
 from django.urls import path
 from . import views
+from django.views.generic import RedirectView, TemplateView
 
 app_name = 'turnos'
 
 urlpatterns = [
+    path('workspace/cambiar/', CambiarWorkspaceView.as_view(), name='cambiar_workspace'),
     # Dashboard
     path('', views.DashboardView.as_view(), name='dashboard'),
 
@@ -87,4 +90,8 @@ urlpatterns = [
 
     # Utilidades
     path('maintenance/', views.MaintenanceView.as_view(), name='maintenance'),
+    # URLs que faltan
+    path('terminos/', TemplateView.as_view(template_name='terminos.html'), name='terminos'),
+    path('privacidad/', TemplateView.as_view(template_name='privacidad.html'), name='privacidad'),
+
 ]

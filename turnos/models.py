@@ -1,3 +1,4 @@
+﻿from django.contrib.auth.models import User
 """
 Models for the turnos app
 """
@@ -81,7 +82,7 @@ class ConfiguracionPlanificacion(models.Model):
     # Configuración temporal
     num_dias = models.IntegerField(
         _('Número de días'),
-        validators=[MinValueValidator(7), MaxValueValidator(90)]
+        validators=[MinValueValidator(7), MaxValueValidator(365)]
     )
     fecha_inicio = models.DateField(_('Fecha de inicio'))
 
@@ -255,3 +256,19 @@ class AsignacionTurno(models.Model):
         if self.es_dia_libre:
             return f"{self.enfermera.nombre} - {self.fecha} - Libre"
         return f"{self.enfermera.nombre} - {self.fecha} - {self.turno}"
+
+class Workspace(models.Model):
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workspaces_creados')
+    usuarios = models.ManyToManyField(User, related_name='workspaces', blank=True)
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Espacio de Trabajo'
+        verbose_name_plural = 'Espacios de Trabajo'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return self.nombre

@@ -1,3 +1,5 @@
+﻿from django.views import View
+from .models import Workspace
 """
 Views for turnos app
 """
@@ -1325,3 +1327,25 @@ class ExportarConfiguracionJSONView(LoginRequiredMixin, DetailView):
         response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
         response['Content-Disposition'] = f'attachment; filename="config_{configuracion.pk}.json"'
         return response
+
+class WorkspaceMixin(LoginRequiredMixin):
+    def get_current_workspace(self):
+        workspace_id = self.request.session.get('workspace_id')
+        if workspace_id:
+            return get_object_or_404(Workspace, id=workspace_id, usuarios=self.request.user)
+        return self.request.user.workspaces.first()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        ws = self.get_current_workspace()
+        if ws:
+            return qs.filter(workspace=ws)
+        return qs.none()
+
+
+class CambiarWorkspaceView(LoginRequiredMixin, View):
+    def post(self, request):
+        workspace_id = request.POST.get('workspace_id')
+        ws = get_object_or_404(Workspace, id=workspace_id, usuarios=request.user)
+        request.session['workspace_id'] = ws.id
+        return JsonResponse({'success': True, 'workspace': ws.nombre})

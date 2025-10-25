@@ -1,4 +1,4 @@
-"""
+﻿"""
 Forms for turnos app
 """
 import json
@@ -153,7 +153,7 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             'num_dias': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 7,
-                'max': 90
+                'max': 365
             }),
             'fecha_inicio': forms.DateInput(attrs={
                 'class': 'form-control',
@@ -194,8 +194,8 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
     def clean_num_dias(self):
         """Valida el número de días"""
         num_dias = self.cleaned_data.get('num_dias')
-        if num_dias and (num_dias < 7 or num_dias > 90):
-            raise ValidationError(_('El número de días debe estar entre 7 y 90.'))
+        if num_dias and (num_dias < 7 or num_dias > 365):
+            raise ValidationError(_('El número de días debe estar entre 7 y 365.'))
         return num_dias
 
     def clean_enfermeras(self):
@@ -238,7 +238,7 @@ class ConfiguracionWizardStep1Form(forms.Form):
 
     num_dias = forms.IntegerField(
         min_value=7,
-        max_value=90,
+        max_value=365,
         initial=14,
         label=_('Número de días'),
         widget=forms.NumberInput(attrs={

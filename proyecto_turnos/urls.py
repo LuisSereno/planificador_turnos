@@ -15,6 +15,7 @@ urlpatterns = [
 
     # Autenticación
     path('accounts/', include('turnos.urls_auth')),
+
 ]
 
 # Servir archivos estáticos y media en desarrollo

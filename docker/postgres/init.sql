@@ -117,7 +117,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION search_enfermeras(TEXT) IS 'Búsqueda fuzzy de enfermeras por nombre o email';
 
 -- Función para limpiar ejecuciones antiguas
-CREATE OR REPLACE FUNCTION cleanup_old_executions(days_old INTEGER DEFAULT 90)
+CREATE OR REPLACE FUNCTION cleanup_old_executions(days_old INTEGER DEFAULT 365)
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;

@@ -98,8 +98,8 @@ def validar_numero_dias_planificacion(value):
     if value < 7:
         raise ValidationError(_('La planificación debe ser de al menos 7 días'))
 
-    if value > 90:
-        raise ValidationError(_('La planificación no puede exceder 90 días'))
+    if value > 365:
+        raise ValidationError(_('La planificación no puede exceder 365 días'))
 
     # Recomendar múltiplos de 7
     if value % 7 != 0:

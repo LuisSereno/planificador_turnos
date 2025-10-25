@@ -14,3 +14,8 @@ whitenoise==6.6.0
 icalendar==5.0.11
 WeasyPrint==60.1
 python-dateutil
+# Tests
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0

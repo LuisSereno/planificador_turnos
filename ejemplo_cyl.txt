@@ -1,0 +1,48 @@
+{
+  "restricciones_duras": [
+    {
+      "nombre": "jornada_minima_anual",
+      "descripcion": "La jornada anual no debe ser inferior a 1420 horas para personal con 35 guardias",
+      "tipo": "restriccion",
+      "condicion": "jornada_anual >= 1420"
+    },
+    {
+      "nombre": "maximo_guardias",
+      "descripcion": "No se pueden programar más de 35 guardias de presencia física nocturna por año",
+      "tipo": "restriccion",
+      "condicion": "guardias_totales <= 35"
+    },
+    {
+      "nombre": "guardias_validas",
+      "descripcion": "Solo se cuentan guardias de presencia física nocturna, excluyendo guardias la víspera de festivos o días de descanso",
+      "tipo": "restriccion",
+      "condicion": "guardias_validas = guardias_fisicas_nocturnas - guardias_vigila_vigilia_festivo_descanso"
+    },
+    {
+      "nombre": "no_guardias_en_vigilia",
+      "descripcion": "No se deben asignar guardias en la noche previa a días festivos o descanso",
+      "tipo": "restriccion",
+      "condicion": "no_guardias_la_vigilia_de_festivos_o_descanso = true"
+    }
+  ],
+  "restricciones_blandas": [
+    {
+      "nombre": "reduccion_jornada_por_guardia",
+      "descripcion": "Por cada guardia válida se reduce la jornada anual en un promedio de 3.21 horas alternando entre 3 y 4 horas",
+      "tipo": "objetivo",
+      "formula": "jornada_anual = jornada_base - (guardias_validas * 3.21)"
+    },
+    {
+      "nombre": "distribucion_equilibrada_guardias",
+      "descripcion": "Minimizar la diferencia en número de guardias asignadas por trabajador",
+      "tipo": "objetivo",
+      "formula": "minimizar( max(guardias_por_trabajador) - min(guardias_por_trabajador) )"
+    },
+    {
+      "nombre": "evitar_guardias_consecutivas",
+      "descripcion": "Penalizar la asignación de guardias en días consecutivos para favorecer descanso",
+      "tipo": "objetivo",
+      "formula": "minimizar( sum(guardias_consecutivas) )"
+    }
+  ]
+}

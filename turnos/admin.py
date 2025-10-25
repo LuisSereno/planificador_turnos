@@ -1,43 +1,13 @@
-"""
+﻿"""
 Admin configuration for the turnos app
 """
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
-    Enfermera, TipoTurno, ConfiguracionPlanificacion,
+    Workspace, Enfermera, TipoTurno, ConfiguracionPlanificacion,
     Ejecucion, Planilla, AsignacionTurno
 )
-
-
-@admin.register(Enfermera)
-class EnfermeraAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'email', 'activa', 'fecha_alta', 'turnos_asignados_count']
-    list_filter = ['activa', 'fecha_alta']
-    search_fields = ['nombre', 'email', 'dni']
-    date_hierarchy = 'fecha_alta'
-    ordering = ['nombre']
-    readonly_fields = ('fecha_alta',)
-
-    fieldsets = (
-        ('Información Personal', {
-            'fields': ('nombre', 'email', 'telefono', 'dni')
-        }),
-        ('Estado', {
-            'fields': ('activa', 'fecha_alta')
-        }),
-        ('Preferencias', {
-            'fields': ('preferencias', 'notas'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    def turnos_asignados_count(self, obj):
-        """Muestra el número de turnos asignados"""
-        count = AsignacionTurno.objects.filter(enfermera=obj).count()
-        return format_html('<span style="color: green;"><b>{}</b></span>', count)
-
-    turnos_asignados_count.short_description = 'Turnos Asignados'
 
 
 @admin.register(TipoTurno)
@@ -210,6 +180,26 @@ class AsignacionTurnoAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(Workspace)
+class WorkspaceAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'creado_por', 'activo', 'fecha_creacion']
+    list_filter = ['activo', 'fecha_creacion']
+    search_fields = ['nombre', 'descripcion']
+    filter_horizontal = ['usuarios']
+
+
+@admin.register(Enfermera)
+class EnfermeraAdmin(admin.ModelAdmin):
+    # TEMPORALMENTE sin workspace hasta que se ejecuten las migraciones
+    list_display = ['nombre', 'email', 'activa']
+    list_filter = ['activa']
+    search_fields = ['nombre', 'email', 'dni']
+
+    # DESPUÉS de ejecutar las migraciones, descomenta estas líneas:
+    # list_display = ['nombre', 'workspace', 'email', 'activa']
+    # list_filter = ['workspace', 'activa']
 
 
 # Personalización del admin site
