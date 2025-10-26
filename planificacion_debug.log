@@ -2924,3 +2924,62 @@ AttributeError: 'ValidadorRestricciones' object has no attribute '_log_validacio
 2025-10-26 17:34:01,271 - INFO - ================================================================================
 2025-10-26 17:34:01,272 - INFO - VALIDACIONES OK: 4  |  VIOLACIONES: 579
 2025-10-26 17:34:01,272 - INFO - ================================================================================
+2025-10-26 17:46:13,982 - INFO - Demanda raw: {'MANANA': {'min': 3, 'optimo': 4, 'max': 5}, 'TARDE': {'min': 3, 'optimo': 3, 'max': 4}, 'NOCHE': {'min': 3, 'optimo': 3, 'max': 3}} (type: dict)
+2025-10-26 17:46:13,983 - INFO - Formato complejo detectado para MANANA: {'min': 3, 'optimo': 4, 'max': 5}
+2025-10-26 17:46:13,984 - DEBUG -   Usando 'optimo': 4
+2025-10-26 17:46:13,984 - INFO - Formato complejo detectado para TARDE: {'min': 3, 'optimo': 3, 'max': 4}
+2025-10-26 17:46:13,985 - DEBUG -   Usando 'optimo': 3
+2025-10-26 17:46:13,985 - INFO - Formato complejo detectado para NOCHE: {'min': 3, 'optimo': 3, 'max': 3}
+2025-10-26 17:46:13,986 - DEBUG -   Usando 'optimo': 3
+2025-10-26 17:46:13,986 - INFO - ✓ Demanda procesada: {'MANANA': 4, 'TARDE': 3, 'NOCHE': 3}
+2025-10-26 17:46:13,987 - INFO - RD (array): 20
+2025-10-26 17:46:13,987 - INFO - RB (array): 15
+2025-10-26 17:46:13,988 - INFO - ================================================================================
+2025-10-26 17:46:13,988 - INFO - INICIO GENERADOR
+2025-10-26 17:46:13,989 - INFO - ================================================================================
+2025-10-26 17:46:13,990 - INFO - Config: pruebacompleta | Días: 365 | Enfs: 18 | Turnos: 3
+2025-10-26 17:46:13,990 - INFO - Demanda: {'MANANA': 4, 'TARDE': 3, 'NOCHE': 3}
+2025-10-26 17:46:13,991 - INFO - Creamos 19710 variables booleanas
+2025-10-26 17:46:15,418 - INFO - ✓ RD020: Una enfermera, un turno por día
+2025-10-26 17:46:15,738 - INFO - ✓ RD019: Cobertura mínima por turno
+2025-10-26 17:46:16,017 - INFO - ✓ RD006: Descanso - Prohibir NOCHE+MAÑANA mismo día
+2025-10-26 17:46:16,138 - INFO - ✓ RD017+RD018: Mínimo 28 días libres
+2025-10-26 17:46:16,142 - ERROR - Error: Evaluating a BoundedLinearExpression '(e0_d0_t0 + e0_d0_t1 + e0_d0_t2) == 0'instance as a Boolean is not supported.
+Traceback (most recent call last):
+  File "C:\Users\luiss\OneDrive\Documents\planificador_turnos\turnos\generador.py", line 363, in resolver
+    self.aplicar_restricciones_duras()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\luiss\OneDrive\Documents\planificador_turnos\turnos\generador.py", line 333, in aplicar_restricciones_duras
+    dias_libres_en_ventana = sum(
+        1 for dd in range(d, min(d + 6, self.num_dias))
+        if sum(self.shifts[(e, dd, t)] for t in range(self.num_turnos)) == 0
+    )
+  File "C:\Users\luiss\OneDrive\Documents\planificador_turnos\turnos\generador.py", line 335, in <genexpr>
+    if sum(self.shifts[(e, dd, t)] for t in range(self.num_turnos)) == 0
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NotImplementedError: Evaluating a BoundedLinearExpression '(e0_d0_t0 + e0_d0_t1 + e0_d0_t2) == 0'instance as a Boolean is not supported.
+2025-10-26 17:49:39,969 - INFO - Demanda raw: {'MANANA': {'min': 3, 'optimo': 4, 'max': 5}, 'TARDE': {'min': 3, 'optimo': 3, 'max': 4}, 'NOCHE': {'min': 3, 'optimo': 3, 'max': 3}} (type: dict)
+2025-10-26 17:49:39,970 - INFO - Formato complejo detectado para MANANA: {'min': 3, 'optimo': 4, 'max': 5}
+2025-10-26 17:49:39,970 - DEBUG -   Usando 'optimo': 4
+2025-10-26 17:49:39,971 - INFO - Formato complejo detectado para TARDE: {'min': 3, 'optimo': 3, 'max': 4}
+2025-10-26 17:49:39,971 - DEBUG -   Usando 'optimo': 3
+2025-10-26 17:49:39,972 - INFO - Formato complejo detectado para NOCHE: {'min': 3, 'optimo': 3, 'max': 3}
+2025-10-26 17:49:39,972 - DEBUG -   Usando 'optimo': 3
+2025-10-26 17:49:39,972 - INFO - ✓ Demanda procesada: {'MANANA': 4, 'TARDE': 3, 'NOCHE': 3}
+2025-10-26 17:49:39,973 - INFO - RD (array): 20
+2025-10-26 17:49:39,973 - INFO - RB (array): 15
+2025-10-26 17:49:39,974 - INFO - ================================================================================
+2025-10-26 17:49:39,974 - INFO - INICIO GENERADOR
+2025-10-26 17:49:39,975 - INFO - ================================================================================
+2025-10-26 17:49:39,975 - INFO - Config: pruebacompleta | Días: 365 | Enfs: 18 | Turnos: 3
+2025-10-26 17:49:39,976 - INFO - Demanda: {'MANANA': 4, 'TARDE': 3, 'NOCHE': 3}
+2025-10-26 17:49:39,976 - INFO - Creamos 19710 variables booleanas
+2025-10-26 17:49:41,039 - INFO - ✓ RD020: Una enfermera, un turno por día
+2025-10-26 17:49:41,210 - INFO - ✓ RD019: Cobertura mínima por turno
+2025-10-26 17:49:41,469 - INFO - ✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)
+2025-10-26 17:49:41,600 - INFO - ✓ RD017+RD018: Mínimo 28 días libres por enfermera
+2025-10-26 17:49:41,776 - INFO - ✓ RD007: Descanso semanal (mínimo 1 día libre cada 7 días)
+2025-10-26 17:49:41,777 - INFO - ✓ RD014-RD016: Horarios verificados en validador
+2025-10-26 17:49:41,987 - INFO - RB equidad aplicada con 3 términos
+2025-10-26 17:49:41,987 - INFO - Resolve: 600s | workers=8
+2025-10-26 17:49:42,196 - INFO - Estado: INFEASIBLE | Time: 0.153s | Conflicts: 0 | Branches: 0

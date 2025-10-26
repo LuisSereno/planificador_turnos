@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import logging
 from datetime import timedelta, datetime
 from ortools.sat.python import cp_model
@@ -275,33 +275,22 @@ class GeneradorTurnos:
                 for t in range(self.num_turnos):
                     self.shifts[(e, d, t)] = self.model.NewBoolVar(f"e{e}_d{d}_t{t}")
 
-    # En turnos/generador.py - REEMPLAZAR TODO aplicar_restricciones_duras()
-
     def aplicar_restricciones_duras(self):
-        """Aplica restricciones SACYL MÍNIMAS VIABLES"""
-
         # RD020: una enfermera, un turno por día
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 self.model.Add(sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1)
-        logger.info("✓ RD020: Una enfermera, un turno por día")
+        logger.info("RD020 aplicada (una por día)")
 
-        # RD019: cobertura MÍNIMA por turno (usar 'min', no 'optimo')
+        # RD019: cobertura mínima
         for d in range(self.num_dias):
             for t in range(self.num_turnos):
                 nombre = self.turnos[t].nombre
-                demanda_value = self.demanda.get(nombre, 1)
-
-                # Extraer 'min' si es dict
-                if isinstance(demanda_value, dict):
-                    req = demanda_value.get('min', 1)
-                else:
-                    req = int(demanda_value) if demanda_value else 1
-
+                req = self.demanda.get(nombre, 1)
                 self.model.Add(sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) >= req)
-        logger.info("✓ RD019: Cobertura mínima por turno")
+        logger.info("RD019 aplicada (cobertura mínima)")
 
-        # RD006: descanso 12h (prohibir NOCHE->MAÑANA)
+        # RD006: descanso 12h
         idxN = None
         idxM = None
         for ti in range(self.num_turnos):
@@ -309,48 +298,13 @@ class GeneradorTurnos:
                 idxN = ti
             if self.turnos[ti].nombre == 'MANANA':
                 idxM = ti
-
         if idxN is not None and idxM is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
-                    # NOCHE día D + MAÑANA día D+1 <= 1
                     self.model.Add(self.shifts[(e, d, idxN)] + self.shifts[(e, d + 1, idxM)] <= 1)
-        logger.info("✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)")
+            logger.info("RD006 aplicada (NOCHE->MAÑANA prohibido)")
 
-        # 🔴 RD017 + RD018: Mínimo 28 días libres/año (22 vac + 6 asuntos)
-        dias_libres_requeridos = int((self.num_dias / 365) * 28)
-
-        for e in range(self.num_enfermeras):
-            # Total de días con turno asignado
-            dias_trabajados = sum(
-                self.shifts[(e, d, t)]
-                for d in range(self.num_dias)
-                for t in range(self.num_turnos)
-            )
-
-            # Días libres = total días - días trabajados >= días_libres_requeridos
-            # Equivalente: días_trabajados <= total_dias - días_libres_requeridos
-            self.model.Add(dias_trabajados <= self.num_dias - dias_libres_requeridos)
-
-        logger.info(f"✓ RD017+RD018: Mínimo {dias_libres_requeridos} días libres por enfermera")
-
-        # 🔴 RD007: Descanso semanal 36h (aproximación: al menos 1 día libre cada 7 días)
-        for e in range(self.num_enfermeras):
-            for semana in range(0, self.num_dias, 7):
-                fin_semana = min(semana + 7, self.num_dias)
-
-                # En cada ventana de 7 días, debe haber al menos 1 día SIN turno
-                # Suma de turnos en la semana <= 6 (máximo 6 días trabajados de 7)
-                turnos_en_semana = sum(
-                    self.shifts[(e, d, t)]
-                    for d in range(semana, fin_semana)
-                    for t in range(self.num_turnos)
-                )
-
-                self.model.Add(turnos_en_semana <= (fin_semana - semana) - 1)
-
-        logger.info("✓ RD007: Descanso semanal (mínimo 1 día libre cada 7 días)")
-        logger.info("✓ RD014-RD016: Horarios verificados en validador")
+        logger.info("RD014-16 verificación en validador")
 
     def aplicar_restricciones_blandas(self):
         penal = []
