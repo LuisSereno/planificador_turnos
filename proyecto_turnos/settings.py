@@ -61,7 +61,7 @@ WSGI_APPLICATION = 'proyecto_turnos.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': 'C:/Users/luiss/OneDrive/Documents/planificador_turnos/db.sqlite3'
     }
 }
 
