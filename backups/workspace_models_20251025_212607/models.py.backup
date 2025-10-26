@@ -1,4 +1,7 @@
 ﻿from django.contrib.auth.models import User
+"""
+Models for the turnos app
+"""
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -9,33 +12,9 @@ from datetime import datetime, timedelta
 User = get_user_model()
 
 
-class Workspace(models.Model):
-    """Espacio de trabajo para aislar datos entre usuarios"""
-    nombre = models.CharField(max_length=200)
-    descripcion = models.TextField(blank=True)
-    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workspaces_creados')
-    usuarios = models.ManyToManyField(User, related_name='workspaces', blank=True)
-    activo = models.BooleanField(default=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Espacio de Trabajo'
-        verbose_name_plural = 'Espacios de Trabajo'
-        ordering = ['-fecha_creacion']
-
-    def __str__(self):
-        return self.nombre
-
-
 class Enfermera(models.Model):
     """Modelo para representar una enfermera"""
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name='enfermeras',
-        null=True,
-        blank=True
-    )
+
     nombre = models.CharField(_('Nombre'), max_length=200)
     email = models.EmailField(_('Email'), unique=True)
     telefono = models.CharField(_('Teléfono'), max_length=20, blank=True)
@@ -59,13 +38,7 @@ class Enfermera(models.Model):
 
 class TipoTurno(models.Model):
     """Modelo para representar tipos de turno"""
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name='tipos_turno',
-        null=True,
-        blank=True
-    )
+
     NOMBRE_CHOICES = [
         ('MANANA', _('Mañana')),
         ('TARDE', _('Tarde')),
@@ -101,13 +74,7 @@ class TipoTurno(models.Model):
 
 class ConfiguracionPlanificacion(models.Model):
     """Modelo para configuración de planificación"""
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name='configuraciones',
-        null=True,
-        blank=True
-    )
+
     nombre = models.CharField(_('Nombre'), max_length=200)
     descripcion = models.TextField(_('Descripción'), blank=True)
     activa = models.BooleanField(_('Activa'), default=True)
@@ -123,23 +90,23 @@ class ConfiguracionPlanificacion(models.Model):
     enfermeras = models.ManyToManyField(Enfermera, verbose_name=_('Enfermeras'))
     turnos = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos'))
 
-    # Demanda
+    # Demanda (AHORA OPCIONAL)
     demanda_por_turno = models.JSONField(
         _('Demanda por turno'),
         default=dict,
-        blank=True
+        blank=True  # <-- AÑADIDO
     )
 
-    # Restricciones
+    # Restricciones (AHORA OPCIONALES)
     restricciones_duras = models.JSONField(
         _('Restricciones duras'),
         default=list,
-        blank=True
+        blank=True  # <-- AÑADIDO
     )
     restricciones_blandas = models.JSONField(
         _('Restricciones blandas'),
         default=list,
-        blank=True
+        blank=True  # <-- AÑADIDO
     )
 
     # Configuración del solver
@@ -171,16 +138,9 @@ class ConfiguracionPlanificacion(models.Model):
     def get_absolute_url(self):
         return reverse('turnos:config_detalle', kwargs={'pk': self.pk})
 
-
 class Ejecucion(models.Model):
     """Modelo para representar una ejecución de planificación"""
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name='ejecuciones',
-        null=True,
-        blank=True
-    )
+
     ESTADO_CHOICES = [
         ('PENDIENTE', _('Pendiente')),
         ('PROCESANDO', _('Procesando')),
@@ -234,13 +194,7 @@ class Ejecucion(models.Model):
 
 class Planilla(models.Model):
     """Modelo para representar una planilla de turnos"""
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name='planillas',
-        null=True,
-        blank=True
-    )
+
     nombre = models.CharField(_('Nombre'), max_length=200)
     descripcion = models.TextField(_('Descripción'), blank=True)
     ejecucion = models.OneToOneField(
@@ -302,3 +256,19 @@ class AsignacionTurno(models.Model):
         if self.es_dia_libre:
             return f"{self.enfermera.nombre} - {self.fecha} - Libre"
         return f"{self.enfermera.nombre} - {self.fecha} - {self.turno}"
+
+class Workspace(models.Model):
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workspaces_creados')
+    usuarios = models.ManyToManyField(User, related_name='workspaces', blank=True)
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Espacio de Trabajo'
+        verbose_name_plural = 'Espacios de Trabajo'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return self.nombre
