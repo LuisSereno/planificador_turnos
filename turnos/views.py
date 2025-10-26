@@ -1,4 +1,5 @@
-﻿from django.views import View
+﻿from django.db import transaction
+from django.views import View
 from .models import Workspace
 """
 Views for turnos app
@@ -389,6 +390,8 @@ class EjecucionDeleteView(LoginRequiredMixin, DeleteView):
 from .tasks import ejecutar_planificacion_async
 
 
+# En turnos/views.py - Encontrar EjecutarPlanificacionView y reemplazarla:
+
 class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
     """Vista para ejecutar una planificación"""
     model = ConfiguracionPlanificacion
@@ -397,86 +400,68 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        # Validaciones previas
         config = self.get_object()
+
+        # Validaciones
         errores = []
-        advertencias = []
-
-        # Verificar enfermeras activas
-        enfermeras_activas = config.enfermeras.filter(activa=True).count()
-        if enfermeras_activas < 2:
-            errores.append(f'Se necesitan al menos 2 enfermeras activas. Actualmente hay {enfermeras_activas}.')
-
-        # Verificar turnos activos
-        turnos_activos = config.turnos.filter(activo=True).count()
-        if turnos_activos < 1:
-            errores.append(f'Se necesita al menos 1 tipo de turno activo. Actualmente hay {turnos_activos}.')
-
-        # Verificar demanda
-        if not config.demanda_por_turno:
-            advertencias.append(
-                'No hay demanda configurada. Se usarán valores por defecto (mínimo: 1, óptimo: 2, máximo: 5).')
-
-        # Verificar restricciones
-        if not config.restricciones_duras:
-            advertencias.append(
-                'No hay restricciones duras configuradas. Se aplicarán restricciones básicas por defecto.')
-
-        if not config.restricciones_blandas:
-            advertencias.append(
-                'No hay restricciones blandas. La planificación puede no ser óptima en términos de equidad.')
-
-        # Verificar capacidad
-        total_turnos_necesarios = config.num_dias * len(config.turnos.filter(activo=True))
-        capacidad_enfermeras = enfermeras_activas * config.num_dias
-
-        if capacidad_enfermeras < total_turnos_necesarios:
-            advertencias.append(
-                f'Puede no haber suficientes enfermeras. '
-                f'Capacidad: {capacidad_enfermeras} turnos. '
-                f'Necesarios: ~{total_turnos_necesarios} turnos.'
-            )
+        if config.enfermeras.count() < 2:
+            errores.append('Se necesitan al menos 2 enfermeras')
+        if config.turnos.count() < 1:
+            errores.append('Se necesita al menos 1 turno')
 
         context['errores'] = errores
-        context['advertencias'] = advertencias
         context['puede_ejecutar'] = len(errores) == 0
-        context['enfermeras_activas'] = enfermeras_activas
-        context['turnos_activos'] = turnos_activos
 
         return context
 
     def post(self, request, *args, **kwargs):
-        """Ejecuta la planificación en segundo plano"""
-        configuracion = self.get_object()
+        """Ejecuta la planificación - FIX CRÍTICO"""
+
+        # 🔴 FIX: Obtener la CONFIGURACIÓN del URL, no crear ejecución
+        config_id = self.kwargs.get('pk')  # Este es el ID de ConfiguracionPlanificacion
+
+        logger.info(f"EjecutarPlanificacionView.post() - Config ID: {config_id}")
+
+        try:
+            config = ConfiguracionPlanificacion.objects.get(pk=config_id)
+        except ConfiguracionPlanificacion.DoesNotExist:
+            messages.error(request, 'Configuración no encontrada')
+            return redirect('turnos:config_lista')
 
         try:
             # Crear ejecución en estado PENDIENTE
-            ejecucion = Ejecucion.objects.create(
-                configuracion=configuracion,
-                estado='PENDIENTE'
-            )
+            with transaction.atomic():
+                ejecucion = Ejecucion.objects.create(
+                    configuracion=config,
+                    estado='PENDIENTE'
+                )
+                logger.info(f"Ejecución {ejecucion.id} creada para config {config_id}")
 
-            # Ejecutar en un thread separado (para desarrollo)
-            # En producción deberías usar Celery, RQ o similar
-            # En lugar de threading
-            ejecutar_planificacion_async.delay(ejecucion.id)
+            # 🟢 FIX CRÍTICO: Pasar config_id (ID de Configuracion), NO ejecucion.id
+            try:
+                config_id_int = int(config_id)
+                logger.info(f"Lanzando Celery con config_id={config_id_int}")
 
-            messages.success(
-                request,
-                f'Ejecución #{ejecucion.pk} iniciada. La planificación se está generando en segundo plano. '
-                f'Esto puede tardar hasta {configuracion.tiempo_maximo_segundos} segundos.'
-            )
+                task = ejecutar_planificacion_async.delay(config_id_int)
+
+                messages.success(
+                    request,
+                    f'✓ Planificación enviada. Ejecución #{ejecucion.id}. Task: {task.id}'
+                )
+
+            except Exception as celery_error:
+                logger.exception(f"Error Celery: {celery_error}")
+                ejecucion.estado = 'ERROR'
+                ejecucion.mensajes = {'error': str(celery_error)}
+                ejecucion.save()
+                messages.error(request, f'Error: {celery_error}')
 
             return redirect('turnos:ejecucion_detalle', pk=ejecucion.pk)
 
         except Exception as e:
-            logger.error(f"Error al crear ejecución: {str(e)}", exc_info=True)
-            messages.error(
-                request,
-                f'Error al iniciar la ejecución: {str(e)}'
-            )
-            return redirect('turnos:config_detalle', pk=configuracion.pk)
+            logger.exception(f"Error inesperado: {e}")
+            messages.error(request, f'Error: {e}')
+            return redirect('turnos:config_detalle', pk=config_id)
 
 
 class EjecucionRapidaView(LoginRequiredMixin, FormView):

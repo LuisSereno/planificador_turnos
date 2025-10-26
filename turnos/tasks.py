@@ -286,3 +286,21 @@ def generar_reporte_estadisticas(mes, anio):
     logger.info(f"Reporte {mes}/{anio}: {json.dumps(stats, indent=2)}")
 
     return stats
+
+@shared_task
+def test_db_connection():
+  from turnos.models import ConfiguracionPlanificacion
+  from django.conf import settings
+  import logging
+  logger = logging.getLogger(__name__)
+
+  logger.info(f"DB Path: {settings.DATABASES['default']['NAME']}")
+  total = ConfiguracionPlanificacion.objects.count()
+  logger.info(f"Total configs: {total}")
+
+  if total > 0:
+      ids = list(ConfiguracionPlanificacion.objects.values_list('id', 'nombre'))
+      for id, nombre in ids:
+          logger.info(f"  - ID {id}: {nombre}")
+
+  return {'total': total, 'db_path': settings.DATABASES['default']['NAME']}

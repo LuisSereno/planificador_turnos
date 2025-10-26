@@ -1,4 +1,4 @@
-import os
+﻿import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_extensions',
     # Third party apps
-    'widget_tweaks',  # ✅ AGREGAR ESTO
+    'widget_tweaks',  # âœ… AGREGAR ESTO
     'formtools',
 
     'turnos',
@@ -61,11 +61,14 @@ WSGI_APPLICATION = 'proyecto_turnos.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'C:/Users/luiss/OneDrive/Documents/planificador_turnos/db.sqlite3'
+        'NAME': r'C:\Users\luiss\OneDrive\Documents\planificador_turnos\db.sqlite3',  # Ruta ABSOLUTA
+        'OPTIONS': {
+            'timeout': 20,  # Timeout para evitar locks
+        }
     }
 }
 
-# Django 5.x - Nuevo sistema de validación de contraseñas
+# Django 5.x - Nuevo sistema de validaciÃ³n de contraseÃ±as
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -125,7 +128,7 @@ MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'False') == 'True'
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
-# Serialización (Celery 5.x)
+# SerializaciÃ³n (Celery 5.x)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -134,7 +137,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Europe/Madrid'
 CELERY_ENABLE_UTC = True
 
-# Configuración de tareas
+# ConfiguraciÃ³n de tareas
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutos (warning)

@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 import logging
-from datetime import timedelta, datetime, time
+from datetime import timedelta, datetime
 from ortools.sat.python import cp_model
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,9 @@ class ValidadorRestricciones:
         self.violaciones.append({'nombre': nombre, 'detalles': det})
 
     def validar(self):
-        logger.info("="*80); logger.info("INICIANDO VALIDACIONES"); logger.info("="*80)
+        logger.info("="*80)
+        logger.info("INICIANDO VALIDACIONES")
+        logger.info("="*80)
         self._una_enfermera_un_turno_por_dia()
         self._cobertura_minima_por_turno()
         self._descanso_minimo_12h()
@@ -51,7 +53,8 @@ class ValidadorRestricciones:
         return {'valido': len(self.violaciones) == 0, 'validaciones': self.exitos, 'violaciones': self.violaciones}
 
     def _una_enfermera_un_turno_por_dia(self):
-        seen = set(); ok = True
+        seen = set()
+        ok = True
         for a in self.resultado.get('asignaciones', []):
             key = (a['enfermera_id'], a['fecha'])
             if key in seen:
@@ -59,22 +62,52 @@ class ValidadorRestricciones:
                 ok = False
             else:
                 seen.add(key)
-        if ok: self._ok("RD020", f"{len(seen)} asignaciones únicas")
+        if ok:
+            self._ok("RD020", f"{len(seen)} asignaciones únicas")
 
     def _cobertura_minima_por_turno(self):
+        """RD019: Cobertura mínima por turno"""
+        logger.info("\n[RD019] Validando: Cobertura mínima por turno")
+
         demanda = self.configuracion.demanda_por_turno or {}
-        ok = True
-        cobertura = {}
-        for a in self.resultado.get('asignaciones', []):
-            key = (a['turno_nombre'], a['fecha'])
-            cobertura[key] = cobertura.get(key, 0) + 1
-        for key, cnt in cobertura.items():
-            turno, fecha = key
-            req = demanda.get(turno, 1) if demanda else 1
-            if cnt < req:
-                self._ko("RD019", f"{turno} {fecha}: {cnt} < {req}")
-                ok = False
-        if ok: self._ok("RD019", f"{len(cobertura)} turnos verificados")
+        cobertura_por_turno_dia = {}
+        valido = True
+
+        for asig in self.resultado.get('asignaciones', []):
+            turno_nombre = asig['turno_nombre']
+            fecha = asig['fecha']
+            key = (turno_nombre, fecha)
+
+            if key not in cobertura_por_turno_dia:
+                cobertura_por_turno_dia[key] = 0
+            cobertura_por_turno_dia[key] += 1
+
+        for (turno_nombre, fecha), cantidad in cobertura_por_turno_dia.items():
+            # Extraer el valor correcto de demanda
+            demanda_value = demanda.get(turno_nombre, 1)
+
+            # Si es dict (formato complejo), extraer 'optimo'
+            if isinstance(demanda_value, dict):
+                demanda_minima = demanda_value.get('optimo', demanda_value.get('min', 1))
+            else:
+                demanda_minima = int(demanda_value) if demanda_value else 1
+
+            if cantidad < demanda_minima:
+                detalles = f"Turno {turno_nombre} el {fecha}: {cantidad} personal (requiere {demanda_minima})"
+                logger.warning(f"  ✗ {detalles}")
+                valido = False
+            else:
+                logger.debug(f"  ✓ {turno_nombre} {fecha}: {cantidad} personal (requiere {demanda_minima})")
+
+        # FIX: Usar 'self.exitos' no 'self.validaciones_exitosas'
+        if valido:
+            msg = f"✓ VÁLIDO: RD019 - Cobertura verificada para {len(cobertura_por_turno_dia)} turnos"
+            logger.info(msg)
+            self.exitos.append({'nombre': 'RD019', 'estado': 'OK', 'detalles': f'{len(cobertura_por_turno_dia)} turnos'})
+        else:
+            msg = f"✗ VIOLACIÓN: RD019 - Problemas de cobertura detectados"
+            logger.error(msg)
+            self.violaciones.append({'nombre': 'RD019', 'detalles': 'Cobertura insuficiente en algunos turnos'})
 
     def _descanso_minimo_12h(self):
         from collections import defaultdict
@@ -86,9 +119,12 @@ class ValidadorRestricciones:
         for eid, arr in por_enf.items():
             arr = sorted(arr, key=lambda x: x['fecha'])
             for i in range(len(arr)-1):
-                a = arr[i]; b = arr[i+1]
-                ta = id2turno.get(a['turno_id']); tb = id2turno.get(b['turno_id'])
-                if not ta or not tb: continue
+                a = arr[i]
+                b = arr[i+1]
+                ta = id2turno.get(a['turno_id'])
+                tb = id2turno.get(b['turno_id'])
+                if not ta or not tb:
+                    continue
                 fa = datetime.fromisoformat(a['fecha'])
                 fb = datetime.fromisoformat(b['fecha'])
                 ha_fin = datetime.combine(fa.date(), ta.hora_fin)
@@ -96,18 +132,21 @@ class ValidadorRestricciones:
                 if (hb_ini - ha_fin).total_seconds()/3600 < 12:
                     self._ko("RD006", f"{a['enfermera_nombre']} {a['fecha']}->{b['fecha']} < 12h")
                     ok = False
-        if ok: self._ok("RD006", "Descansos verificados")
+        if ok:
+            self._ok("RD006", "Descansos verificados")
 
     def _jornada_maxima_12h(self):
         ok = True
         id2turno = {t.id: t for t in self.configuracion.turnos.all()}
         for a in self.resultado.get('asignaciones', []):
             t = id2turno.get(a['turno_id'])
-            if not t: continue
+            if not t:
+                continue
             if getattr(t, 'duracion_horas', 0) and t.duracion_horas > 12:
                 self._ko("RD009", f"{a['enfermera_nombre']} {t.nombre} {t.duracion_horas}h")
                 ok = False
-        if ok: self._ok("RD009", "Jornadas <= 12h")
+        if ok:
+            self._ok("RD009", "Jornadas <= 12h")
 
     def _equidad_turnos_resumen(self):
         from collections import defaultdict
@@ -133,71 +172,138 @@ class GeneradorTurnos:
         self.rd = self._restricciones_duras()
         self.rb = self._restricciones_blandas()
 
-        logger.info("="*80); logger.info("INICIO GENERADOR"); logger.info("="*80)
+        logger.info("="*80)
+        logger.info("INICIO GENERADOR")
+        logger.info("="*80)
         logger.info(f"Config: {configuracion.nombre} | Días: {self.num_dias} | Enfs: {self.num_enfermeras} | Turnos: {self.num_turnos}")
         logger.info(f"Demanda: {self.demanda}")
 
     def _demanda(self):
-        d = self.configuracion.demanda_por_turno
-        if not d:
-            logger.warning("Demanda vacía; usando 1 por turno")
-            return {t.nombre: 1 for t in self.turnos}
-        if isinstance(d, dict):
-            return {str(k): int(v) for k,v in d.items()}
-        logger.warning(f"Demanda no dict ({type(d)}); usando default")
-        return {t.nombre: 1 for t in self.turnos}
+        """Procesa demanda - soporta formato simple y complejo"""
+        demanda = self.configuracion.demanda_por_turno
+
+        logger.info(f"Demanda raw: {demanda} (type: {type(demanda).__name__})")
+
+        # Si está vacío, usar default
+        if not demanda:
+            logger.warning("Demanda vacía, usando default (1 por turno)")
+            return {turno.nombre: 1 for turno in self.turnos}
+
+        # Si es dict
+        if isinstance(demanda, dict):
+            resultado = {}
+            for k, v in demanda.items():
+                turno_nombre = str(k)
+
+                # Si v es dict (formato complejo: {"min": 2, "optimo": 3, "max": 5})
+                if isinstance(v, dict):
+                    logger.info(f"Formato complejo detectado para {turno_nombre}: {v}")
+
+                    # Preferencia: optimo > min > max > primer valor
+                    if 'optimo' in v:
+                        valor = v['optimo']
+                        logger.debug(f"  Usando 'optimo': {valor}")
+                    elif 'min' in v:
+                        valor = v['min']
+                        logger.debug(f"  Usando 'min': {valor}")
+                    elif 'max' in v:
+                        valor = v['max']
+                        logger.debug(f"  Usando 'max': {valor}")
+                    else:
+                        # Tomar primer valor numérico del dict
+                        valores = [x for x in v.values() if isinstance(x, (int, float))]
+                        valor = int(valores[0]) if valores else 1
+                        logger.debug(f"  Usando primer valor numérico: {valor}")
+
+                    try:
+                        resultado[turno_nombre] = int(valor)
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"No se pudo convertir {turno_nombre}={valor}. Usando 1.")
+                        resultado[turno_nombre] = 1
+
+                # Si v es número directo (formato simple)
+                elif isinstance(v, (int, float)):
+                    resultado[turno_nombre] = int(v)
+                    logger.info(f"Formato simple para {turno_nombre}: {v}")
+
+                # Si es string, intentar convertir
+                elif isinstance(v, str):
+                    try:
+                        resultado[turno_nombre] = int(v)
+                    except ValueError:
+                        logger.warning(f"No se pudo convertir string {turno_nombre}={v}. Usando 1.")
+                        resultado[turno_nombre] = 1
+
+                else:
+                    logger.warning(f"Tipo desconocido para demanda[{turno_nombre}]={v} ({type(v).__name__}). Usando 1.")
+                    resultado[turno_nombre] = 1
+
+            logger.info(f"✓ Demanda procesada: {resultado}")
+            return resultado
+
+        # Si es lista o string, usar default
+        logger.warning(f"Formato de demanda no reconocido: {type(demanda).__name__}. Usando default.")
+        return {turno.nombre: 1 for turno in self.turnos}
 
     def _restricciones_duras(self):
         rd = self.configuracion.restricciones_duras
         if isinstance(rd, list):
-            logger.info(f"RD (array): {len(rd)}"); return rd
+            logger.info(f"RD (array): {len(rd)}")
+            return rd
         if isinstance(rd, dict):
-            logger.info(f"RD (dict): {len(rd)}"); return list(rd.values())
-        logger.info("RD vacías"); return []
+            logger.info(f"RD (dict): {len(rd)}")
+            return list(rd.values())
+        logger.info("RD vacías")
+        return []
 
     def _restricciones_blandas(self):
         rb = self.configuracion.restricciones_blandas
         if isinstance(rb, list):
-            logger.info(f"RB (array): {len(rb)}"); return rb
+            logger.info(f"RB (array): {len(rb)}")
+            return rb
         if isinstance(rb, dict):
-            logger.info(f"RB (dict): {len(rb)}"); return list(rb.values())
-        logger.info("RB vacías"); return []
+            logger.info(f"RB (dict): {len(rb)}")
+            return list(rb.values())
+        logger.info("RB vacías")
+        return []
 
     def crear_variables(self):
-        total = self.num_enfermeras*self.num_dias*self.num_turnos
+        total = self.num_enfermeras * self.num_dias * self.num_turnos
         logger.info(f"Creamos {total} variables booleanas")
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 for t in range(self.num_turnos):
-                    self.shifts[(e,d,t)] = self.model.NewBoolVar(f"e{e}_d{d}_t{t}")
+                    self.shifts[(e, d, t)] = self.model.NewBoolVar(f"e{e}_d{d}_t{t}")
 
     def aplicar_restricciones_duras(self):
         # RD020: una enfermera, un turno por día
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
-                self.model.Add(sum(self.shifts[(e,d,t)] for t in range(self.num_turnos)) <= 1)
+                self.model.Add(sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1)
         logger.info("RD020 aplicada (una por día)")
 
         # RD019: cobertura mínima
         for d in range(self.num_dias):
             for t in range(self.num_turnos):
                 nombre = self.turnos[t].nombre
-                req = self.demanda.get(nombre,1)
-                self.model.Add(sum(self.shifts[(e,d,t)] for e in range(self.num_enfermeras)) >= req)
+                req = self.demanda.get(nombre, 1)
+                self.model.Add(sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) >= req)
         logger.info("RD019 aplicada (cobertura mínima)")
 
-        # RD006: descanso 12h — aproximación: prohibir NOCHE->MANANA consecutivos
-        idxN = None; idxM = None
+        # RD006: descanso 12h
+        idxN = None
+        idxM = None
         for ti in range(self.num_turnos):
-            if self.turnos[ti].nombre == 'NOCHE': idxN = ti
-            if self.turnos[ti].nombre == 'MANANA': idxM = ti
+            if self.turnos[ti].nombre == 'NOCHE':
+                idxN = ti
+            if self.turnos[ti].nombre == 'MANANA':
+                idxM = ti
         if idxN is not None and idxM is not None:
             for e in range(self.num_enfermeras):
-                for d in range(self.num_dias-1):
-                    self.model.Add(self.shifts[(e,d,idxN)] + self.shifts[(e,d+1,idxM)] <= 1)
+                for d in range(self.num_dias - 1):
+                    self.model.Add(self.shifts[(e, d, idxN)] + self.shifts[(e, d + 1, idxM)] <= 1)
             logger.info("RD006 aplicada (NOCHE->MAÑANA prohibido)")
 
-        # RD014-16 horarios fijos: implícitos vía definición del turno (se validan luego)
         logger.info("RD014-16 verificación en validador")
 
     def aplicar_restricciones_blandas(self):
@@ -206,13 +312,13 @@ class GeneradorTurnos:
         for t in range(self.num_turnos):
             tot = []
             for e in range(self.num_enfermeras):
-                tot.append(sum(self.shifts[(e,d,t)] for d in range(self.num_dias)))
+                tot.append(sum(self.shifts[(e, d, t)] for d in range(self.num_dias)))
             if tot:
-                mx = self.model.NewIntVar(0,self.num_dias,f"mx_t{t}")
-                mn = self.model.NewIntVar(0,self.num_dias,f"mn_t{t}")
+                mx = self.model.NewIntVar(0, self.num_dias, f"mx_t{t}")
+                mn = self.model.NewIntVar(0, self.num_dias, f"mn_t{t}")
                 self.model.AddMaxEquality(mx, tot)
                 self.model.AddMinEquality(mn, tot)
-                diff = self.model.NewIntVar(0,self.num_dias,f"df_t{t}")
+                diff = self.model.NewIntVar(0, self.num_dias, f"df_t{t}")
                 self.model.Add(diff == mx - mn)
                 penal.append(diff * 100)
         if penal:
@@ -252,7 +358,7 @@ class GeneradorTurnos:
             fecha = fi + timedelta(days=d)
             for e in range(self.num_enfermeras):
                 for t in range(self.num_turnos):
-                    if solver.BooleanValue(self.shifts[(e,d,t)]):
+                    if solver.BooleanValue(self.shifts[(e, d, t)]):
                         asign.append({
                             'enfermera_id': self.enfermeras[e].id,
                             'enfermera_nombre': self.enfermeras[e].nombre,
@@ -262,4 +368,12 @@ class GeneradorTurnos:
                             'es_dia_libre': False
                         })
         logger.info(f"Asignaciones: {len(asign)}")
-        return {'success': True, 'status': st, 'asignaciones': asign, 'num_asignaciones': len(asign)}
+        # FIX: Incluir todos los campos requeridos
+        return {
+            'success': True,
+            'status': solver.StatusName(st),
+            'es_optima': st == cp_model.OPTIMAL,
+            'asignaciones': asign,
+            'num_asignaciones': len(asign),
+            'tiempo_ejecucion': solver.WallTime()
+        }
