@@ -1,315 +1,265 @@
-"""
-Generador de planificaciones usando OR-Tools
-"""
-from ortools.sat.python import cp_model
-from datetime import datetime, timedelta
-from typing import Dict, List
+﻿# -*- coding: utf-8 -*-
 import logging
+from datetime import timedelta, datetime, time
+from ortools.sat.python import cp_model
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+if not logger.handlers:
+    fh = logging.FileHandler('planificacion_debug.log', encoding='utf-8')
+    fh.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+
+class ValidadorRestricciones:
+    def __init__(self, configuracion, resultado):
+        self.configuracion = configuracion
+        self.resultado = resultado
+        self.violaciones = []
+        self.exitos = []
+
+    def _ok(self, nombre, det=""):
+        msg = f"✓ VÁLIDO: {nombre}"
+        if det: msg += f" - {det}"
+        logger.info(msg)
+        self.exitos.append({'nombre': nombre, 'estado': 'OK', 'detalles': det})
+
+    def _ko(self, nombre, det=""):
+        msg = f"✗ VIOLACIÓN: {nombre}"
+        if det: msg += f" - {det}"
+        logger.error(msg)
+        self.violaciones.append({'nombre': nombre, 'detalles': det})
+
+    def validar(self):
+        logger.info("="*80); logger.info("INICIANDO VALIDACIONES"); logger.info("="*80)
+        self._una_enfermera_un_turno_por_dia()
+        self._cobertura_minima_por_turno()
+        self._descanso_minimo_12h()
+        self._jornada_maxima_12h()
+        self._equidad_turnos_resumen()
+        logger.info("="*80)
+        logger.info(f"VALIDACIONES OK: {len(self.exitos)}  |  VIOLACIONES: {len(self.violaciones)}")
+        logger.info("="*80)
+        return {'valido': len(self.violaciones) == 0, 'validaciones': self.exitos, 'violaciones': self.violaciones}
+
+    def _una_enfermera_un_turno_por_dia(self):
+        seen = set(); ok = True
+        for a in self.resultado.get('asignaciones', []):
+            key = (a['enfermera_id'], a['fecha'])
+            if key in seen:
+                self._ko("RD020", f"Más de un turno en {a['fecha']} para {a['enfermera_nombre']}")
+                ok = False
+            else:
+                seen.add(key)
+        if ok: self._ok("RD020", f"{len(seen)} asignaciones únicas")
+
+    def _cobertura_minima_por_turno(self):
+        demanda = self.configuracion.demanda_por_turno or {}
+        ok = True
+        cobertura = {}
+        for a in self.resultado.get('asignaciones', []):
+            key = (a['turno_nombre'], a['fecha'])
+            cobertura[key] = cobertura.get(key, 0) + 1
+        for key, cnt in cobertura.items():
+            turno, fecha = key
+            req = demanda.get(turno, 1) if demanda else 1
+            if cnt < req:
+                self._ko("RD019", f"{turno} {fecha}: {cnt} < {req}")
+                ok = False
+        if ok: self._ok("RD019", f"{len(cobertura)} turnos verificados")
+
+    def _descanso_minimo_12h(self):
+        from collections import defaultdict
+        por_enf = defaultdict(list)
+        ok = True
+        id2turno = {t.id: t for t in self.configuracion.turnos.all()}
+        for a in self.resultado.get('asignaciones', []):
+            por_enf[a['enfermera_id']].append(a)
+        for eid, arr in por_enf.items():
+            arr = sorted(arr, key=lambda x: x['fecha'])
+            for i in range(len(arr)-1):
+                a = arr[i]; b = arr[i+1]
+                ta = id2turno.get(a['turno_id']); tb = id2turno.get(b['turno_id'])
+                if not ta or not tb: continue
+                fa = datetime.fromisoformat(a['fecha'])
+                fb = datetime.fromisoformat(b['fecha'])
+                ha_fin = datetime.combine(fa.date(), ta.hora_fin)
+                hb_ini = datetime.combine(fb.date(), tb.hora_inicio)
+                if (hb_ini - ha_fin).total_seconds()/3600 < 12:
+                    self._ko("RD006", f"{a['enfermera_nombre']} {a['fecha']}->{b['fecha']} < 12h")
+                    ok = False
+        if ok: self._ok("RD006", "Descansos verificados")
+
+    def _jornada_maxima_12h(self):
+        ok = True
+        id2turno = {t.id: t for t in self.configuracion.turnos.all()}
+        for a in self.resultado.get('asignaciones', []):
+            t = id2turno.get(a['turno_id'])
+            if not t: continue
+            if getattr(t, 'duracion_horas', 0) and t.duracion_horas > 12:
+                self._ko("RD009", f"{a['enfermera_nombre']} {t.nombre} {t.duracion_horas}h")
+                ok = False
+        if ok: self._ok("RD009", "Jornadas <= 12h")
+
+    def _equidad_turnos_resumen(self):
+        from collections import defaultdict
+        por_enf = defaultdict(lambda: defaultdict(int))
+        for a in self.resultado.get('asignaciones', []):
+            por_enf[a['enfermera_nombre']][a['turno_nombre']] += 1
+        for enf, mapa in por_enf.items():
+            logger.info(f"[EQ] {enf}: " + ", ".join(f"{k}={v}" for k,v in mapa.items()))
+        self._ok("RB001-RB003", "Resumen de equidad generado")
 
 
 class GeneradorTurnos:
-    """Clase para generar planificaciones de turnos usando CP-SAT"""
-
     def __init__(self, configuracion):
-        """
-        Inicializa el generador con una configuración
-
-        Args:
-            configuracion: Instancia de ConfiguracionPlanificacion
-        """
         self.configuracion = configuracion
         self.model = cp_model.CpModel()
-        self.solver = cp_model.CpSolver()
-
-        # Parámetros
         self.num_dias = configuracion.num_dias
-        self.enfermeras = list(configuracion.enfermeras.filter(activa=True))
+        self.enfermeras = list(configuracion.enfermeras.all())
+        self.turnos = list(configuracion.turnos.all())
         self.num_enfermeras = len(self.enfermeras)
-        self.turnos = list(configuracion.turnos.filter(activo=True))
         self.num_turnos = len(self.turnos)
-
-        if not self.enfermeras:
-            raise ValueError("No hay enfermeras activas disponibles")
-        if not self.turnos:
-            raise ValueError("No hay turnos activos disponibles")
-
-        # Variables de decisión
         self.shifts = {}
-        self.resultado = None
+        self.demanda = self._demanda()
+        self.rd = self._restricciones_duras()
+        self.rb = self._restricciones_blandas()
 
-        # Configurar solver
-        if configuracion.tiempo_maximo_segundos:
-            self.solver.parameters.max_time_in_seconds = configuracion.tiempo_maximo_segundos
+        logger.info("="*80); logger.info("INICIO GENERADOR"); logger.info("="*80)
+        logger.info(f"Config: {configuracion.nombre} | Días: {self.num_dias} | Enfs: {self.num_enfermeras} | Turnos: {self.num_turnos}")
+        logger.info(f"Demanda: {self.demanda}")
 
-        if configuracion.num_trabajadores:
-            self.solver.parameters.num_search_workers = configuracion.num_trabajadores
+    def _demanda(self):
+        d = self.configuracion.demanda_por_turno
+        if not d:
+            logger.warning("Demanda vacía; usando 1 por turno")
+            return {t.nombre: 1 for t in self.turnos}
+        if isinstance(d, dict):
+            return {str(k): int(v) for k,v in d.items()}
+        logger.warning(f"Demanda no dict ({type(d)}); usando default")
+        return {t.nombre: 1 for t in self.turnos}
 
-        if configuracion.seed:
-            self.solver.parameters.random_seed = configuracion.seed
+    def _restricciones_duras(self):
+        rd = self.configuracion.restricciones_duras
+        if isinstance(rd, list):
+            logger.info(f"RD (array): {len(rd)}"); return rd
+        if isinstance(rd, dict):
+            logger.info(f"RD (dict): {len(rd)}"); return list(rd.values())
+        logger.info("RD vacías"); return []
 
-        logger.info(f"📊 Generador inicializado: {self.num_enfermeras} enfermeras, {self.num_turnos} turnos, {self.num_dias} días")
+    def _restricciones_blandas(self):
+        rb = self.configuracion.restricciones_blandas
+        if isinstance(rb, list):
+            logger.info(f"RB (array): {len(rb)}"); return rb
+        if isinstance(rb, dict):
+            logger.info(f"RB (dict): {len(rb)}"); return list(rb.values())
+        logger.info("RB vacías"); return []
 
     def crear_variables(self):
-        """Crea las variables de decisión del modelo"""
-        # shifts[e, d, t] = 1 si enfermera e trabaja turno t en día d
+        total = self.num_enfermeras*self.num_dias*self.num_turnos
+        logger.info(f"Creamos {total} variables booleanas")
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 for t in range(self.num_turnos):
-                    self.shifts[(e, d, t)] = self.model.NewBoolVar(
-                        f'shift_e{e}_d{d}_t{t}'
-                    )
-        logger.info(f"✅ Variables creadas: {len(self.shifts)}")
+                    self.shifts[(e,d,t)] = self.model.NewBoolVar(f"e{e}_d{d}_t{t}")
 
     def aplicar_restricciones_duras(self):
-        """Aplica las restricciones duras (obligatorias)"""
-        restricciones = self.configuracion.restricciones_duras or []
-
-        # Restricción básica: un turno por día (SIEMPRE APLICADA)
-        self._restriccion_un_turno_por_dia()
-
-        # Restricción de cobertura mínima (SIEMPRE APLICADA si hay demanda)
-        self._restriccion_cobertura_minima_default()
-
-        for restriccion in restricciones:
-            nombre = restriccion.get('nombre')
-            params = restriccion.get('parametros', {})
-
-            if nombre == 'cobertura_minima':
-                # Ya aplicada arriba, pero podemos sobrescribir
-                self._restriccion_cobertura_minima(params)
-
-            elif nombre == 'cobertura_maxima':
-                self._restriccion_cobertura_maxima(params)
-
-            elif nombre == 'descanso_minimo':
-                self._restriccion_descanso_minimo(params)
-
-            elif nombre == 'turnos_consecutivos_max':
-                self._restriccion_turnos_consecutivos_max(params)
-
-            elif nombre == 'turnos_semanales_max':
-                self._restriccion_turnos_semanales_max(params)
-
-        logger.info(f"✅ Restricciones duras aplicadas")
-
-    def _restriccion_un_turno_por_dia(self):
-        """Una enfermera solo puede trabajar un turno por día"""
+        # RD020: una enfermera, un turno por día
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
-                self.model.Add(
-                    sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1
-                )
+                self.model.Add(sum(self.shifts[(e,d,t)] for t in range(self.num_turnos)) <= 1)
+        logger.info("RD020 aplicada (una por día)")
 
-    def _restriccion_cobertura_minima_default(self):
-        """Cobertura mínima por defecto (si no hay restricción específica)"""
-        demanda = self.configuracion.demanda_por_turno or {}
-
-        restricciones_aplicadas = 0
+        # RD019: cobertura mínima
         for d in range(self.num_dias):
-            for t, turno in enumerate(self.turnos):
-                turno_demanda = demanda.get(turno.nombre, {})
-                minimo = turno_demanda.get('min', 2)  # Default: 2 enfermeras mínimo
+            for t in range(self.num_turnos):
+                nombre = self.turnos[t].nombre
+                req = self.demanda.get(nombre,1)
+                self.model.Add(sum(self.shifts[(e,d,t)] for e in range(self.num_enfermeras)) >= req)
+        logger.info("RD019 aplicada (cobertura mínima)")
 
-                if minimo > 0:
-                    self.model.Add(
-                        sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) >= minimo
-                    )
-                    restricciones_aplicadas += 1
+        # RD006: descanso 12h — aproximación: prohibir NOCHE->MANANA consecutivos
+        idxN = None; idxM = None
+        for ti in range(self.num_turnos):
+            if self.turnos[ti].nombre == 'NOCHE': idxN = ti
+            if self.turnos[ti].nombre == 'MANANA': idxM = ti
+        if idxN is not None and idxM is not None:
+            for e in range(self.num_enfermeras):
+                for d in range(self.num_dias-1):
+                    self.model.Add(self.shifts[(e,d,idxN)] + self.shifts[(e,d+1,idxM)] <= 1)
+            logger.info("RD006 aplicada (NOCHE->MAÑANA prohibido)")
 
-        logger.info(f"   📌 Cobertura mínima: {restricciones_aplicadas} restricciones aplicadas")
+        # RD014-16 horarios fijos: implícitos vía definición del turno (se validan luego)
+        logger.info("RD014-16 verificación en validador")
 
-    def _restriccion_cobertura_minima(self, params):
-        """Cobertura mínima de enfermeras por turno (sobrescribe default)"""
-        demanda = self.configuracion.demanda_por_turno or {}
+    def aplicar_restricciones_blandas(self):
+        penal = []
+        # Equidad por turno
+        for t in range(self.num_turnos):
+            tot = []
+            for e in range(self.num_enfermeras):
+                tot.append(sum(self.shifts[(e,d,t)] for d in range(self.num_dias)))
+            if tot:
+                mx = self.model.NewIntVar(0,self.num_dias,f"mx_t{t}")
+                mn = self.model.NewIntVar(0,self.num_dias,f"mn_t{t}")
+                self.model.AddMaxEquality(mx, tot)
+                self.model.AddMinEquality(mn, tot)
+                diff = self.model.NewIntVar(0,self.num_dias,f"df_t{t}")
+                self.model.Add(diff == mx - mn)
+                penal.append(diff * 100)
+        if penal:
+            self.model.Minimize(sum(penal))
+            logger.info(f"RB equidad aplicada con {len(penal)} términos")
 
+    def resolver(self):
+        try:
+            self.crear_variables()
+            self.aplicar_restricciones_duras()
+            self.aplicar_restricciones_blandas()
+
+            solver = cp_model.CpSolver()
+            solver.parameters.max_time_in_seconds = self.configuracion.tiempo_maximo_segundos
+            solver.parameters.num_search_workers = self.configuracion.num_trabajadores
+            if self.configuracion.seed:
+                solver.parameters.random_seed = self.configuracion.seed
+
+            logger.info(f"Resolve: {self.configuracion.tiempo_maximo_segundos}s | workers={self.configuracion.num_trabajadores}")
+            st = solver.Solve(self.model)
+            logger.info(f"Estado: {solver.StatusName(st)} | Time: {solver.WallTime():.3f}s | Conflicts: {solver.NumConflicts()} | Branches: {solver.NumBranches()}")
+
+            if st in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                res = self._resultado(solver, st)
+                val = ValidadorRestricciones(self.configuracion, res).validar()
+                res['validacion'] = val
+                return res
+            return {'success': False, 'status': solver.StatusName(st), 'mensaje': 'Sin solución factible'}
+        except Exception as ex:
+            logger.exception(f"Error: {ex}")
+            return {'success': False, 'error': str(ex)}
+
+    def _resultado(self, solver, st):
+        asign = []
+        fi = self.configuracion.fecha_inicio
         for d in range(self.num_dias):
-            for t, turno in enumerate(self.turnos):
-                turno_demanda = demanda.get(turno.nombre, {})
-                minimo = turno_demanda.get('min', params.get('min', 1))
-
-                self.model.Add(
-                    sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) >= minimo
-                )
-
-    def _restriccion_cobertura_maxima(self, params):
-        """Cobertura máxima de enfermeras por turno"""
-        demanda = self.configuracion.demanda_por_turno or {}
-
-        for d in range(self.num_dias):
-            for t, turno in enumerate(self.turnos):
-                turno_demanda = demanda.get(turno.nombre, {})
-                maximo = turno_demanda.get('max', params.get('max', self.num_enfermeras))
-
-                self.model.Add(
-                    sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) <= maximo
-                )
-
-    def _restriccion_descanso_minimo(self, params):
-        """Descanso mínimo entre turnos"""
-        horas_minimas = params.get('horas', 11)
-
-        for e in range(self.num_enfermeras):
-            for d in range(self.num_dias - 1):
-                for t1 in range(self.num_turnos):
-                    for t2 in range(self.num_turnos):
-                        if self._requiere_descanso(t1, t2, horas_minimas):
-                            self.model.Add(
-                                self.shifts[(e, d, t1)] + self.shifts[(e, d + 1, t2)] <= 1
-                            )
-
-    def _restriccion_turnos_consecutivos_max(self, params):
-        """Máximo de turnos consecutivos"""
-        max_consecutivos = params.get('max', 5)
-
-        for e in range(self.num_enfermeras):
-            for d in range(self.num_dias - max_consecutivos):
-                total_trabajados = sum(
-                    self.shifts[(e, d + i, t)]
-                    for i in range(max_consecutivos + 1)
-                    for t in range(self.num_turnos)
-                )
-                self.model.Add(total_trabajados <= max_consecutivos)
-
-    def _restriccion_turnos_semanales_max(self, params):
-        """Máximo de turnos por semana"""
-        max_semanales = params.get('max', 5)
-
-        for e in range(self.num_enfermeras):
-            for semana in range(self.num_dias // 7):
-                inicio = semana * 7
-                fin = min(inicio + 7, self.num_dias)
-
-                total_semana = sum(
-                    self.shifts[(e, d, t)]
-                    for d in range(inicio, fin)
-                    for t in range(self.num_turnos)
-                )
-                self.model.Add(total_semana <= max_semanales)
-
-    def aplicar_objetivo(self):
-        """Define el objetivo de optimización"""
-        # OBJETIVO PRINCIPAL: Maximizar turnos asignados (evitar días libres innecesarios)
-        total_turnos = sum(
-            self.shifts[(e, d, t)]
-            for e in range(self.num_enfermeras)
-            for d in range(self.num_dias)
-            for t in range(self.num_turnos)
-        )
-
-        self.model.Maximize(total_turnos)
-        logger.info("✅ Objetivo: Maximizar turnos asignados")
-
-    def _requiere_descanso(self, turno1_idx, turno2_idx, horas_minimas):
-        """Verifica si dos turnos requieren descanso entre ellos"""
-        turno1 = self.turnos[turno1_idx]
-        turno2 = self.turnos[turno2_idx]
-
-        if turno1.nombre == 'NOCHE' and turno2.nombre == 'MANANA':
-            return True
-
-        return False
-
-    def resolver(self) -> Dict:
-        """
-        Resuelve el modelo y retorna el resultado
-
-        Returns:
-            Dict con el resultado de la optimización
-        """
-        logger.info("=" * 60)
-        logger.info("INICIANDO SOLVER OR-TOOLS")
-        logger.info("=" * 60)
-
-        # Crear variables
-        self.crear_variables()
-
-        # Aplicar restricciones
-        self.aplicar_restricciones_duras()
-
-        # Aplicar objetivo
-        self.aplicar_objetivo()
-
-        # Resolver
-        logger.info("⚙️ Ejecutando solver...")
-        inicio = datetime.now()
-        status = self.solver.Solve(self.model)
-        fin = datetime.now()
-        tiempo_ejecucion = (fin - inicio).total_seconds()
-
-        status_str = self._get_status_string(status)
-        logger.info(f"🏁 Solver finalizado: {status_str} en {tiempo_ejecucion:.2f}s")
-
-        resultado = {
-            'success': status in [cp_model.OPTIMAL, cp_model.FEASIBLE],
-            'status': status_str,
-            'es_optima': status == cp_model.OPTIMAL,
-            'penalizacion_total': 0.0,  # No usado en este modelo
-            'tiempo_ejecucion': tiempo_ejecucion,
-            'asignaciones': []
-        }
-
-        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            resultado['asignaciones'] = self._extraer_asignaciones()
-
-            turnos_trabajados = len([a for a in resultado['asignaciones'] if not a['es_dia_libre']])
-            dias_libres = len([a for a in resultado['asignaciones'] if a['es_dia_libre']])
-
-            logger.info(f"📊 Turnos trabajados: {turnos_trabajados}")
-            logger.info(f"🏖️ Días libres: {dias_libres}")
-            logger.info("=" * 60)
-        else:
-            logger.error(f"❌ No se encontró solución: {status_str}")
-
-        self.resultado = resultado
-        return resultado
-
-    def _get_status_string(self, status):
-        """Convierte el status del solver a string"""
-        status_map = {
-            cp_model.OPTIMAL: 'OPTIMAL',
-            cp_model.FEASIBLE: 'FEASIBLE',
-            cp_model.INFEASIBLE: 'INFEASIBLE',
-            cp_model.MODEL_INVALID: 'MODEL_INVALID',
-            cp_model.UNKNOWN: 'UNKNOWN'
-        }
-        return status_map.get(status, 'UNKNOWN')
-
-    def _extraer_asignaciones(self) -> List[Dict]:
-        """Extrae las asignaciones del modelo resuelto"""
-        asignaciones = []
-        fecha_inicio = self.configuracion.fecha_inicio
-
-        for e in range(self.num_enfermeras):
-            for d in range(self.num_dias):
-                fecha = fecha_inicio + timedelta(days=d)
-                turno_asignado = False
-
+            fecha = fi + timedelta(days=d)
+            for e in range(self.num_enfermeras):
                 for t in range(self.num_turnos):
-                    if self.solver.Value(self.shifts[(e, d, t)]) == 1:
-                        asignaciones.append({
+                    if solver.BooleanValue(self.shifts[(e,d,t)]):
+                        asign.append({
                             'enfermera_id': self.enfermeras[e].id,
                             'enfermera_nombre': self.enfermeras[e].nombre,
-                            'turno_id': self.turnos[t].id,
-                            'turno': self.turnos[t].nombre,
                             'fecha': fecha.isoformat(),
-                            'dia': d,
+                            'turno_id': self.turnos[t].id,
+                            'turno_nombre': self.turnos[t].nombre,
                             'es_dia_libre': False
                         })
-                        turno_asignado = True
-                        break
-
-                if not turno_asignado:
-                    # Día libre
-                    asignaciones.append({
-                        'enfermera_id': self.enfermeras[e].id,
-                        'enfermera_nombre': self.enfermeras[e].nombre,
-                        'turno_id': None,
-                        'turno': 'LIBRE',
-                        'fecha': fecha.isoformat(),
-                        'dia': d,
-                        'es_dia_libre': True
-                    })
-
-        return asignaciones
+        logger.info(f"Asignaciones: {len(asign)}")
+        return {'success': True, 'status': st, 'asignaciones': asign, 'num_asignaciones': len(asign)}

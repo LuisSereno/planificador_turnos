@@ -1,0 +1,21 @@
+﻿{
+  "metadata": { "version": "ejemplo_sacyl_v1" },
+  "restricciones_duras": [
+    { "id": "RD006", "nombre": "descanso_minimo_12h", "tipo": "descanso", "obligatorio": true,
+      "parametros": { "minimo_horas": 12 },
+      "descripcion": "Descanso mínimo 12 horas entre turnos"
+    },
+    { "id": "RD019", "nombre": "cobertura_minima_por_turno", "tipo": "cobertura", "obligatorio": true,
+      "parametros": { "minimo_por_turno": "variable" },
+      "descripcion": "Cobertura mínima por turno"
+    },
+    { "id": "RD020", "nombre": "no_solapamiento", "tipo": "asignacion", "obligatorio": true,
+      "descripcion": "Una enfermera, un turno por día"
+    }
+  ],
+  "restricciones_blandas": [
+    { "id": "RB001", "nombre": "equidad_festivos", "tipo": "equidad", "peso": 100,
+      "descripcion": "Distribución equitativa de festivos"
+    }
+  ]
+}

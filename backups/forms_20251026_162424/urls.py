@@ -1,10 +1,11 @@
-﻿"""
+﻿from django.views.generic import TemplateView
+from .views import CambiarWorkspaceView
+"""
 URL configuration for turnos app
 """
 from django.urls import path
 from . import views
 from django.views.generic import RedirectView, TemplateView
-from .views import CambiarWorkspaceView, ConfiguracionRestriccionesView
 
 app_name = 'turnos'
 

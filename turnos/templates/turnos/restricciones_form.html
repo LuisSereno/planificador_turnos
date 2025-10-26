@@ -1,0 +1,169 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestionar Restricciones - {{ config.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-3">
+    <div class="col">
+      <h1><i class="fas fa-shield-alt"></i> Restricciones: {{ config.nombre }}</h1>
+      <p class="text-muted">Configura restricciones duras y blandas para la planificación</p>
+    </div>
+    <div class="col-auto">
+      <a href="{% url 'turnos:config_detalle' config.pk %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Volver
+      </a>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="row">
+    <div class="col-12">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Cargar Preset SACYL -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0"><i class="fas fa-upload"></i> Cargar Preset SACYL</h5>
+    </div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="cargar_sacyl">
+
+        {{ form_cargar.as_p }}
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-download"></i> Cargar Preset
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- RESTRICCIONES DURAS -->
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-exclamation-circle"></i> Restricciones Duras ({{ restricciones_duras|length }})</h5>
+          <button class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#formDura">
+            <i class="fas fa-plus"></i> Añadir
+          </button>
+        </div>
+        <div class="card-body">
+          <!-- Formulario para añadir -->
+          <div class="collapse mb-3" id="formDura">
+            <form method="post" class="border p-3 rounded bg-light">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_dura">
+              <h6>Nueva Restricción Dura</h6>
+              {{ form_dura.as_p }}
+              <button type="submit" class="btn btn-danger btn-sm">Añadir</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#formDura">Cancelar</button>
+            </form>
+          </div>
+
+          <!-- Lista de restricciones duras -->
+          {% if restricciones_duras %}
+          <div class="list-group">
+            {% for rd in restricciones_duras %}
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <h6 class="mb-1">
+                    <span class="badge bg-danger">{{ rd.id }}</span> {{ rd.nombre }}
+                  </h6>
+                  <p class="mb-1 text-muted small">{{ rd.descripcion }}</p>
+                  <small class="text-muted">Tipo: {{ rd.tipo }} | Obligatorio: {% if rd.obligatorio %}Sí{% else %}No{% endif %}</small>
+                  {% if rd.parametros %}
+                  <pre class="mt-2 p-2 bg-light border rounded small mb-0" style="font-size: 0.8rem;">{{ rd.parametros|safe }}</pre>
+                  {% endif %}
+                </div>
+                <form method="post" class="ms-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_dura">
+                  <input type="hidden" name="index" value="{{ forloop.counter0 }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar esta restricción?')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted">No hay restricciones duras configuradas</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RESTRICCIONES BLANDAS -->
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-balance-scale"></i> Restricciones Blandas ({{ restricciones_blandas|length }})</h5>
+          <button class="btn btn-sm btn-dark" data-bs-toggle="collapse" data-bs-target="#formBlanda">
+            <i class="fas fa-plus"></i> Añadir
+          </button>
+        </div>
+        <div class="card-body">
+          <!-- Formulario para añadir -->
+          <div class="collapse mb-3" id="formBlanda">
+            <form method="post" class="border p-3 rounded bg-light">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_blanda">
+              <h6>Nueva Restricción Blanda</h6>
+              {{ form_blanda.as_p }}
+              <button type="submit" class="btn btn-warning btn-sm">Añadir</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#formBlanda">Cancelar</button>
+            </form>
+          </div>
+
+          <!-- Lista de restricciones blandas -->
+          {% if restricciones_blandas %}
+          <div class="list-group">
+            {% for rb in restricciones_blandas %}
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <h6 class="mb-1">
+                    <span class="badge bg-warning text-dark">{{ rb.id }}</span> {{ rb.nombre }}
+                    <span class="badge bg-secondary">Peso: {{ rb.peso }}</span>
+                  </h6>
+                  <p class="mb-1 text-muted small">{{ rb.descripcion }}</p>
+                  <small class="text-muted">Tipo: {{ rb.tipo }}</small>
+                  {% if rb.parametros %}
+                  <pre class="mt-2 p-2 bg-light border rounded small mb-0" style="font-size: 0.8rem;">{{ rb.parametros|safe }}</pre>
+                  {% endif %}
+                </div>
+                <form method="post" class="ms-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_blanda">
+                  <input type="hidden" name="index" value="{{ forloop.counter0 }}">
+                  <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('¿Eliminar esta restricción?')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted">No hay restricciones blandas configuradas</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,165 +1,288 @@
-﻿"""
-Tareas asíncronas de Celery — Código mejorado
-IMPORTANTE: Revisa y ajusta nombres de campos según tus modelos antes de reemplazar.
+﻿# -*- coding: utf-8 -*-
 """
-
-from __future__ import annotations
-
-import logging
-from datetime import datetime, timedelta
+Tareas asíncronas de Celery para planificación de turnos
+"""
 
 from celery import shared_task
 from django.utils import timezone
-
-from turnos.generador import GeneradorTurnos
-from turnos.models import Ejecucion, Planilla, AsignacionTurno
+from django.db import transaction
+import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3)
-def ejecutar_planificacion_async(self, ejecucion_id: int) -> dict:
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def ejecutar_planificacion_async(self, configuracion_id):
     """
-    Ejecuta la planificación de forma asíncrona con reintentos controlados.
-    """
-    try:
-        ejecucion = Ejecucion.objects.get(id=ejecucion_id)
-        ejecucion.estado = "PROCESANDO"
-        ejecucion.fecha_inicio = ejecucion.fecha_inicio or timezone.now()
-        ejecucion.save(update_fields=["estado", "fecha_inicio"])
+    Ejecuta la planificación de turnos de forma asíncrona
 
-        generador = GeneradorTurnos(ejecucion.configuracion)
+    Args:
+        configuracion_id: ID (int o dict) de ConfiguracionPlanificacion
+
+    Returns:
+        dict: Resultado con success, ejecucion_id y datos
+    """
+    from turnos.models import ConfiguracionPlanificacion, Ejecucion, Planilla, AsignacionTurno
+    from turnos.generador import GeneradorTurnos
+    from datetime import timedelta
+
+    ejecucion = None
+
+    try:
+        # ══════════════════════════════════════════════════════════════
+        # 1. VALIDAR Y CONVERTIR ID
+        # ══════════════════════════════════════════════════════════════
+        if isinstance(configuracion_id, dict):
+            # Si viene como dict (error común), extraer ID
+            configuracion_id = configuracion_id.get('id') or configuracion_id.get('pk')
+            logger.warning(f"configuracion_id vino como dict, extrayendo: {configuracion_id}")
+
+        try:
+            configuracion_id = int(configuracion_id)
+        except (TypeError, ValueError) as e:
+            logger.error(f"No se puede convertir configuracion_id a int: {configuracion_id}")
+            return {
+                'success': False,
+                'error': f'ID inválido: {configuracion_id}'
+            }
+
+        logger.info(f"═══ Iniciando planificación async para config ID: {configuracion_id} ═══")
+
+        # ══════════════════════════════════════════════════════════════
+        # 2. OBTENER CONFIGURACIÓN
+        # ══════════════════════════════════════════════════════════════
+        try:
+            config = ConfiguracionPlanificacion.objects.select_related('creado_por').get(pk=configuracion_id)
+            logger.info(f"Config: {config.nombre} | Días: {config.num_dias} | Inicio: {config.fecha_inicio}")
+        except ConfiguracionPlanificacion.DoesNotExist:
+            logger.error(f"Configuración {configuracion_id} no existe")
+            return {
+                'success': False,
+                'error': f'Configuración {configuracion_id} no encontrada'
+            }
+
+        # ══════════════════════════════════════════════════════════════
+        # 3. CREAR O ACTUALIZAR EJECUCIÓN
+        # ══════════════════════════════════════════════════════════════
+        with transaction.atomic():
+            ejecucion = Ejecucion.objects.filter(
+                configuracion=config,
+                estado='PENDIENTE'
+            ).order_by('-fecha_inicio').first()
+
+            if not ejecucion:
+                ejecucion = Ejecucion.objects.create(
+                    configuracion=config,
+                    estado='PROCESANDO'
+                )
+                logger.info(f"✓ Ejecución {ejecucion.id} creada (PROCESANDO)")
+            else:
+                ejecucion.estado = 'PROCESANDO'
+                ejecucion.save()
+                logger.info(f"✓ Ejecución {ejecucion.id} actualizada a PROCESANDO")
+
+        # ══════════════════════════════════════════════════════════════
+        # 4. EJECUTAR GENERADOR
+        # ══════════════════════════════════════════════════════════════
+        logger.info("Inicializando GeneradorTurnos...")
+        generador = GeneradorTurnos(config)
+
+        logger.info("Resolviendo planificación...")
         resultado = generador.resolver()
 
-        # Persistir resultado del solver
-        ejecucion.resultado = resultado
-        ejecucion.es_optima = bool(resultado.get("es_optima", False))
+        logger.info(f"Resolución completada: {resultado.get('status')}")
 
-        if resultado.get("success"):
-            planilla = crear_planilla_desde_resultado(ejecucion, resultado)
-            ejecucion.planilla = planilla
-            ejecucion.estado = "COMPLETADA"
+        # ══════════════════════════════════════════════════════════════
+        # 5. PROCESAR RESULTADO Y GUARDAR
+        # ══════════════════════════════════════════════════════════════
+        with transaction.atomic():
+            ejecucion.estado = 'COMPLETADA' if resultado.get('success') else 'ERROR'
+            ejecucion.fecha_fin = timezone.now()
+            ejecucion.es_optima = resultado.get('es_optima', False)
+            ejecucion.resultado = resultado
+
+            # Guardar estadísticas de validación
+            if 'validacion' in resultado:
+                ejecucion.mensajes = resultado['validacion']
+                logger.info(f"Validaciones: {len(resultado['validacion'].get('validaciones', []))} OK, "
+                           f"{len(resultado['validacion'].get('violaciones', []))} violaciones")
+
+            # Si hay penalización, guardarla
+            if 'penalizacion_total' in resultado:
+                ejecucion.penalizacion_total = resultado['penalizacion_total']
+
+            ejecucion.save()
+
+            # ══════════════════════════════════════════════════════════════
+            # 6. CREAR PLANILLA Y ASIGNACIONES
+            # ══════════════════════════════════════════════════════════════
+            if resultado.get('success') and resultado.get('asignaciones'):
+                logger.info("Creando planilla y asignaciones...")
+
+                # Crear planilla
+                fecha_inicio = config.fecha_inicio
+                fecha_fin = fecha_inicio + timedelta(days=config.num_dias - 1)
+
+                planilla = Planilla.objects.create(
+                    nombre=f"Planificación {config.nombre} - {fecha_inicio.strftime('%d/%m/%Y')}",
+                    descripcion=f"Generada automáticamente el {timezone.now().strftime('%d/%m/%Y %H:%M')}",
+                    ejecucion=ejecucion,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    num_dias=config.num_dias
+                )
+
+                logger.info(f"✓ Planilla {planilla.id} creada")
+
+                # Crear asignaciones en bulk
+                asignaciones_bulk = []
+                for asig in resultado['asignaciones']:
+                    from turnos.models import Enfermera, TipoTurno
+                    from datetime import datetime
+
+                    enfermera = Enfermera.objects.get(pk=asig['enfermera_id'])
+                    turno = TipoTurno.objects.get(pk=asig['turno_id']) if asig.get('turno_id') else None
+                    fecha = datetime.fromisoformat(asig['fecha']).date()
+
+                    asignaciones_bulk.append(
+                        AsignacionTurno(
+                            planilla=planilla,
+                            enfermera=enfermera,
+                            fecha=fecha,
+                            turno=turno,
+                            es_dia_libre=asig.get('es_dia_libre', False)
+                        )
+                    )
+
+                AsignacionTurno.objects.bulk_create(asignaciones_bulk)
+                logger.info(f"✓ {len(asignaciones_bulk)} asignaciones creadas")
+
+                # Vincular planilla a ejecución
+                ejecucion.planilla = planilla
+                ejecucion.save()
+
+        # ══════════════════════════════════════════════════════════════
+        # 7. RESULTADO FINAL
+        # ══════════════════════════════════════════════════════════════
+        duracion = ejecucion.duracion if ejecucion.duracion else 0
+
+        logger.info(f"═══ Ejecución {ejecucion.id} completada en {duracion:.2f}s ═══")
+
+        return {
+            'success': resultado.get('success', False),
+            'ejecucion_id': ejecucion.id,
+            'planilla_id': ejecucion.planilla.id if ejecucion.planilla else None,
+            'estado': ejecucion.estado,
+            'es_optima': ejecucion.es_optima,
+            'num_asignaciones': resultado.get('num_asignaciones', 0),
+            'tiempo_ejecucion': duracion,
+            'validacion': resultado.get('validacion', {})
+        }
+
+    except Exception as exc:
+        # ══════════════════════════════════════════════════════════════
+        # 8. MANEJO DE ERRORES
+        # ══════════════════════════════════════════════════════════════
+        logger.exception(f"ERROR en ejecución {configuracion_id}: {exc}")
+
+        # Actualizar ejecución a ERROR si existe
+        if ejecucion:
+            try:
+                with transaction.atomic():
+                    ejecucion.estado = 'ERROR'
+                    ejecucion.fecha_fin = timezone.now()
+                    ejecucion.mensajes = {
+                        'error': str(exc),
+                        'tipo': type(exc).__name__,
+                        'retry_count': self.request.retries
+                    }
+                    ejecucion.save()
+                    logger.info(f"Ejecución {ejecucion.id} marcada como ERROR")
+            except Exception as e:
+                logger.error(f"No se pudo actualizar ejecución a ERROR: {e}")
+
+        # Reintentar la tarea (máximo 3 veces)
+        if self.request.retries < self.max_retries:
+            logger.info(f"Reintentando tarea (intento {self.request.retries + 1}/{self.max_retries})...")
+            raise self.retry(exc=exc)
         else:
-            ejecucion.estado = "ERROR"
-            # Si tu modelo tiene un campo para error, descomenta y ajusta:
-            # ejecucion.mensaje_error = resultado.get("mensaje", "Error desconocido")
-
-        ejecucion.fecha_fin = timezone.now()
-        ejecucion.save()
-        return {"success": True, "ejecucion_id": ejecucion_id}
-    except Exception as e:
-        logger.error(f"Error en ejecución {ejecucion_id}: {e}")
-        # Reintenta con backoff fijo si aún quedan reintentos
-        if getattr(self.request, "retries", 0) < getattr(self, "max_retries", 0):
-            raise self.retry(exc=e, countdown=60)
-        raise
-
-
-def crear_planilla_desde_resultado(ejecucion: Ejecucion, resultado: dict) -> Planilla:
-    """
-    Crea una planilla y sus asignaciones a partir del resultado del solver.
-    """
-    config = ejecucion.configuracion
-
-    planilla = Planilla.objects.create(
-        nombre=f"Planilla {config.nombre} - {timezone.now().strftime('%d/%m/%Y')}",
-        ejecucion=ejecucion,
-        fecha_inicio=config.fecha_inicio,
-        fecha_fin=config.fecha_inicio + timedelta(days=config.num_dias - 1),
-        num_dias=config.num_dias,
-    )
-
-    asignaciones_bulk: list[AsignacionTurno] = []
-    for asig in resultado.get("asignaciones", []):
-        # Acepta 'YYYY-MM-DD' o ISO 8601 con hora
-        fecha_val = asig.get("fecha")
-        if isinstance(fecha_val, str):
-            # fromisoformat soporta 'YYYY-MM-DD' y 'YYYY-MM-DDTHH:MM:SS'
-            fecha_dt = datetime.fromisoformat(fecha_val)
-            fecha = fecha_dt.date()
-        elif isinstance(fecha_val, datetime):
-            fecha = fecha_val.date()
-        else:
-            # Si no hay fecha válida, omite la asignación
-            logger.warning(f"Asig sin fecha válida: {asig}")
-            continue
-
-        asignaciones_bulk.append(
-            AsignacionTurno(
-                planilla=planilla,
-                enfermera_id=asig["enfermera_id"],
-                fecha=fecha,
-                turno_id=asig.get("turno_id"),
-                es_dia_libre=asig.get("es_dia_libre", False),
-            )
-        )
-
-    # Inserción eficiente por lotes
-    if asignaciones_bulk:
-        AsignacionTurno.objects.bulk_create(asignaciones_bulk, batch_size=100)
-        logger.info(
-            f"Planilla {planilla.id} creada con {len(asignaciones_bulk)} asignaciones"
-        )
-    else:
-        logger.warning(f"Planilla {planilla.id} creada sin asignaciones")
-
-    return planilla
+            logger.error("Máximo de reintentos alcanzado")
+            return {
+                'success': False,
+                'error': str(exc),
+                'ejecucion_id': ejecucion.id if ejecucion else None
+            }
 
 
 @shared_task
-def limpiar_ejecuciones_antiguas(dias: int = 30) -> dict:
+def limpiar_ejecuciones_antiguas(dias=30):
     """
-    Elimina ejecuciones antiguas para liberar espacio.
+    Limpia ejecuciones antiguas (completadas o con error)
+
+    Args:
+        dias: Eliminar ejecuciones más antiguas que N días
+
+    Returns:
+        dict: Número de registros eliminados
     """
+    from turnos.models import Ejecucion
+    from datetime import timedelta
+
     fecha_limite = timezone.now() - timedelta(days=dias)
-    qs = Ejecucion.objects.filter(
-        fecha_inicio__lt=fecha_limite, estado__in=["COMPLETADA", "ERROR"]
-    )
-    count = qs.count()
-    qs.delete()
-    logger.info(f"Limpiadas {count} ejecuciones antiguas")
-    return {"eliminadas": count}
+
+    eliminadas, detalles = Ejecucion.objects.filter(
+        fecha_inicio__lt=fecha_limite,
+        estado__in=['ERROR', 'COMPLETADA']
+    ).delete()
+
+    logger.info(f"Limpieza: {eliminadas} ejecuciones eliminadas (>{dias} días)")
+
+    return {
+        'eliminadas': eliminadas,
+        'detalles': detalles
+    }
 
 
 @shared_task
-def generar_estadisticas_mensuales() -> dict:
+def generar_reporte_estadisticas(mes, anio):
     """
-    Calcula estadísticas agregadas del mes en curso.
+    Genera reporte de estadísticas mensuales
+
+    Args:
+        mes: Mes (1-12)
+        anio: Año (ej: 2025)
+
+    Returns:
+        dict: Estadísticas del mes
     """
-    from django.db.models import Avg  # import local para evitar cargas innecesarias
+    from turnos.models import Ejecucion, Planilla
+    from datetime import datetime
 
-    hoy = timezone.now().date()
-    primer_dia = hoy.replace(day=1)
+    inicio = datetime(anio, mes, 1)
+    if mes == 12:
+        fin = datetime(anio + 1, 1, 1)
+    else:
+        fin = datetime(anio, mes + 1, 1)
 
-    total = Ejecucion.objects.filter(fecha_inicio__gte=primer_dia).count()
-    exitosas = Ejecucion.objects.filter(
-        fecha_inicio__gte=primer_dia, estado="COMPLETADA"
-    ).count()
-    tiempo_prom = (
-        Ejecucion.objects.filter(fecha_inicio__gte=primer_dia, estado="COMPLETADA")
-        .aggregate(Avg("tiempo_ejecucion"))
-        .get("tiempo_ejecucion__avg")
+    ejecuciones = Ejecucion.objects.filter(
+        fecha_inicio__gte=inicio,
+        fecha_inicio__lt=fin
     )
 
     stats = {
-        "ejecuciones_totales": total,
-        "ejecuciones_exitosas": exitosas,
-        "tiempo_promedio": tiempo_prom,
+        'mes': mes,
+        'anio': anio,
+        'total_ejecuciones': ejecuciones.count(),
+        'completadas': ejecuciones.filter(estado='COMPLETADA').count(),
+        'errores': ejecuciones.filter(estado='ERROR').count(),
+        'optimas': ejecuciones.filter(es_optima=True).count(),
+        'planillas_generadas': Planilla.objects.filter(
+            fecha_inicio__gte=inicio,
+            fecha_inicio__lt=fin
+        ).count()
     }
-    logger.info(f"Estadísticas mensuales: {stats}")
+
+    logger.info(f"Reporte {mes}/{anio}: {json.dumps(stats, indent=2)}")
+
     return stats
-
-
-@shared_task
-def notificar_ejecucion_completada(ejecucion_id: int) -> dict:
-    """
-    Envía una notificación al finalizar una ejecución (placeholder).
-    """
-    try:
-        ejecucion = Ejecucion.objects.get(id=ejecucion_id)
-        # Implementa aquí email/webhook/etc.
-        logger.info(f"Notificación enviada para ejecución {ejecucion.pk}")
-        return {"notificado": True}
-    except Exception as e:
-        logger.error(f"Error al notificar ejecución {ejecucion_id}: {e}")
-        return {"notificado": False, "error": str(e)}
