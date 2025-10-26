@@ -219,35 +219,75 @@ class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
         return [TEMPLATES[self.steps.current]]
 
     def done(self, form_list, **kwargs):
+        logger.info("Wizard completado. Procesando datos para crear configuración.")
         form_data = self.get_all_cleaned_data()
+        logger.debug(f"Datos del formulario (cleaned): {form_data}")
 
-        # Procesar datos JSON
-        demanda_por_turno = form_data.get('demanda_por_turno')
-        restricciones_duras = form_data.get('restricciones_duras')
-        restricciones_blandas = form_data.get('restricciones_blandas')
+        try:
+            # 1. Procesar datos JSON con logging detallado
+            try:
+                demanda_str = form_data.get('demanda_por_turno', '{}')
+                demanda_por_turno = json.loads(demanda_str) if demanda_str else {}
+                logger.info("JSON de demanda procesado correctamente.")
+            except json.JSONDecodeError as e:
+                logger.error(f"Error al decodificar JSON de demanda: {e}", exc_info=True)
+                logger.error(f"Contenido de demanda: {form_data.get('demanda_por_turno')}")
+                messages.error(self.request, "Error en el formato JSON de la demanda. Verifique la sintaxis.")
+                return redirect('turnos:config_wizard')
 
-        # Crear instancia del modelo
-        config = ConfiguracionPlanificacion.objects.create(
-            nombre=form_data['nombre'],
-            descripcion=form_data.get('descripcion', ''),
-            num_dias=form_data['num_dias'],
-            fecha_inicio=form_data['fecha_inicio'],
-            demanda_por_turno=json.loads(demanda_por_turno) if demanda_por_turno else {},
-            restricciones_duras=json.loads(restricciones_duras) if restricciones_duras else [],
-            restricciones_blandas=json.loads(restricciones_blandas) if restricciones_blandas else [],
-            num_trabajadores=form_data.get('num_trabajadores', 4),
-            tiempo_maximo_segundos=form_data.get('tiempo_maximo_segundos', 60),
-            seed=form_data.get('seed'),
-            creado_por=self.request.user,
-            activa=True  # Activar por defecto
-        )
+            try:
+                duras_str = form_data.get('restricciones_duras', '[]')
+                restricciones_duras = json.loads(duras_str) if duras_str else []
+                logger.info("JSON de restricciones duras procesado correctamente.")
+            except json.JSONDecodeError as e:
+                logger.error(f"Error al decodificar JSON de restricciones duras: {e}", exc_info=True)
+                logger.error(f"Contenido de restricciones duras: {form_data.get('restricciones_duras')}")
+                messages.error(self.request, "Error en el formato JSON de las restricciones duras. Verifique la sintaxis.")
+                return redirect('turnos:config_wizard')
 
-        # Añadir relaciones ManyToMany
-        config.enfermeras.set(form_data['enfermeras'])
-        config.turnos.set(form_data['turnos'])
+            try:
+                blandas_str = form_data.get('restricciones_blandas', '[]')
+                restricciones_blandas = json.loads(blandas_str) if blandas_str else []
+                logger.info("JSON de restricciones blandas procesado correctamente.")
+            except json.JSONDecodeError as e:
+                logger.error(f"Error al decodificar JSON de restricciones blandas: {e}", exc_info=True)
+                logger.error(f"Contenido de restricciones blandas: {form_data.get('restricciones_blandas')}")
+                messages.error(self.request, "Error en el formato JSON de las restricciones blandas. Verifique la sintaxis.")
+                return redirect('turnos:config_wizard')
 
-        messages.success(self.request, f'Configuración "{config.nombre}" creada con éxito.')
-        return redirect('turnos:config_detalle', pk=config.pk)
+            with transaction.atomic():
+                # 2. Crear instancia del modelo
+                logger.info("Creando instancia de ConfiguracionPlanificacion...")
+                config = ConfiguracionPlanificacion.objects.create(
+                    nombre=form_data['nombre'],
+                    descripcion=form_data.get('descripcion', ''),
+                    num_dias=form_data['num_dias'],
+                    fecha_inicio=form_data['fecha_inicio'],
+                    demanda_por_turno=demanda_por_turno,
+                    restricciones_duras=restricciones_duras,
+                    restricciones_blandas=restricciones_blandas,
+                    num_trabajadores=form_data.get('num_trabajadores', 4),
+                    tiempo_maximo_segundos=form_data.get('tiempo_maximo_segundos', 60),
+                    seed=form_data.get('seed'),
+                    creado_por=self.request.user,
+                    activa=True
+                )
+                logger.info(f"Configuración '{config.nombre}' (ID: {config.pk}) creada en la base de datos.")
+
+                # 3. Añadir relaciones ManyToMany
+                logger.info("Asignando relaciones ManyToMany (enfermeras y turnos)...")
+                config.enfermeras.set(form_data['enfermeras'])
+                config.turnos.set(form_data['turnos'])
+                logger.info("Relaciones ManyToMany asignadas correctamente.")
+
+            messages.success(self.request, f'Configuración "{config.nombre}" creada con éxito.')
+            logger.info(f"Proceso de creación de configuración finalizado con éxito para '{config.nombre}'.")
+            return redirect('turnos:config_detalle', pk=config.pk)
+
+        except Exception as e:
+            logger.exception("Error inesperado al guardar la configuración desde el wizard.")
+            messages.error(self.request, f"Se produjo un error inesperado al guardar la configuración: {e}")
+            return redirect('turnos:config_wizard')
 
 
 # ========== Ejecuciones ==========
@@ -1375,111 +1415,147 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         config_id = self.kwargs.get('pk')
         action = request.POST.get('action')
+        logger.info(f"POST en ConfiguracionRestriccionesView. Config ID: {config_id}, Acción: {action}")
 
         try:
             config = ConfiguracionPlanificacion.objects.get(pk=config_id)
         except ConfiguracionPlanificacion.DoesNotExist:
+            logger.error(f"Configuración con ID {config_id} no encontrada.")
             messages.error(request, 'Configuración no encontrada')
             return redirect('turnos:config_lista')
 
-        # Añadir restricción dura
-        if action == 'add_dura':
-            try:
-                from .forms import RestriccionDuraForm
-                form = RestriccionDuraForm(request.POST)
-                if form.is_valid():
+        try:
+            # Añadir restricción dura
+            if action == 'add_dura':
+                logger.debug("Acción: add_dura")
+                try:
+                    from .forms import RestriccionDuraForm
+                    form = RestriccionDuraForm(request.POST)
+                    if form.is_valid():
+                        rd = config.restricciones_duras or []
+                        if not isinstance(rd, list):
+                            logger.warning(f"restricciones_duras no era una lista, se reinicia. Contenido: {config.restricciones_duras}")
+                            rd = []
+                        nueva_restriccion = form.to_dict()
+                        rd.append(nueva_restriccion)
+                        config.restricciones_duras = rd
+                        config.save()
+                        logger.info(f"Restricción dura añadida a config {config_id}: {nueva_restriccion}")
+                        messages.success(request, f'Restricción dura "{form.cleaned_data["nombre"]}" añadida')
+                    else:
+                        logger.warning(f"Formulario de restricción dura inválido: {form.errors.as_json()}")
+                        for field, errors in form.errors.items():
+                            for error in errors:
+                                messages.error(request, f'{field}: {error}')
+                except ImportError:
+                    logger.error("No se pudo importar RestriccionDuraForm.")
+                    messages.error(request, 'Formulario de restricciones no disponible')
+
+            # Añadir restricción blanda
+            elif action == 'add_blanda':
+                logger.debug("Acción: add_blanda")
+                try:
+                    from .forms import RestriccionBlandaForm
+                    form = RestriccionBlandaForm(request.POST)
+                    if form.is_valid():
+                        rb = config.restricciones_blandas or []
+                        if not isinstance(rb, list):
+                            logger.warning(f"restricciones_blandas no era una lista, se reinicia. Contenido: {config.restricciones_blandas}")
+                            rb = []
+                        nueva_restriccion = form.to_dict()
+                        rb.append(nueva_restriccion)
+                        config.restricciones_blandas = rb
+                        config.save()
+                        logger.info(f"Restricción blanda añadida a config {config_id}: {nueva_restriccion}")
+                        messages.success(request, f'Restricción blanda "{form.cleaned_data["nombre"]}" añadida')
+                    else:
+                        logger.warning(f"Formulario de restricción blanda inválido: {form.errors.as_json()}")
+                        for field, errors in form.errors.items():
+                            for error in errors:
+                                messages.error(request, f'{field}: {error}')
+                except ImportError:
+                    logger.error("No se pudo importar RestriccionBlandaForm.")
+                    messages.error(request, 'Formulario de restricciones no disponible')
+
+            # Cargar preset SACYL
+            elif action == 'cargar_sacyl':
+                logger.debug("Acción: cargar_sacyl")
+                try:
+                    from .forms import CargarRestriccionesSACYLForm
+                    form = CargarRestriccionesSACYLForm(request.POST, request.FILES)
+                    if form.is_valid():
+                        preset = form.cleaned_data['preset']
+                        logger.info(f"Cargando preset SACYL '{preset}' en config {config_id}")
+
+                        if preset == 'basico':
+                            # Cargar preset básico hardcoded
+                            config.restricciones_duras = [
+                                {"id": "RD006", "nombre": "descanso_minimo_12h", "tipo": "descanso", "obligatorio": True, "parametros": {"minimo_horas": 12}, "descripcion": "Descanso mínimo 12h entre jornadas"},
+                                {"id": "RD019", "nombre": "cobertura_minima", "tipo": "cobertura", "obligatorio": True, "parametros": {}, "descripcion": "Cobertura mínima por turno"},
+                                {"id": "RD020", "nombre": "no_solapamiento", "tipo": "asignacion", "obligatorio": True, "parametros": {}, "descripcion": "Una enfermera, un turno por día"}
+                            ]
+                            config.restricciones_blandas = [
+                                {"id": "RB001", "nombre": "equidad_turnos", "tipo": "equidad", "peso": 100, "parametros": {}, "descripcion": "Distribución equitativa de turnos"}
+                            ]
+                            config.save()
+                            logger.info(f"Preset básico SACYL guardado en config {config_id}.")
+                            messages.success(request, 'Preset básico SACYL cargado')
+
+                        elif preset == 'custom' and 'json_data' in form.cleaned_data:
+                            data = form.cleaned_data['json_data']
+                            logger.debug(f"Cargando restricciones desde JSON: {data}")
+                            if 'restricciones_duras' in data:
+                                config.restricciones_duras = data['restricciones_duras']
+                                logger.info(f"Restricciones duras actualizadas desde JSON para config {config_id}.")
+                            if 'restricciones_blandas' in data:
+                                config.restricciones_blandas = data['restricciones_blandas']
+                                logger.info(f"Restricciones blandas actualizadas desde JSON para config {config_id}.")
+                            config.save()
+                            messages.success(request, 'Restricciones personalizadas cargadas desde JSON')
+                    else:
+                        logger.warning(f"Formulario CargarRestriccionesSACYLForm inválido: {form.errors.as_json()}")
+                        for error in form.non_field_errors():
+                            messages.error(request, error)
+                except ImportError:
+                    logger.error("No se pudo importar CargarRestriccionesSACYLForm.")
+                    messages.error(request, 'Formulario de carga SACYL no disponible')
+
+            # Eliminar restricción
+            elif action == 'delete_dura':
+                idx_str = request.POST.get('index', '-1')
+                logger.debug(f"Acción: delete_dura, index: {idx_str}")
+                idx = int(idx_str)
+                if idx >= 0:
                     rd = config.restricciones_duras or []
-                    if not isinstance(rd, list):
-                        rd = []
-                    rd.append(form.to_dict())
-                    config.restricciones_duras = rd
-                    config.save()
-                    messages.success(request, f'Restricción dura "{form.cleaned_data["nombre"]}" añadida')
-                else:
-                    for field, errors in form.errors.items():
-                        for error in errors:
-                            messages.error(request, f'{field}: {error}')
-            except ImportError:
-                messages.error(request, 'Formulario de restricciones no disponible')
+                    if isinstance(rd, list) and idx < len(rd):
+                        eliminada = rd.pop(idx)
+                        config.restricciones_duras = rd
+                        config.save()
+                        logger.info(f"Restricción dura eliminada de config {config_id}. Restricción: {eliminada}")
+                        messages.success(request, 'Restricción dura eliminada')
+                    else:
+                        logger.warning(f"Índice de restricción dura inválido o fuera de rango. Index: {idx}, Total: {len(rd)}")
 
-        # Añadir restricción blanda
-        elif action == 'add_blanda':
-            try:
-                from .forms import RestriccionBlandaForm
-                form = RestriccionBlandaForm(request.POST)
-                if form.is_valid():
+            elif action == 'delete_blanda':
+                idx_str = request.POST.get('index', '-1')
+                logger.debug(f"Acción: delete_blanda, index: {idx_str}")
+                idx = int(idx_str)
+                if idx >= 0:
                     rb = config.restricciones_blandas or []
-                    if not isinstance(rb, list):
-                        rb = []
-                    rb.append(form.to_dict())
-                    config.restricciones_blandas = rb
-                    config.save()
-                    messages.success(request, f'Restricción blanda "{form.cleaned_data["nombre"]}" añadida')
-                else:
-                    for field, errors in form.errors.items():
-                        for error in errors:
-                            messages.error(request, f'{field}: {error}')
-            except ImportError:
-                messages.error(request, 'Formulario de restricciones no disponible')
-
-        # Cargar preset SACYL
-        elif action == 'cargar_sacyl':
-            try:
-                from .forms import CargarRestriccionesSACYLForm
-                form = CargarRestriccionesSACYLForm(request.POST, request.FILES)
-                if form.is_valid():
-                    preset = form.cleaned_data['preset']
-
-                    if preset == 'basico':
-                        # Cargar preset básico hardcoded
-                        config.restricciones_duras = [
-                            {"id": "RD006", "nombre": "descanso_minimo_12h", "tipo": "descanso", "obligatorio": True,
-                             "parametros": {"minimo_horas": 12}, "descripcion": "Descanso mínimo 12h entre jornadas"},
-                            {"id": "RD019", "nombre": "cobertura_minima", "tipo": "cobertura", "obligatorio": True,
-                             "parametros": {}, "descripcion": "Cobertura mínima por turno"},
-                            {"id": "RD020", "nombre": "no_solapamiento", "tipo": "asignacion", "obligatorio": True,
-                             "parametros": {}, "descripcion": "Una enfermera, un turno por día"}
-                        ]
-                        config.restricciones_blandas = [
-                            {"id": "RB001", "nombre": "equidad_turnos", "tipo": "equidad", "peso": 100,
-                             "parametros": {}, "descripcion": "Distribución equitativa de turnos"}
-                        ]
+                    if isinstance(rb, list) and idx < len(rb):
+                        eliminada = rb.pop(idx)
+                        config.restricciones_blandas = rb
                         config.save()
-                        messages.success(request, 'Preset básico SACYL cargado')
+                        logger.info(f"Restricción blanda eliminada de config {config_id}. Restricción: {eliminada}")
+                        messages.success(request, 'Restricción blanda eliminada')
+                    else:
+                        logger.warning(f"Índice de restricción blanda inválido o fuera de rango. Index: {idx}, Total: {len(rb)}")
+            
+            else:
+                logger.warning(f"Acción desconocida '{action}' en ConfiguracionRestriccionesView.")
 
-                    elif preset == 'custom' and 'json_data' in form.cleaned_data:
-                        data = form.cleaned_data['json_data']
-                        if 'restricciones_duras' in data:
-                            config.restricciones_duras = data['restricciones_duras']
-                        if 'restricciones_blandas' in data:
-                            config.restricciones_blandas = data['restricciones_blandas']
-                        config.save()
-                        messages.success(request, 'Restricciones personalizadas cargadas desde JSON')
-                else:
-                    for error in form.non_field_errors():
-                        messages.error(request, error)
-            except ImportError:
-                messages.error(request, 'Formulario de carga SACYL no disponible')
-
-        # Eliminar restricción
-        elif action == 'delete_dura':
-            idx = int(request.POST.get('index', -1))
-            if idx >= 0:
-                rd = config.restricciones_duras or []
-                if isinstance(rd, list) and idx < len(rd):
-                    del rd[idx]
-                    config.restricciones_duras = rd
-                    config.save()
-                    messages.success(request, 'Restricción dura eliminada')
-
-        elif action == 'delete_blanda':
-            idx = int(request.POST.get('index', -1))
-            if idx >= 0:
-                rb = config.restricciones_blandas or []
-                if isinstance(rb, list) and idx < len(rb):
-                    del rb[idx]
-                    config.restricciones_blandas = rb
-                    config.save()
-                    messages.success(request, 'Restricción blanda eliminada')
+        except Exception as e:
+            logger.exception(f"Error inesperado al procesar la acción '{action}' para la config {config_id}.")
+            messages.error(request, f"Se produjo un error inesperado: {e}")
 
         return redirect('turnos:config_restricciones', pk=config_id)
