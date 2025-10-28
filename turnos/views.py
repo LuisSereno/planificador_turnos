@@ -12,7 +12,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Avg
+from django.db.models import Avg, F, ExpressionWrapper, DurationField
 from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -452,11 +452,10 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             'validaciones_ok': 0,
             'violaciones': 0
         }
-
         if isinstance(ejecucion.mensajes, dict):
             validacion_resultado['validaciones_ok'] = len(ejecucion.mensajes.get('validaciones', []))
             validacion_resultado['violaciones'] = len(ejecucion.mensajes.get('violaciones', []))
-
+        
         context['validacion_resultado'] = validacion_resultado
 
         # Si tiene planilla, calcular datos para visualización
@@ -775,9 +774,20 @@ class EnfermeraDetailView(LoginRequiredMixin, DetailView):
         }
 
         # Asignaciones recientes
-        context['asignaciones_recientes'] = AsignacionTurno.objects.filter(
+        asignaciones = AsignacionTurno.objects.filter(
             enfermera=self.object
-        ).select_related('turno', 'planilla').order_by('-fecha')[:10]
+        ).select_related('turno', 'planilla__ejecucion').order_by('-fecha')[:10]
+
+        asignaciones_recientes = []
+        for a in asignaciones:
+            asignaciones_recientes.append({
+                'configuracion': a.planilla.ejecucion.configuracion,
+                'fecha': a.fecha,
+                'total_turnos': a.planilla.asignaciones.filter(fecha=a.fecha).count(),
+                'ejecucion_id': a.planilla.ejecucion.id
+            })
+
+        context['asignaciones_recientes'] = asignaciones_recientes
 
         return context
 
@@ -1327,12 +1337,19 @@ class ReporteTendenciasView(LoginRequiredMixin, TemplateView):
                 fecha_inicio__lt=mes_fin
             )
 
+            # Calcular duración promedio
+            avg_duration_seconds = ejecuciones_mes.annotate(
+                duracion_calc=ExpressionWrapper(F('fecha_fin') - F('fecha_inicio'), output_field=DurationField())
+            ).aggregate(Avg('duracion_calc'))['duracion_calc__avg']
+
+            avg_duration = avg_duration_seconds.total_seconds() if avg_duration_seconds else 0
+
             datos_mensuales.append({
                 'nombre': mes_inicio.strftime('%B'),
                 'total': ejecuciones_mes.count(),
                 'exitosas': ejecuciones_mes.filter(estado='COMPLETADA').count(),
                 'fallidas': ejecuciones_mes.filter(estado='ERROR').count(),
-                'tiempo_promedio': ejecuciones_mes.aggregate(Avg('duracion'))['duracion__avg'] or 0,
+                'tiempo_promedio': avg_duration,
                 'tasa_exito': (ejecuciones_mes.filter(
                     estado='COMPLETADA').count() / ejecuciones_mes.count() * 100) if ejecuciones_mes.count() > 0 else 0
             })

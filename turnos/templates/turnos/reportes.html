@@ -2,7 +2,9 @@
 {% load static %}
 
 {% block title %}Reportes y Análisis{% endblock %}
-
+    {% block breadcrumb_items %}
+       <li class="breadcrumb-item"><a href="{% url 'turnos:reportes' %}">Reportes</a></li>
+    {% endblock %}
 {% block extra_css %}
 <style>
 .report-card {
