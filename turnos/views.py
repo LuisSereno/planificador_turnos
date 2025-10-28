@@ -447,6 +447,18 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             f"Duration: {ejecucion.duracion}"
         )
 
+        # Extraer datos de validación del campo `mensajes`
+        validacion_resultado = {
+            'validaciones_ok': 0,
+            'violaciones': 0
+        }
+
+        if isinstance(ejecucion.mensajes, dict):
+            validacion_resultado['validaciones_ok'] = len(ejecucion.mensajes.get('validaciones', []))
+            validacion_resultado['violaciones'] = len(ejecucion.mensajes.get('violaciones', []))
+
+        context['validacion_resultado'] = validacion_resultado
+
         # Si tiene planilla, calcular datos para visualización
         if ejecucion.planilla:
             planilla = ejecucion.planilla
