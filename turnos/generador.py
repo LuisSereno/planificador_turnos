@@ -83,12 +83,10 @@ class ValidadorRestricciones:
             cobertura_por_turno_dia[key] += 1
 
         for (turno_nombre, fecha), cantidad in cobertura_por_turno_dia.items():
-            # Extraer el valor correcto de demanda
             demanda_value = demanda.get(turno_nombre, 1)
 
-            # Si es dict (formato complejo), extraer 'optimo'
             if isinstance(demanda_value, dict):
-                demanda_minima = demanda_value.get('optimo', demanda_value.get('min', 1))
+                demanda_minima = demanda_value.get('min', 1)
             else:
                 demanda_minima = int(demanda_value) if demanda_value else 1
 
@@ -99,7 +97,6 @@ class ValidadorRestricciones:
             else:
                 logger.debug(f"  ✓ {turno_nombre} {fecha}: {cantidad} personal (requiere {demanda_minima})")
 
-        # FIX: Usar 'self.exitos' no 'self.validaciones_exitosas'
         if valido:
             msg = f"✓ VÁLIDO: RD019 - Cobertura verificada para {len(cobertura_por_turno_dia)} turnos"
             logger.info(msg)
@@ -171,7 +168,7 @@ class GeneradorTurnos:
         self.off_days = {}
         self.extra_off_days = {}
         self.turnos_map = {self.turnos[i].nombre: i for i in range(self.num_turnos)}
-        self.demanda = self._demanda()
+        self.demanda = self.configuracion.demanda_por_turno or {}
         self.rd = self._restricciones_duras()
         self.rb = self._restricciones_blandas()
 
@@ -179,74 +176,7 @@ class GeneradorTurnos:
         logger.info("INICIO GENERADOR")
         logger.info("="*80)
         logger.info(f"Config: {configuracion.nombre} | Días: {self.num_dias} | Enfs: {self.num_enfermeras} | Turnos: {self.num_turnos}")
-        logger.info(f"Demanda: {self.demanda}")
-
-    def _demanda(self):
-        """Procesa demanda - soporta formato simple y complejo"""
-        demanda = self.configuracion.demanda_por_turno
-
-        logger.info(f"Demanda raw: {demanda} (type: {type(demanda).__name__})")
-
-        # Si está vacío, usar default
-        if not demanda:
-            logger.warning("Demanda vacía, usando default (1 por turno)")
-            return {turno.nombre: 1 for turno in self.turnos}
-
-        # Si es dict
-        if isinstance(demanda, dict):
-            resultado = {}
-            for k, v in demanda.items():
-                turno_nombre = str(k)
-
-                # Si v es dict (formato complejo: {"min": 2, "optimo": 3, "max": 5})
-                if isinstance(v, dict):
-                    logger.info(f"Formato complejo detectado para {turno_nombre}: {v}")
-
-                    # Preferencia: optimo > min > max > primer valor
-                    if 'optimo' in v:
-                        valor = v['optimo']
-                        logger.debug(f"  Usando 'optimo': {valor}")
-                    elif 'min' in v:
-                        valor = v['min']
-                        logger.debug(f"  Usando 'min': {valor}")
-                    elif 'max' in v:
-                        valor = v['max']
-                        logger.debug(f"  Usando 'max': {valor}")
-                    else:
-                        # Tomar primer valor numérico del dict
-                        valores = [x for x in v.values() if isinstance(x, (int, float))]
-                        valor = int(valores[0]) if valores else 1
-                        logger.debug(f"  Usando primer valor numérico: {valor}")
-
-                    try:
-                        resultado[turno_nombre] = int(valor)
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"No se pudo convertir {turno_nombre}={valor}. Usando 1.")
-                        resultado[turno_nombre] = 1
-
-                # Si v es número directo (formato simple)
-                elif isinstance(v, (int, float)):
-                    resultado[turno_nombre] = int(v)
-                    logger.info(f"Formato simple para {turno_nombre}: {v}")
-
-                # Si es string, intentar convertir
-                elif isinstance(v, str):
-                    try:
-                        resultado[turno_nombre] = int(v)
-                    except ValueError:
-                        logger.warning(f"No se pudo convertir string {turno_nombre}={v}. Usando 1.")
-                        resultado[turno_nombre] = 1
-
-                else:
-                    logger.warning(f"Tipo desconocido para demanda[{turno_nombre}]={v} ({type(v).__name__}). Usando 1.")
-                    resultado[turno_nombre] = 1
-
-            logger.info(f"✓ Demanda procesada: {resultado}")
-            return resultado
-
-        # Si es lista o string, usar default
-        logger.warning(f"Formato de demanda no reconocido: {type(demanda).__name__}. Usando default.")
-        return {turno.nombre: 1 for turno in self.turnos}
+        logger.info(f"Demanda raw: {self.demanda}")
 
     def _restricciones_duras(self):
         rd = self.configuracion.restricciones_duras
@@ -278,30 +208,24 @@ class GeneradorTurnos:
                 for t in range(self.num_turnos):
                     self.shifts[(e, d, t)] = self.model.NewBoolVar(f"e{e}_d{d}_t{t}")
 
-        # Días libres (off_days)
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 self.off_days[(e, d)] = self.model.NewBoolVar(f"off_e{e}_d{d}")
 
-        # Relación: se trabaja un turno O se está libre
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 turnos_ese_dia = [self.shifts[(e, d, t)] for t in range(self.num_turnos)]
                 self.model.Add(sum(turnos_ese_dia) + self.off_days[(e, d)] == 1)
         logger.info(f"✓ Creadas {self.num_enfermeras * self.num_dias} variables de días libres (off_days)")
 
-        # Días libres extra (no post-noche)
         idxN = self.turnos_map.get('NOCHE')
         if idxN is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias):
                     self.extra_off_days[(e, d)] = self.model.NewBoolVar(f"extra_off_e{e}_d{d}")
-                    
-                    # Día 0: un día libre es siempre extra
                     if d == 0:
                         self.model.Add(self.extra_off_days[(e, d)] == self.off_days[(e, d)])
                     else:
-                        # extra_off es un día libre Y el día anterior NO fue noche
                         noche_anterior = self.shifts[(e, d - 1, idxN)]
                         self.model.AddBoolAnd([self.off_days[(e, d)], noche_anterior.Not()]).OnlyEnforceIf(self.extra_off_days[(e, d)])
                         self.model.AddImplication(self.extra_off_days[(e, d)], self.off_days[(e, d)])
@@ -309,44 +233,50 @@ class GeneradorTurnos:
             logger.info(f"✓ Creadas {self.num_enfermeras * self.num_dias} variables de días libres extra (extra_off_days)")
 
     def aplicar_restricciones_duras(self):
-        """Aplica restricciones SACYL MÍNIMAS VIABLES y las del JSON de configuración"""
+        """Aplica restricciones duras, incluyendo cobertura MÍNIMA."""
         id_map = {r.get('id'): r for r in self.rd}
+        idxN = self.turnos_map.get('NOCHE')
+        idxM = self.turnos_map.get('MANANA')
 
-        # RD020: una enfermera, un turno por día (siempre activa)
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 self.model.Add(sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1)
         logger.info("✓ RD020: Una enfermera, un turno por día")
 
-        # RD019: cobertura MÍNIMA por turno (siempre activa)
+        logger.info(f"Aplicando RD019 con demanda: {self.demanda}")
         for d in range(self.num_dias):
             for t in range(self.num_turnos):
                 nombre = self.turnos[t].nombre
-                demanda_value = self.demanda.get(nombre, 1)
-                if isinstance(demanda_value, dict):
-                    req = demanda_value.get('min', 1)
-                else:
-                    req = int(demanda_value) if demanda_value else 1
-                self.model.Add(sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras)) >= req)
-        logger.info("✓ RD019: Cobertura mínima por turno")
+                demanda_value = self.demanda.get(nombre)
+                
+                req_min, req_optimo, req_max = 1, None, self.num_enfermeras
 
-        # RD006: descanso 12h (prohibir NOCHE->MAÑANA)
-        idxN = self.turnos_map.get('NOCHE')
-        idxM = self.turnos_map.get('MANANA')
+                if isinstance(demanda_value, dict):
+                    req_min = demanda_value.get('min', 1)
+                    req_optimo = demanda_value.get('optimo')
+                    req_max = demanda_value.get('max', self.num_enfermeras)
+                    logger.debug(f"  - {nombre} d{d}: min={req_min} (requerido), optimo={req_optimo} (preferido), max={req_max} (límite)")
+                elif isinstance(demanda_value, (int, float)):
+                    req_min = int(demanda_value)
+                    logger.debug(f"  - {nombre} d{d}: min={req_min} (requerido), max={req_max} (límite)")
+                
+                personal_asignado = sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras))
+                self.model.Add(personal_asignado >= req_min).OnlyEnforceIf(req_min > 0)
+                self.model.Add(personal_asignado <= req_max)
+
+
         if idxN is not None and idxM is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
                     self.model.Add(self.shifts[(e, d, idxN)] + self.shifts[(e, d + 1, idxM)] <= 1)
             logger.info("✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)")
 
-        # RD021: Descanso obligatorio post-noche
         if 'RD021' in id_map and idxN is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
                     self.model.AddImplication(self.shifts[(e, d, idxN)], self.off_days[(e, d + 1)])
             logger.info("✓ RD021: Descanso obligatorio post-noche")
 
-        # RD022: Mínimo 2 días de descanso extra
         if 'RD022' in id_map and idxN is not None:
             for e in range(self.num_enfermeras):
                 noches_trabajadas = sum(self.shifts[(e, d, idxN)] for d in range(self.num_dias - 1))
@@ -354,14 +284,12 @@ class GeneradorTurnos:
                 self.model.Add(dias_libres_totales >= 2 + noches_trabajadas)
             logger.info("✓ RD022: Mínimo 2 días de descanso extra (además de post-noche)")
 
-        # RD017 + RD018: Mínimo 28 días libres/año (22 vac + 6 asuntos)
         dias_libres_requeridos = int((self.num_dias / 365) * 28)
         for e in range(self.num_enfermeras):
             dias_trabajados = sum(self.shifts[(e, d, t)] for d in range(self.num_dias) for t in range(self.num_turnos))
             self.model.Add(dias_trabajados <= self.num_dias - dias_libres_requeridos)
         logger.info(f"✓ RD017+RD018: Mínimo {dias_libres_requeridos} días libres por enfermera")
 
-        # RD007: Descanso semanal 36h (aproximación: al menos 1 día libre cada 7 días)
         for e in range(self.num_enfermeras):
             for semana in range(0, self.num_dias, 7):
                 fin_semana = min(semana + 7, self.num_dias)
@@ -373,7 +301,45 @@ class GeneradorTurnos:
         penal = []
         id_map = {r.get('id'): r for r in self.rb}
 
-        # Equidad por turno (siempre activa como base)
+        logger.info("Aplicando restricciones blandas para cobertura óptima:")
+        logger.info("- Mínimo (requerido): Solución debe cumplir este valor")
+        logger.info("- Óptimo (preferido): Penalizamos desviaciones pero no afecta validez")
+        logger.info("- Máximo (límite): Solución no puede superar este valor")
+
+        tiene_optimo = False
+        for d in range(self.num_dias):
+            for t in range(self.num_turnos):
+                nombre = self.turnos[t].nombre
+                demanda_value = self.demanda.get(nombre)
+                
+                if isinstance(demanda_value, dict) and 'optimo' in demanda_value:
+                    tiene_optimo = True
+                    req_optimo = demanda_value['optimo']
+                    personal_asignado = sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras))
+
+                    # Penalización por no alcanzar el óptimo (más grave)
+                    shortfall = self.model.NewIntVar(0, self.num_enfermeras, f'shortfall_d{d}_t{t}')
+                    self.model.Add(shortfall >= req_optimo - personal_asignado)
+                    
+                    shortfall_sq = self.model.NewIntVar(0, self.num_enfermeras**2, f'shortfall_sq_d{d}_t{t}')
+                    self.model.AddMultiplicationEquality(shortfall_sq, [shortfall, shortfall])
+
+                    # Penalización por superar el óptimo (menos grave)
+                    overage = self.model.NewIntVar(0, self.num_enfermeras, f'overage_d{d}_t{t}')
+                    self.model.Add(overage >= personal_asignado - req_optimo)
+
+                    # Aplicar pesos diferentes a las penalizaciones
+                    penal.append(shortfall_sq * 100)  # Penalización cuadrática por estar por debajo
+                    penal.append(overage * 20)    # Penalización lineal por estar por encima
+                    
+                    logger.debug(f"  - {nombre} d{d}: optimo={req_optimo}, penalización por falta (x100 cuadrática) y exceso (x20 lineal)")
+        
+        if tiene_optimo:
+            logger.info("✓ RB Cobertura óptima aplicada con penalización cuadrática")
+            logger.info("   (Las soluciones se penalizan por desviarse del óptimo, pero siguen siendo válidas si cumplen min/max)")
+        else:
+            logger.info("✓ RB Sin cobertura óptima definida (solo se aplican min/max como restricciones duras)")
+
         for t in range(self.num_turnos):
             tot = [sum(self.shifts[(e, d, t)] for d in range(self.num_dias)) for e in range(self.num_enfermeras)]
             if tot:
@@ -383,10 +349,9 @@ class GeneradorTurnos:
                 self.model.AddMinEquality(mn, tot)
                 diff = self.model.NewIntVar(0, self.num_dias, f"df_t{t}")
                 self.model.Add(diff == mx - mn)
-                penal.append(diff * 100) # Peso base para equidad
-        logger.info(f"✓ RB Equidad aplicada con {len(penal)} términos")
+                penal.append(diff * 100)
+        logger.info(f"✓ RB Equidad aplicada")
 
-        # RB016: Descansos extra preferentemente en fin de semana
         if 'RB016' in id_map and self.extra_off_days:
             rb016 = id_map['RB016']
             penal_finde = []
@@ -396,7 +361,7 @@ class GeneradorTurnos:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias):
                     dia_semana = (fecha_inicio + timedelta(days=d)).weekday()
-                    if dia_semana < 5: # Lunes a Viernes (0-4)
+                    if dia_semana < 5:
                         penal_finde.append(self.extra_off_days[(e, d)])
             
             if penal_finde:
@@ -448,12 +413,21 @@ class GeneradorTurnos:
                             'turno_nombre': self.turnos[t].nombre,
                             'es_dia_libre': False
                         })
-        logger.info(f"Asignaciones: {len(asign)}")
+        logger.info(f"Asignaciones generadas: {len(asign)}")
+        logger.info(f"Días cubiertos: {self.num_dias} (desde {fi} hasta {fi + timedelta(days=self.num_dias-1)})")
+        logger.info("Resumen por día:")
+        for d in range(self.num_dias):
+            fecha = fi + timedelta(days=d)
+            count = sum(1 for a in asign if a['fecha'] == fecha.isoformat())
+            logger.info(f" - {fecha}: {count} asignaciones")
         return {
             'success': True,
             'status': solver.StatusName(st),
             'es_optima': st == cp_model.OPTIMAL,
             'asignaciones': asign,
             'num_asignaciones': len(asign),
-            'tiempo_ejecucion': solver.WallTime()
+            'tiempo_ejecucion': solver.WallTime(),
+            'dias_cubiertos': self.num_dias,
+            'fecha_inicio': fi.isoformat(),
+            'fecha_fin': (fi + timedelta(days=self.num_dias-1)).isoformat()
         }

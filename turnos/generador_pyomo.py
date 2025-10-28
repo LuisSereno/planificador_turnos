@@ -85,7 +85,7 @@ class GeneradorTurnosPyomo:
         logger.info("✓ RD020: No solapamiento aplicada")
 
     def aplicar_rd019_cobertura(self):
-        """RD019: Cobertura mínima por turno"""
+        """RD019: Cobertura mínima y máxima por turno"""
         m = self.model
 
         def rule_min(m, d, t):
@@ -93,10 +93,15 @@ class GeneradorTurnosPyomo:
             minimo = self.demanda[turno_nombre]['min']
             return sum(m.X[e, d, t] for e in m.E) >= minimo
 
-        m.RD019_min = Constraint(m.D, m.T, rule=rule_min)
-        logger.info("✓ RD019: Cobertura mínima aplicada")
+        def rule_max(m, d, t):
+            turno_nombre = self.turnos[t].nombre
+            maximo = self.demanda[turno_nombre].get('max', 4)
+            return sum(m.X[e, d, t] for e in m.E) <= maximo
 
-    def aplicar_rd017_rd018_vacaciones(self):
+        m.RD019_min = Constraint(m.D, m.T, rule=rule_min)
+        m.RD019_max = Constraint(m.D, m.T, rule=rule_max)
+        logger.info("✓ RD019: Cobertura mínima y máxima aplicada")
+
         """RD017+RD018: Mínimo 28 días libres/año (22 vac + 6 asuntos)"""
         m = self.model
 
@@ -112,18 +117,20 @@ class GeneradorTurnosPyomo:
         """RD006: Descanso mínimo 12h entre jornadas"""
         m = self.model
 
-        # Encontrar índices NOCHE y MAÑANA
-        idxN = next((i for i, t in enumerate(self.turnos) if t.nombre == 'NOCHE'), None)
-        idxM = next((i for i, t in enumerate(self.turnos) if t.nombre == 'MANANA'), None)
+        # Encontrar índices de turnos
+        turnos_info = {t.nombre: i for i, t in enumerate(self.turnos)}
+        idxN = turnos_info.get('NOCHE')
+        idxM = turnos_info.get('MANANA')
+        idxT = turnos_info.get('TARDE')
 
-        if idxN is not None and idxM is not None:
-            def rule(m, e, d):
-                if d < self.num_dias - 1:
-                    return m.X[e, d, idxN] + m.X[e, d + 1, idxM] <= 1
-                return Constraint.Skip
+        def rule(m, e, d):
+            if d < self.num_dias - 1:
+                # Previene cualquier turno seguido dentro de 12h
+                return sum(m.X[e, d, t] for t in m.T) + sum(m.X[e, d+1, t] for t in m.T) <= 1
+            return Constraint.Skip
 
-            m.RD006 = Constraint(m.E, m.D, rule=rule)
-            logger.info("✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)")
+        m.RD006 = Constraint(m.E, m.D, rule=rule)
+        logger.info("✓ RD006: Descanso 12h entre turnos consecutivos")
 
     def aplicar_objetivos_blandos(self):
         """RB001-RB003: Equidad de turnos"""
@@ -148,6 +155,17 @@ class GeneradorTurnosPyomo:
 
         logger.info("✓ RB001-RB003: Equidad aplicada")
 
+    def aplicar_limite_turnos_por_semana(self):
+        """Limita el número de turnos por enfermera por semana"""
+        m = self.model
+        max_turnos_por_semana = 4
+
+        def rule(m, e):
+            return sum(m.X[e, d, t] for d in m.D for t in m.T) <= max_turnos_por_semana
+
+        m.LIMITE_TURNOS = Constraint(m.E, rule=rule)
+        logger.info(f"✓ Limite aplicado: Máximo {max_turnos_por_semana} turnos por semana")
+
     def resolver(self, solver='cbc', timeout=600):
         """Resuelve el modelo"""
         try:
@@ -157,6 +175,7 @@ class GeneradorTurnosPyomo:
             self.aplicar_rd019_cobertura()
             self.aplicar_rd017_rd018_vacaciones()
             self.aplicar_rd006_descanso_12h()
+            self.aplicar_limite_turnos_por_semana()
             self.aplicar_objetivos_blandos()
 
             # Resolver

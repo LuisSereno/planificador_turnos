@@ -164,17 +164,17 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             'demanda_por_turno': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 5,
-                'placeholder': 'Opcional: {"MANANA": {"min": 2, "optimo": 3, "max": 5}}'
+                'placeholder': 'Opcional: {\"MANANA\": {\"min\": 2, \"optimo\": 3, \"max\": 5}}'
             }),
             'restricciones_duras': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 5,
-                'placeholder': 'Opcional: [{"nombre": "un_turno_por_dia"}]'
+                'placeholder': 'Opcional: [{\"nombre\": \"un_turno_por_dia\"}]'
             }),
             'restricciones_blandas': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 5,
-                'placeholder': 'Opcional: [{"nombre": "equidad_turnos", "peso": 10.0}]'
+                'placeholder': 'Opcional: [{\"nombre\": \"equidad_turnos\", \"peso\": 10.0}]'
             }),
             'num_trabajadores': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -290,19 +290,22 @@ class ConfiguracionWizardStep2DemandaForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 5,
-            'placeholder': 'Ej: {"MANANA": {"min": 2, "optimo": 3, "max": 5}}'
+            'placeholder': 'Ej: {\"MANANA\": {\"min\": 2, \"optimo\": 3, \"max\": 5}}'
         }),
         help_text=_('Opcional. Introduce la demanda esperada por tipo de turno en formato JSON.')
     )
 
     def clean_demanda_por_turno(self):
-        data = self.cleaned_data.get('demanda_por_turno')
-        if data:
-            try:
-                json.loads(data)
-            except json.JSONDecodeError:
-                raise ValidationError(_('Formato JSON inválido para la demanda por turno.'))
-        return data
+        data = self.cleaned_data.get('demanda_por_turno', '').strip()
+        if not data:
+            return {}
+        try:
+            parsed_data = json.loads(data)
+            if not isinstance(parsed_data, dict):
+                raise ValidationError(_('El JSON de demanda debe ser un objeto (diccionario).'))
+            return parsed_data
+        except json.JSONDecodeError:
+            raise ValidationError(_('Formato JSON inválido para la demanda por turno.'))
 
 
 class ConfiguracionWizardStep3DurasForm(forms.Form):
@@ -314,19 +317,22 @@ class ConfiguracionWizardStep3DurasForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 5,
-            'placeholder': 'Ej: [{"nombre": "un_turno_por_dia"}]'
+            'placeholder': 'Ej: [{\"nombre\": \"un_turno_por_dia\"}]'
         }),
         help_text=_('Opcional. Introduce las restricciones duras en formato JSON.')
     )
 
     def clean_restricciones_duras(self):
-        data = self.cleaned_data.get('restricciones_duras')
-        if data:
-            try:
-                json.loads(data)
-            except json.JSONDecodeError:
-                raise ValidationError(_('Formato JSON inválido para las restricciones duras.'))
-        return data
+        data = self.cleaned_data.get('restricciones_duras', '').strip()
+        if not data:
+            return []
+        try:
+            parsed_data = json.loads(data)
+            if not isinstance(parsed_data, list):
+                raise ValidationError(_('El JSON de restricciones duras debe ser una lista (array).'))
+            return parsed_data
+        except json.JSONDecodeError:
+            raise ValidationError(_('Formato JSON inválido para las restricciones duras.'))
 
 
 class ConfiguracionWizardStep4BlandasForm(forms.Form):
@@ -338,7 +344,7 @@ class ConfiguracionWizardStep4BlandasForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 5,
-            'placeholder': 'Ej: [{"nombre": "equidad_turnos", "peso": 10.0}]'
+            'placeholder': 'Ej: [{\"nombre\": \"equidad_turnos\", \"peso\": 10.0}]'
         }),
         help_text=_('Opcional. Introduce las restricciones blandas en formato JSON.')
     )
@@ -375,13 +381,16 @@ class ConfiguracionWizardStep4BlandasForm(forms.Form):
     )
 
     def clean_restricciones_blandas(self):
-        data = self.cleaned_data.get('restricciones_blandas')
-        if data:
-            try:
-                json.loads(data)
-            except json.JSONDecodeError:
-                raise ValidationError(_('Formato JSON inválido para las restricciones blandas.'))
-        return data
+        data = self.cleaned_data.get('restricciones_blandas', '').strip()
+        if not data:
+            return []
+        try:
+            parsed_data = json.loads(data)
+            if not isinstance(parsed_data, list):
+                raise ValidationError(_('El JSON de restricciones blandas debe ser una lista (array).'))
+            return parsed_data
+        except json.JSONDecodeError:
+            raise ValidationError(_('Formato JSON inválido para las restricciones blandas.'))
 
 
 class EjecucionRapidaForm(forms.Form):
@@ -518,7 +527,7 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'class': 'form-control font-monospace',
             'rows': 10,
-            'placeholder': '{"restricciones_duras": [...], "restricciones_blandas": [...]}'
+            'placeholder': '{\"restricciones_duras\": [...], \"restricciones_blandas\": [...]}'
         }),
         help_text='JSON completo con restricciones_duras y restricciones_blandas'
     )
@@ -563,7 +572,7 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
                 if rd: data['restricciones_duras'] = rd if isinstance(rd, list) else []
                 if rb: data['restricciones_blandas'] = rb if isinstance(rb, list) else []
                 self.initial['restricciones_json'] = json.dumps(data, indent=2, ensure_ascii=False)
-        self.fields['demanda_por_turno'].help_text = 'Ejemplo: {"MANANA": 2, "TARDE": 2, "NOCHE": 1}'
+        self.fields['demanda_por_turno'].help_text = 'Ejemplo: {\"MANANA\": 2, \"TARDE\": 2, \"NOCHE\": 1}'
 
     def clean_restricciones_json(self):
         data = self.cleaned_data.get('restricciones_json', '').strip()
@@ -582,7 +591,7 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
                 if not isinstance(r, dict):
                     raise ValidationError(f'restricciones_duras[{idx}] debe ser un objeto')
                 if 'id' not in r or 'nombre' not in r:
-                    raise ValidationError(f'restricciones_duras[{idx}] debe tener "id" y "nombre"')
+                    raise ValidationError(f'restricciones_duras[{idx}] debe tener \"id\" y \"nombre\"')
         if 'restricciones_blandas' in parsed:
             rb = parsed['restricciones_blandas']
             if not isinstance(rb, list):
@@ -591,7 +600,7 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
                 if not isinstance(r, dict):
                     raise ValidationError(f'restricciones_blandas[{idx}] debe ser un objeto')
                 if 'id' not in r or 'nombre' not in r or 'peso' not in r:
-                    raise ValidationError(f'restricciones_blandas[{idx}] debe tener "id", "nombre" y "peso"')
+                    raise ValidationError(f'restricciones_blandas[{idx}] debe tener \"id\", \"nombre\" y \"peso\"')
         return parsed
 
     def clean_demanda_por_turno(self):
@@ -602,7 +611,7 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
             try:
                 parsed = json.loads(data)
                 if not isinstance(parsed, dict):
-                    raise ValidationError('Debe ser un objeto JSON: {"MANANA": 2, ...}')
+                    raise ValidationError('Debe ser un objeto JSON: {\"MANANA\": 2, ...}')
                 return parsed
             except json.JSONDecodeError as e:
                 raise ValidationError(f'JSON inválido: {e}')
@@ -642,7 +651,7 @@ class RestriccionDuraForm(forms.Form):
     parametros = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={'class': 'form-control font-monospace', 'rows': 3}),
-        help_text='JSON de parámetros: {"minimo_horas": 12}'
+        help_text='JSON de parámetros: {\"minimo_horas\": 12}'
     )
 
     def clean_parametros(self):
@@ -729,14 +738,14 @@ class CargarRestriccionesSACYLForm(forms.Form):
         preset = cleaned.get('preset')
         archivo = cleaned.get('archivo_json')
         if preset == 'custom' and not archivo:
-            raise ValidationError('Debes subir un archivo JSON si seleccionas "Personalizado"')
+            raise ValidationError('Debes subir un archivo JSON si seleccionas \"Personalizado\"')
         if archivo:
             try:
                 content = archivo.read().decode('utf-8')
                 parsed = json.loads(content)
                 cleaned['json_data'] = parsed
                 if 'restricciones_duras' not in parsed and 'restricciones_blandas' not in parsed:
-                    raise ValidationError('El JSON debe contener "restricciones_duras" o "restricciones_blandas"')
+                    raise ValidationError('El JSON debe contener \"restricciones_duras\" o \"restricciones_blandas\"')
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 raise ValidationError(f'Archivo JSON inválido: {e}')
         return cleaned

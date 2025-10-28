@@ -92,12 +92,18 @@ def ejecutar_planificacion_async(self, configuracion_id):
         resultado = generador.resolver()
 
         logger.info(f"Resolución completada: {resultado.get('status')}")
+        
+        if not resultado.get('success'):
+            logger.error(f"Error en la resolución: {json.dumps(resultado, indent=2)}")
 
         # ══════════════════════════════════════════════════════════════
         # 5. PROCESAR RESULTADO Y GUARDAR
         # ══════════════════════════════════════════════════════════════
         with transaction.atomic():
-            ejecucion.estado = 'COMPLETADA' if resultado.get('success') else 'ERROR'
+            if resultado.get('status') == 'INFEASIBLE':
+                ejecucion.estado = 'INVIABLE'
+            else:
+                ejecucion.estado = 'COMPLETADA' if resultado.get('success') else 'ERROR'
             ejecucion.fecha_fin = timezone.now()
             ejecucion.es_optima = resultado.get('es_optima', False)
             ejecucion.resultado = resultado
@@ -177,14 +183,18 @@ def ejecutar_planificacion_async(self, configuracion_id):
             'es_optima': ejecucion.es_optima,
             'num_asignaciones': resultado.get('num_asignaciones', 0),
             'tiempo_ejecucion': duracion,
-            'validacion': resultado.get('validacion', {})
+            'validacion': resultado.get('validacion', {}),
+            'mensaje': resultado.get('mensaje', '') if resultado.get('status') == 'INFEASIBLE' else None
         }
 
     except Exception as exc:
         # ══════════════════════════════════════════════════════════════
         # 8. MANEJO DE ERRORES
         # ══════════════════════════════════════════════════════════════
-        logger.exception(f"ERROR en ejecución {configuracion_id}: {exc}")
+        logger.error(f"ERROR CRÍTICO en ejecución {configuracion_id}")
+        if 'config' in locals():
+            logger.error(f"Configuración fallida: ID={config.id} Nombre='{config.nombre}'")
+        logger.exception("Detalles del error:", exc_info=exc)
 
         # Actualizar ejecución a ERROR si existe
         if ejecucion:

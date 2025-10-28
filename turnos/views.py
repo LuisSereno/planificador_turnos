@@ -50,18 +50,35 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'turnos/dashboard.html'
 
     def get_context_data(self, **kwargs):
+        logger.info(
+            f"DashboardView accessed by user {self.request.user.username} ({self.request.user.id})"
+        )
         context = super().get_context_data(**kwargs)
 
+        logger.debug("Fetching dashboard statistics...")
         # Estadísticas generales
-        stats = {
-            'total_configuraciones': ConfiguracionPlanificacion.objects.count(),
-            'ejecuciones_exitosas': Ejecucion.objects.filter(estado='COMPLETADA').count(),
-            'enfermeras_activas': Enfermera.objects.filter(activa=True).count(),
-            'dias_planificados': AsignacionTurno.objects.values('fecha').distinct().count(),
-        }
+        try:
+            stats = {
+                'total_configuraciones': ConfiguracionPlanificacion.objects.count(),
+                'ejecuciones_exitosas': Ejecucion.objects.filter(estado='COMPLETADA').count(),
+                'enfermeras_activas': Enfermera.objects.filter(activa=True).count(),
+                'dias_planificados': AsignacionTurno.objects.values('fecha').distinct().count(),
+            }
+            logger.debug(f"Stats retrieved: {stats}")
+        except Exception as e:
+            logger.error(f"Error fetching dashboard statistics: {str(e)}", exc_info=True)
+            stats = {}
+            messages.error(self.request, "Could not load dashboard statistics")
 
+        logger.debug("Fetching recent executions...")
         # Ejecuciones recientes (últimas 5)
-        ejecuciones_recientes = Ejecucion.objects.select_related('configuracion').order_by('-fecha_inicio')[:5]
+        try:
+            ejecuciones_recientes = Ejecucion.objects.select_related('configuracion').order_by('-fecha_inicio')[:5]
+            logger.debug(f"Recent executions count: {len(ejecuciones_recientes)}")
+        except Exception as e:
+            logger.error(f"Error fetching recent executions: {str(e)}", exc_info=True)
+            ejecuciones_recientes = []
+            messages.error(self.request, "Could not load recent executions")
 
         # Actividad reciente (opcional - puedes comentar si no lo usas)
         actividad_reciente = []
@@ -129,8 +146,27 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
     success_message = 'Configuración creada con éxito.'
 
     def form_valid(self, form):
+        logger.info(
+            f"Creating new configuration by user {self.request.user.username} ({self.request.user.id})"
+        )
+        logger.debug(f"Form data: {form.cleaned_data}")
+        
         form.instance.creado_por = self.request.user
-        return super().form_valid(form)
+        try:
+            response = super().form_valid(form)
+            logger.info(
+                f"Configuration created successfully. ID: {self.object.id}, "
+                f"Name: {self.object.nombre}, Created by: {self.object.creado_por.username}"
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error creating configuration: {str(e)}", 
+                exc_info=True,
+                extra={'user': self.request.user, 'form_data': form.cleaned_data}
+            )
+            messages.error(self.request, "Error creating configuration")
+            raise
 
 
 class ConfiguracionUpdateView(LoginRequiredMixin, OwnerRequiredMixin, FormMessageMixin, UpdateView):
@@ -141,6 +177,29 @@ class ConfiguracionUpdateView(LoginRequiredMixin, OwnerRequiredMixin, FormMessag
     success_message = 'Configuración actualizada con éxito.'
     owner_field = 'creado_por'
 
+    def form_valid(self, form):
+        logger.info(
+            f"Updating configuration ID {self.object.id} by user {self.request.user.username} "
+            f"({self.request.user.id})"
+        )
+        logger.debug(f"Form changes: {form.changed_data}")
+        
+        try:
+            response = super().form_valid(form)
+            logger.info(
+                f"Configuration updated successfully. ID: {self.object.id}, "
+                f"Changes: {form.changed_data}, Updated by: {self.request.user.username}"
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error updating configuration ID {self.object.id}: {str(e)}",
+                exc_info=True,
+                extra={'user': self.request.user, 'form_data': form.cleaned_data}
+            )
+            messages.error(self.request, "Error updating configuration")
+            raise
+
 
 class ConfiguracionDeleteView(LoginRequiredMixin, OwnerRequiredMixin, DeleteView):
     """Eliminar configuración"""
@@ -150,8 +209,28 @@ class ConfiguracionDeleteView(LoginRequiredMixin, OwnerRequiredMixin, DeleteView
     owner_field = 'creado_por'
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Configuración eliminada con éxito.')
-        return super().delete(request, *args, **kwargs)
+        config = self.get_object()
+        logger.info(
+            f"User {request.user.username} ({request.user.id}) attempting to delete "
+            f"configuration ID {config.id} - '{config.nombre}'"
+        )
+        
+        try:
+            response = super().delete(request, *args, **kwargs)
+            logger.info(
+                f"Configuration ID {config.id} deleted successfully by "
+                f"user {request.user.username} ({request.user.id})"
+            )
+            messages.success(request, 'Configuración eliminada con éxito.')
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error deleting configuration ID {config.id}: {str(e)}",
+                exc_info=True,
+                extra={'user': request.user, 'config_id': config.id}
+            )
+            messages.error(request, 'Error al eliminar la configuración')
+            raise
 
 
 class ConfiguracionWizardView(LoginRequiredMixin, TemplateView):
@@ -219,74 +298,98 @@ class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
         return [TEMPLATES[self.steps.current]]
 
     def done(self, form_list, **kwargs):
-        logger.info("Wizard completado. Procesando datos para crear configuración.")
+        logger.info(
+            f"User {self.request.user.username} ({self.request.user.id}) "
+            "completing configuration wizard"
+        )
         form_data = self.get_all_cleaned_data()
-        logger.debug(f"Datos del formulario (cleaned): {form_data}")
+        logger.debug(f"Form data processed: {form_data}")
 
         try:
-            # 1. Procesar datos JSON con logging detallado
-            try:
-                demanda_str = form_data.get('demanda_por_turno', '{}')
-                demanda_por_turno = json.loads(demanda_str) if demanda_str else {}
-                logger.info("JSON de demanda procesado correctamente.")
-            except json.JSONDecodeError as e:
-                logger.error(f"Error al decodificar JSON de demanda: {e}", exc_info=True)
-                logger.error(f"Contenido de demanda: {form_data.get('demanda_por_turno')}")
-                messages.error(self.request, "Error en el formato JSON de la demanda. Verifique la sintaxis.")
-                return redirect('turnos:config_wizard')
+            # Log each form step data
+            for i, form in enumerate(form_list):
+                logger.debug(
+                    f"Step {i+1} form data: "
+                    f"{form.cleaned_data if hasattr(form, 'cleaned_data') else 'No cleaned data'}"
+                )
 
-            try:
-                duras_str = form_data.get('restricciones_duras', '[]')
-                restricciones_duras = json.loads(duras_str) if duras_str else []
-                logger.info("JSON de restricciones duras procesado correctamente.")
-            except json.JSONDecodeError as e:
-                logger.error(f"Error al decodificar JSON de restricciones duras: {e}", exc_info=True)
-                logger.error(f"Contenido de restricciones duras: {form_data.get('restricciones_duras')}")
-                messages.error(self.request, "Error en el formato JSON de las restricciones duras. Verifique la sintaxis.")
-                return redirect('turnos:config_wizard')
-
-            try:
-                blandas_str = form_data.get('restricciones_blandas', '[]')
-                restricciones_blandas = json.loads(blandas_str) if blandas_str else []
-                logger.info("JSON de restricciones blandas procesado correctamente.")
-            except json.JSONDecodeError as e:
-                logger.error(f"Error al decodificar JSON de restricciones blandas: {e}", exc_info=True)
-                logger.error(f"Contenido de restricciones blandas: {form_data.get('restricciones_blandas')}")
-                messages.error(self.request, "Error en el formato JSON de las restricciones blandas. Verifique la sintaxis.")
-                return redirect('turnos:config_wizard')
+            # Los campos JSON ya han sido validados y procesados por los formularios
+            logger.info("Using pre-validated form data for JSON fields")
 
             with transaction.atomic():
                 # 2. Crear instancia del modelo
-                logger.info("Creando instancia de ConfiguracionPlanificacion...")
-                config = ConfiguracionPlanificacion.objects.create(
-                    nombre=form_data['nombre'],
-                    descripcion=form_data.get('descripcion', ''),
-                    num_dias=form_data['num_dias'],
-                    fecha_inicio=form_data['fecha_inicio'],
-                    demanda_por_turno=demanda_por_turno,
-                    restricciones_duras=restricciones_duras,
-                    restricciones_blandas=restricciones_blandas,
-                    num_trabajadores=form_data.get('num_trabajadores', 4),
-                    tiempo_maximo_segundos=form_data.get('tiempo_maximo_segundos', 60),
-                    seed=form_data.get('seed'),
-                    creado_por=self.request.user,
-                    activa=True
-                )
-                logger.info(f"Configuración '{config.nombre}' (ID: {config.pk}) creada en la base de datos.")
+                logger.info("Creating ConfiguracionPlanificacion instance...")
+                try:
+                    config = ConfiguracionPlanificacion.objects.create(
+                        nombre=form_data['nombre'],
+                        descripcion=form_data.get('descripcion', ''),
+                        num_dias=form_data['num_dias'],
+                        fecha_inicio=form_data['fecha_inicio'],
+                        demanda_por_turno=form_data['demanda_por_turno'],
+                        restricciones_duras=form_data['restricciones_duras'],
+                        restricciones_blandas=form_data['restricciones_blandas'],
+                        num_trabajadores=form_data.get('num_trabajadores', 4),
+                        tiempo_maximo_segundos=form_data.get('tiempo_maximo_segundos', 60),
+                        seed=form_data.get('seed'),
+                        creado_por=self.request.user,
+                        activa=True
+                    )
+                    logger.info(
+                        f"Configuration created - ID: {config.id}, "
+                        f"Name: {config.nombre}, "
+                        f"Num días: {config.num_dias}, "
+                        f"Trabajadores: {config.num_trabajadores}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Error creating configuration instance",
+                        exc_info=True,
+                        extra={'user': self.request.user, 'form_data': form_data}
+                    )
+                    raise
 
                 # 3. Añadir relaciones ManyToMany
-                logger.info("Asignando relaciones ManyToMany (enfermeras y turnos)...")
-                config.enfermeras.set(form_data['enfermeras'])
-                config.turnos.set(form_data['turnos'])
-                logger.info("Relaciones ManyToMany asignadas correctamente.")
+                logger.info("Adding ManyToMany relationships...")
+                try:
+                    enfermeras_count = len(form_data['enfermeras'])
+                    turnos_count = len(form_data['turnos'])
+                    
+                    logger.debug(
+                        f"Assigning {enfermeras_count} enfermeras and {turnos_count} turnos "
+                        f"to configuration {config.id}"
+                    )
+                    
+                    config.enfermeras.set(form_data['enfermeras'])
+                    config.turnos.set(form_data['turnos'])
+                    
+                    logger.info(
+                        f"Relationships assigned - Enfermeras: {enfermeras_count}, "
+                        f"Turnos: {turnos_count}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Error assigning ManyToMany relationships",
+                        exc_info=True,
+                        extra={'config_id': config.id}
+                    )
+                    raise
 
             messages.success(self.request, f'Configuración "{config.nombre}" creada con éxito.')
-            logger.info(f"Proceso de creación de configuración finalizado con éxito para '{config.nombre}'.")
+            logger.info(
+                f"Wizard completed successfully for configuration {config.id} "
+                f"by user {self.request.user.username}"
+            )
             return redirect('turnos:config_detalle', pk=config.pk)
 
         except Exception as e:
-            logger.exception("Error inesperado al guardar la configuración desde el wizard.")
-            messages.error(self.request, f"Se produjo un error inesperado al guardar la configuración: {e}")
+            logger.exception(
+                "Unexpected error saving configuration from wizard",
+                extra={'user': self.request.user}
+            )
+            messages.error(
+                self.request, 
+                f"Se produjo un error inesperado al guardar la configuración: {e}"
+            )
             return redirect('turnos:config_wizard')
 
 
@@ -324,8 +427,18 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'ejecucion'
 
     def get_context_data(self, **kwargs):
+        logger.info(
+            f"Showing execution detail for ID {self.object.id} "
+            f"to user {self.request.user.username}"
+        )
         context = super().get_context_data(**kwargs)
         ejecucion = self.object
+        logger.debug(
+            f"Execution details - Status: {ejecucion.estado}, "
+            f"Config ID: {ejecucion.configuracion.id}, "
+            f"Start: {ejecucion.fecha_inicio}, "
+            f"Duration: {ejecucion.duracion}"
+        )
 
         # Si tiene planilla, calcular datos para visualización
         if ejecucion.planilla:
@@ -439,68 +552,107 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
     context_object_name = 'configuracion'
 
     def get_context_data(self, **kwargs):
+        logger.info(
+            f"Preparing execution view for config ID {self.object.id} "
+            f"by user {self.request.user.username}"
+        )
         context = super().get_context_data(**kwargs)
         config = self.get_object()
 
+        logger.debug("Validating configuration for execution...")
         # Validaciones
         errores = []
-        if config.enfermeras.count() < 2:
-            errores.append('Se necesitan al menos 2 enfermeras')
-        if config.turnos.count() < 1:
-            errores.append('Se necesita al menos 1 turno')
+        enfermeras_count = config.enfermeras.count()
+        turnos_count = config.turnos.count()
+        
+        if enfermeras_count < 2:
+            error_msg = f'Se necesitan al menos 2 enfermeras (actual: {enfermeras_count})'
+            logger.warning(error_msg)
+            errores.append(error_msg)
+        if turnos_count < 1:
+            error_msg = f'Se necesita al menos 1 turno (actual: {turnos_count})'
+            logger.warning(error_msg)
+            errores.append(error_msg)
 
         context['errores'] = errores
         context['puede_ejecutar'] = len(errores) == 0
 
+        logger.info(
+            f"Validation results - Errors: {len(errores)}, "
+            f"Can execute: {len(errores) == 0}"
+        )
+
         return context
 
     def post(self, request, *args, **kwargs):
-        """Ejecuta la planificación - FIX CRÍTICO"""
-
-        # 🔴 FIX: Obtener la CONFIGURACIÓN del URL, no crear ejecución
-        config_id = self.kwargs.get('pk')  # Este es el ID de ConfiguracionPlanificacion
-
-        logger.info(f"EjecutarPlanificacionView.post() - Config ID: {config_id}")
+        """Ejecuta la planificación"""
+        config_id = self.kwargs.get('pk')
+        logger.info(
+            f"Execution requested for config ID {config_id} "
+            f"by user {request.user.username} ({request.user.id})"
+        )
 
         try:
             config = ConfiguracionPlanificacion.objects.get(pk=config_id)
+            logger.debug(
+                f"Config found - ID: {config.id}, "
+                f"Name: {config.nombre}, "
+                f"Enfermeras: {config.enfermeras.count()}, "
+                f"Turnos: {config.turnos.count()}"
+            )
         except ConfiguracionPlanificacion.DoesNotExist:
+            logger.error(f"Configuration ID {config_id} not found")
             messages.error(request, 'Configuración no encontrada')
             return redirect('turnos:config_lista')
 
         try:
-            # Crear ejecución en estado PENDIENTE
+            logger.info("Creating execution record...")
             with transaction.atomic():
                 ejecucion = Ejecucion.objects.create(
                     configuracion=config,
                     estado='PENDIENTE'
                 )
-                logger.info(f"Ejecución {ejecucion.id} creada para config {config_id}")
+                logger.info(f"Execution record created - ID: {ejecucion.id}")
 
-            # 🟢 FIX CRÍTICO: Pasar config_id (ID de Configuracion), NO ejecucion.id
+            logger.debug("Preparing Celery task...")
             try:
                 config_id_int = int(config_id)
-                logger.info(f"Lanzando Celery con config_id={config_id_int}")
-
+                logger.info(f"Dispatching Celery task for config ID {config_id_int}")
+                
                 task = ejecutar_planificacion_async.delay(config_id_int)
-
+                
+                logger.info(
+                    f"Celery task dispatched - Task ID: {task.id}, "
+                    f"Execution ID: {ejecucion.id}"
+                )
+                
                 messages.success(
                     request,
                     f'✓ Planificación enviada. Ejecución #{ejecucion.id}. Task: {task.id}'
                 )
-
             except Exception as celery_error:
-                logger.exception(f"Error Celery: {celery_error}")
+                logger.exception("Celery task dispatch failed", exc_info=True)
                 ejecucion.estado = 'ERROR'
                 ejecucion.mensajes = {'error': str(celery_error)}
                 ejecucion.save()
+                logger.error(
+                    f"Execution marked as ERROR - ID: {ejecucion.id}, "
+                    f"Message: {celery_error}"
+                )
                 messages.error(request, f'Error: {celery_error}')
 
             return redirect('turnos:ejecucion_detalle', pk=ejecucion.pk)
 
         except Exception as e:
-            logger.exception(f"Error inesperado: {e}")
-            messages.error(request, f'Error: {e}')
+            logger.exception(
+                "Unexpected error during execution setup",
+                exc_info=True,
+                extra={'config_id': config_id}
+            )
+            messages.error(
+                request, 
+                f'Error inesperado: {e}'
+            )
             return redirect('turnos:config_detalle', pk=config_id)
 
 
@@ -584,6 +736,29 @@ class EnfermeraCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
     template_name = 'turnos/enfermera_form.html'
     success_message = 'Enfermera creada con éxito.'
 
+    def form_valid(self, form):
+        logger.info(
+            f"User {self.request.user.username} ({self.request.user.id}) "
+            "creating new enfermera"
+        )
+        logger.debug(f"Enfermera form data: {form.cleaned_data}")
+        
+        try:
+            response = super().form_valid(form)
+            logger.info(
+                f"Enfermera created successfully - ID: {self.object.id}, "
+                f"Name: {self.object.nombre}, Email: {self.object.email}"
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error creating enfermera: {str(e)}",
+                exc_info=True,
+                extra={'user': self.request.user, 'form_data': form.cleaned_data}
+            )
+            messages.error(self.request, "Error al crear la enfermera")
+            raise
+
 
 class EnfermeraUpdateView(LoginRequiredMixin, FormMessageMixin, UpdateView):
     """Editar enfermera"""
@@ -591,6 +766,29 @@ class EnfermeraUpdateView(LoginRequiredMixin, FormMessageMixin, UpdateView):
     form_class = EnfermeraForm
     template_name = 'turnos/enfermera_form.html'
     success_message = 'Enfermera actualizada con éxito.'
+
+    def form_valid(self, form):
+        logger.info(
+            f"User {self.request.user.username} ({self.request.user.id}) "
+            f"updating enfermera ID {self.object.id}"
+        )
+        logger.debug(f"Changes: {form.changed_data}")
+        
+        try:
+            response = super().form_valid(form)
+            logger.info(
+                f"Enfermera ID {self.object.id} updated successfully. "
+                f"Changes: {form.changed_data}"
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error updating enfermera ID {self.object.id}: {str(e)}",
+                exc_info=True,
+                extra={'user': self.request.user, 'form_data': form.cleaned_data}
+            )
+            messages.error(self.request, "Error al actualizar la enfermera")
+            raise
 
 
 class EnfermeraDeleteView(LoginRequiredMixin, DeleteView):
@@ -600,8 +798,28 @@ class EnfermeraDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy('turnos:enfermera_lista')
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Enfermera eliminada con éxito.')
-        return super().delete(request, *args, **kwargs)
+        enfermera = self.get_object()
+        logger.info(
+            f"User {request.user.username} ({request.user.id}) attempting to delete "
+            f"enfermera ID {enfermera.id} - {enfermera.nombre}"
+        )
+        
+        try:
+            response = super().delete(request, *args, **kwargs)
+            logger.info(
+                f"Enfermera ID {enfermera.id} deleted successfully by "
+                f"user {request.user.username}"
+            )
+            messages.success(request, 'Enfermera eliminada con éxito.')
+            return response
+        except Exception as e:
+            logger.error(
+                f"Error deleting enfermera ID {enfermera.id}: {str(e)}",
+                exc_info=True,
+                extra={'user': request.user, 'enfermera_id': enfermera.id}
+            )
+            messages.error(request, 'Error al eliminar la enfermera')
+            raise
 
 
 class ImportarEnfermerasView(LoginRequiredMixin, FormView):
@@ -611,6 +829,12 @@ class ImportarEnfermerasView(LoginRequiredMixin, FormView):
     success_url = reverse_lazy('turnos:enfermera_lista')
 
     def form_valid(self, form):
+        logger.info(
+            f"User {self.request.user.username} ({self.request.user.id}) "
+            "starting enfermeras import"
+        )
+        logger.debug(f"Import options: {form.cleaned_data}")
+
         archivo = form.cleaned_data['archivo']
         sobrescribir = form.cleaned_data['sobrescribir']
 
@@ -618,6 +842,10 @@ class ImportarEnfermerasView(LoginRequiredMixin, FormView):
             import openpyxl
             wb = openpyxl.load_workbook(archivo)
             ws = wb.active
+            logger.info(f"Excel file loaded: {archivo.name}")
+
+            total_rows = len(list(ws.iter_rows(min_row=2)))
+            logger.info(f"Processing {total_rows} rows from Excel file")
 
             creadas = 0
             actualizadas = 0
@@ -625,41 +853,70 @@ class ImportarEnfermerasView(LoginRequiredMixin, FormView):
 
             for row in ws.iter_rows(min_row=2, values_only=True):
                 nombre, email, telefono, dni, activa = row[:5]
-
+                
                 if not nombre or not email:
+                    logger.warning(f"Skipping row with missing name/email: {row}")
                     continue
 
                 activa = activa in ['Sí', 'Si', 'SI', 'sí', 'si', True, 1]
+                logger.debug(f"Processing row: name={nombre}, email={email}, active={activa}")
 
-                # Buscar si existe
-                enfermera_existente = Enfermera.objects.filter(email=email).first()
+                try:
+                    enfermera_existente = Enfermera.objects.filter(email=email).first()
 
-                if enfermera_existente:
-                    if sobrescribir:
-                        enfermera_existente.nombre = nombre
-                        enfermera_existente.telefono = telefono or ''
-                        enfermera_existente.dni = dni or ''
-                        enfermera_existente.activa = activa
-                        enfermera_existente.save()
-                        actualizadas += 1
-                else:
-                    Enfermera.objects.create(
-                        nombre=nombre,
-                        email=email,
-                        telefono=telefono or '',
-                        dni=dni or '',
-                        activa=activa
+                    if enfermera_existente:
+                        if sobrescribir:
+                            logger.debug(f"Updating existing enfermera: {enfermera_existente.id}")
+                            enfermera_existente.nombre = nombre
+                            enfermera_existente.telefono = telefono or ''
+                            enfermera_existente.dni = dni or ''
+                            enfermera_existente.activa = activa
+                            enfermera_existente.save()
+                            actualizadas += 1
+                            logger.debug(f"Enfermera {enfermera_existente.id} updated")
+                    else:
+                        logger.debug("Creating new enfermera")
+                        Enfermera.objects.create(
+                            nombre=nombre,
+                            email=email,
+                            telefono=telefono or '',
+                            dni=dni or '',
+                            activa=activa
+                        )
+                        creadas += 1
+                        logger.debug(f"New enfermera created for email {email}")
+                except Exception as e:
+                    logger.error(
+                        f"Error processing row {row}: {str(e)}", 
+                        exc_info=True,
+                        extra={'row_data': row}
                     )
-                    creadas += 1
+                    errores.append(str(e))
 
+            logger.info(
+                f"Import completed: {creadas} created, {actualizadas} updated, "
+                f"{len(errores)} errors"
+            )
             messages.success(
                 self.request,
                 f'Importación completada: {creadas} enfermeras creadas, {actualizadas} actualizadas.'
             )
 
         except Exception as e:
+            logger.error(
+                f"Error during import: {str(e)}",
+                exc_info=True,
+                extra={'user': self.request.user, 'file_name': archivo.name}
+            )
             messages.error(self.request, f'Error al importar: {str(e)}')
             return self.form_invalid(form)
+
+        if errores:
+            logger.warning(f"Import completed with {len(errores)} errors")
+            messages.warning(
+                self.request,
+                f'Importación completada con {len(errores)} errores. Verifique los logs para más detalles.'
+            )
 
         return super().form_valid(form)
 
@@ -1433,7 +1690,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                     form = RestriccionDuraForm(request.POST)
                     if form.is_valid():
                         rd = config.restricciones_duras or []
-                        if not isinstance(rd, list):
+                        if not isinstance(rd, list): # Defensive check
                             logger.warning(f"restricciones_duras no era una lista, se reinicia. Contenido: {config.restricciones_duras}")
                             rd = []
                         nueva_restriccion = form.to_dict()
@@ -1443,7 +1700,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                         logger.info(f"Restricción dura añadida a config {config_id}: {nueva_restriccion}")
                         messages.success(request, f'Restricción dura "{form.cleaned_data["nombre"]}" añadida')
                     else:
-                        logger.warning(f"Formulario de restricción dura inválido: {form.errors.as_json()}")
+                        logger.warning(f"Formulario de restricción dura inválido para config {config_id}: {form.errors.as_json()}")
                         for field, errors in form.errors.items():
                             for error in errors:
                                 messages.error(request, f'{field}: {error}')
@@ -1459,7 +1716,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                     form = RestriccionBlandaForm(request.POST)
                     if form.is_valid():
                         rb = config.restricciones_blandas or []
-                        if not isinstance(rb, list):
+                        if not isinstance(rb, list): # Defensive check
                             logger.warning(f"restricciones_blandas no era una lista, se reinicia. Contenido: {config.restricciones_blandas}")
                             rb = []
                         nueva_restriccion = form.to_dict()
@@ -1469,7 +1726,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                         logger.info(f"Restricción blanda añadida a config {config_id}: {nueva_restriccion}")
                         messages.success(request, f'Restricción blanda "{form.cleaned_data["nombre"]}" añadida')
                     else:
-                        logger.warning(f"Formulario de restricción blanda inválido: {form.errors.as_json()}")
+                        logger.warning(f"Formulario de restricción blanda inválido para config {config_id}: {form.errors.as_json()}")
                         for field, errors in form.errors.items():
                             for error in errors:
                                 messages.error(request, f'{field}: {error}')
@@ -1513,7 +1770,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                             config.save()
                             messages.success(request, 'Restricciones personalizadas cargadas desde JSON')
                     else:
-                        logger.warning(f"Formulario CargarRestriccionesSACYLForm inválido: {form.errors.as_json()}")
+                        logger.warning(f"Formulario CargarRestriccionesSACYLForm inválido para config {config_id}: {form.errors.as_json()}")
                         for error in form.non_field_errors():
                             messages.error(request, error)
                 except ImportError:
@@ -1534,7 +1791,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                         logger.info(f"Restricción dura eliminada de config {config_id}. Restricción: {eliminada}")
                         messages.success(request, 'Restricción dura eliminada')
                     else:
-                        logger.warning(f"Índice de restricción dura inválido o fuera de rango. Index: {idx}, Total: {len(rd)}")
+                        logger.warning(f"Índice de restricción dura inválido o fuera de rango para config {config_id}. Index: {idx}, Total: {len(rd)}")
 
             elif action == 'delete_blanda':
                 idx_str = request.POST.get('index', '-1')
@@ -1549,13 +1806,13 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                         logger.info(f"Restricción blanda eliminada de config {config_id}. Restricción: {eliminada}")
                         messages.success(request, 'Restricción blanda eliminada')
                     else:
-                        logger.warning(f"Índice de restricción blanda inválido o fuera de rango. Index: {idx}, Total: {len(rb)}")
+                        logger.warning(f"Índice de restricción blanda inválido o fuera de rango para config {config_id}. Index: {idx}, Total: {len(rb)}")
             
             else:
                 logger.warning(f"Acción desconocida '{action}' en ConfiguracionRestriccionesView.")
 
         except Exception as e:
-            logger.exception(f"Error inesperado al procesar la acción '{action}' para la config {config_id}.")
+            logger.exception(f"Error inesperado al procesar la acción '{action}' para la config {config_id}")
             messages.error(request, f"Se produjo un error inesperado: {e}")
 
         return redirect('turnos:config_restricciones', pk=config_id)
