@@ -114,23 +114,53 @@ class GeneradorTurnosPyomo:
         logger.info(f"✓ RD017+RD018: Mínimo {dias_libres_requeridos} días libres")
 
     def aplicar_rd006_descanso_12h(self):
-        """RD006: Descanso mínimo 12h entre jornadas"""
-        m = self.model
+        """RD006: Descanso mínimo 12h entre jornadas - VERSION COMPLETA"""
 
-        # Encontrar índices de turnos
-        turnos_info = {t.nombre: i for i, t in enumerate(self.turnos)}
-        idxN = turnos_info.get('NOCHE')
-        idxM = turnos_info.get('MANANA')
-        idxT = turnos_info.get('TARDE')
+        # Obtener horarios reales de los turnos
+        turnos_info = {}
+        for turno in self.turnos:
+            turnos_info[turno.nombre] = {
+                'inicio': turno.hora_inicio,
+                'fin': turno.hora_fin
+            }
 
-        def rule(m, e, d):
-            if d < self.num_dias - 1:
-                # Previene cualquier turno seguido dentro de 12h
-                return sum(m.X[e, d, t] for t in m.T) + sum(m.X[e, d+1, t] for t in m.T) <= 1
-            return Constraint.Skip
+        logger.info(f"Turnos detectados: {list(turnos_info.keys())}")
 
-        m.RD006 = Constraint(m.E, m.D, rule=rule)
-        logger.info("✓ RD006: Descanso 12h entre turnos consecutivos")
+        # Calcular horas entre cada par de turnos
+        pares_prohibidos = []
+        for t1_idx, t1 in enumerate(self.turnos):
+            for t2_idx, t2 in enumerate(self.turnos):
+                if t1_idx == t2_idx:
+                    continue
+
+                # Calcular horas entre fin de t1 y inicio de t2
+                fin_t1 = t1.hora_fin
+                inicio_t2 = t2.hora_inicio
+
+                # Convertir a minutos desde medianoche
+                fin_t1_mins = fin_t1.hour * 60 + fin_t1.minute
+                inicio_t2_mins = inicio_t2.hour * 60 + inicio_t2.minute
+
+                # Si t2 empieza antes que t1 termina, es día siguiente
+                if inicio_t2_mins < fin_t1_mins:
+                    inicio_t2_mins += 24 * 60
+
+                horas_descanso = (inicio_t2_mins - fin_t1_mins) / 60
+
+                if horas_descanso < 12:
+                    pares_prohibidos.append((t1_idx, t2_idx, t1.nombre, t2.nombre, horas_descanso))
+                    logger.debug(f"  Prohibir {t1.nombre}→{t2.nombre}: solo {horas_descanso:.1f}h descanso")
+
+        # Aplicar restricciones para pares prohibidos
+        for e in range(self.num_enfermeras):
+            for d in range(self.num_dias - 1):
+                for t1_idx, t2_idx, t1_nom, t2_nom, horas in pares_prohibidos:
+                    # Si trabaja t1 en día d, NO puede trabajar t2 en día d+1
+                    self.model.Add(
+                        self.shifts[(e, d, t1_idx)] + self.shifts[(e, d + 1, t2_idx)] <= 1
+                    )
+
+        logger.info(f"✓ RD006: Descanso 12h aplicado ({len(pares_prohibidos)} pares prohibidos)")
 
     def aplicar_objetivos_blandos(self):
         """RB001-RB003: Equidad de turnos"""

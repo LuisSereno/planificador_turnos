@@ -1,11 +1,11 @@
 ﻿from django.db import transaction
-from django.views import View
+
 from .models import Workspace
+
 """
 Views for turnos app
 """
 import logging
-import json
 from datetime import timedelta
 
 from django.contrib import messages
@@ -40,6 +40,7 @@ from .models import ConfiguracionPlanificacion, Ejecucion
 from .models import (
     Enfermera, TipoTurno, Planilla, AsignacionTurno
 )
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -470,7 +471,6 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             dias = [{'fecha': f, 'dia_semana': f.strftime('%a')} for f in fechas_unicas]
 
             # Distribución de turnos por tipo
-            from django.db.models import Count
             distribucion_turnos = {}
 
             for turno in ejecucion.configuracion.turnos.all():
@@ -1059,21 +1059,83 @@ class PlanillaListView(LoginRequiredMixin, SearchMixin, PaginationMixin, ListVie
         return queryset.select_related('ejecucion__configuracion').order_by('-fecha_inicio')
 
 
-class PlanillaDetailView(LoginRequiredMixin, DetailView):
-    """Detalle de una planilla"""
+class PlanillaDetailView(DetailView):
     model = Planilla
-    template_name = 'turnos/planilla_detail.html'
+    template_name = 'turnos/planilla_detalle.html'  # o el nombre que uses
     context_object_name = 'planilla'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        planilla = self.object
 
-        # Obtener asignaciones agrupadas
-        asignaciones = self.object.asignaciones.select_related(
+        # Obtener configuración
+        config = planilla.configuracion
+        fecha_inicio = config.fecha_inicio
+        num_dias = config.num_dias
+
+        # Obtener TODAS las asignaciones
+        asignaciones = planilla.asignaciones.select_related(
             'enfermera', 'turno'
-        ).order_by('fecha', 'enfermera')
+        ).order_by('fecha', 'enfermera__nombre')
 
-        context['asignaciones'] = asignaciones
+        # Crear estructura de días
+        dias = []
+        for i in range(num_dias):
+            fecha = fecha_inicio + timedelta(days=i)
+            dias.append({
+                'fecha': fecha,
+                'dia_semana': fecha.strftime('%A')  # Lunes, Martes, etc
+            })
+
+        # Crear estructura de enfermeras con sus turnos
+        # Agrupar asignaciones por enfermera
+        asignaciones_por_enfermera = defaultdict(dict)
+
+        for asig in asignaciones:
+            fecha_str = asig.fecha.strftime('%Y-%m-%d')
+            asignaciones_por_enfermera[asig.enfermera][fecha_str] = asig
+
+        # Construir matriz enfermera x día
+        enfermeras_turnos = []
+        enfermeras = config.enfermeras.all().order_by('nombre')
+
+        for enfermera in enfermeras:
+            turnos_enfermera = []
+
+            for dia in dias:
+                fecha_str = dia['fecha'].strftime('%Y-%m-%d')
+                asig = asignaciones_por_enfermera[enfermera].get(fecha_str)
+
+                if asig:
+                    # Tiene turno asignado
+                    turno_color = {
+                        'MANANA': 'warning',
+                        'TARDE': 'info',
+                        'NOCHE': 'dark'
+                    }.get(asig.turno.nombre, 'secondary')
+
+                    turnos_enfermera.append({
+                        'turno': asig.turno,
+                        'turno_color': turno_color,
+                        'es_libre': False
+                    })
+                else:
+                    # Día libre
+                    turnos_enfermera.append({
+                        'turno': None,
+                        'turno_color': 'secondary',
+                        'es_libre': True
+                    })
+
+            enfermeras_turnos.append({
+                'enfermera': enfermera,
+                'turnos': turnos_enfermera
+            })
+
+        # Agregar al contexto
+        context['dias'] = dias
+        context['enfermeras_turnos'] = enfermeras_turnos
+        context['asignaciones'] = asignaciones  # Para otras vistas/tabs
 
         return context
 
