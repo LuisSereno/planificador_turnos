@@ -1,0 +1,291 @@
+/**
+ * planilla.css - Estilos para la tabla de planilla de turnos
+ */
+
+/* ========================================
+   CONTENEDOR PRINCIPAL
+   ======================================== */
+
+.table-responsive {
+    max-height: 800px;
+    overflow-x: auto;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ========================================
+   TABLA
+   ======================================== */
+
+.table {
+    margin-bottom: 0;
+    font-size: 0.875rem;
+}
+
+.table thead {
+    background: #f8f9fa;
+}
+
+.table th {
+    border-color: #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    vertical-align: middle;
+    padding: 10px 8px;
+}
+
+.table td {
+    border-color: #dee2e6;
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.2s ease;
+}
+
+/* ========================================
+   ENCABEZADOS STICKY
+   ======================================== */
+
+thead th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+}
+
+thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 15; /* Encima de las otras celdas sticky */
+    background: #f8f9fa;
+}
+
+/* ========================================
+   COLUMNA DE ENFERMERAS (STICKY)
+   ======================================== */
+
+tbody td:first-child {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 5;
+    font-weight: 600;
+    color: #2c3e50;
+    border-right: 2px solid #dee2e6;
+}
+
+tbody tr:hover td:first-child {
+    background-color: #f8f9fa;
+}
+
+/* ========================================
+   BADGES (TURNOS)
+   ======================================== */
+
+.badge {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+/* Colores por turno */
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+    color: white;
+}
+
+.badge.bg-dark {
+    background-color: #343a40 !important;
+    color: white;
+}
+
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: white;
+}
+
+/* ========================================
+   HORARIOS
+   ======================================== */
+
+.text-muted {
+    color: #6c757d !important;
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 2px;
+}
+
+/* ========================================
+   CELDA VACÍA
+   ======================================== */
+
+td .text-muted:only-child {
+    color: #adb5bd !important;
+    font-style: italic;
+}
+
+/* ========================================
+   RESPONSIVO - PANTALLAS PEQUEÑAS
+   ======================================== */
+
+@media (max-width: 768px) {
+    .table-responsive {
+        max-height: 600px;
+        border-radius: 4px;
+    }
+
+    .table {
+        font-size: 0.75rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 6px 4px;
+    }
+
+    .badge {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+    }
+
+    thead th:first-child {
+        min-width: 80px;
+    }
+
+    tbody td:first-child {
+        min-width: 80px;
+    }
+
+    th.text-center {
+        min-width: 70px;
+    }
+}
+
+/* ========================================
+   SCROLL PERSONALIZADO
+   ======================================== */
+
+.table-responsive::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Firefox */
+.table-responsive {
+    scrollbar-color: #888 #f1f1f1;
+    scrollbar-width: thin;
+}
+
+/* ========================================
+   ANIMACIONES
+   ======================================== */
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.table-responsive {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* ========================================
+   IMPRESIÓN
+   ======================================== */
+
+@media print {
+    .table-responsive {
+        max-height: none;
+        overflow: visible;
+        border: none;
+        box-shadow: none;
+    }
+
+    thead th,
+    tbody td {
+        border: 1px solid #000;
+    }
+
+    tbody tr:hover {
+        background-color: white;
+    }
+}
+
+/* ========================================
+   ACCESIBILIDAD
+   ======================================== */
+
+.table tbody tr:focus-within {
+    background-color: #e7f3ff;
+    outline: 2px solid #667eea;
+    outline-offset: -2px;
+}
+
+.badge:focus,
+.badge:active {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* ========================================
+   ESTADOS ESPECIALES
+   ======================================== */
+
+/* Día con todos los turnos cubiertos */
+.cell-optimal {
+    background-color: #d4edda;
+}
+
+/* Día con cobertura insuficiente */
+.cell-insufficient {
+    background-color: #f8d7da;
+}
+
+/* Día sin asignaciones */
+.cell-empty {
+    background-color: #e2e3e5;
+}
+
+/* ========================================
+   TOOLTIPS
+   ======================================== */
+
+[data-bs-toggle="tooltip"] {
+    cursor: help;
+    text-decoration: underline dotted;
+}

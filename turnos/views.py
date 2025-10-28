@@ -1,12 +1,14 @@
 ﻿from django.db import transaction
 
 from .models import Workspace
+from django.db import transaction
+
+from .models import Workspace
 
 """
 Views for turnos app
 """
 import logging
-from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -41,6 +43,10 @@ from .models import (
     Enfermera, TipoTurno, Planilla, AsignacionTurno
 )
 from collections import defaultdict
+from datetime import date, timedelta
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
 
 logger = logging.getLogger(__name__)
 
@@ -510,6 +516,37 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             context['dias'] = dias
             context['distribucion_turnos'] = distribucion_turnos
             context['carga_enfermeras'] = carga_enfermeras
+            context['dias_json'] = json.dumps([
+                {
+                    'fecha': dia['fecha'].isoformat() if isinstance(dia['fecha'], date) else dia['fecha'],
+                    'dia_semana': dia['dia_semana']
+                }
+                for dia in context.get('dias', [])
+            ], cls=DjangoJSONEncoder)
+
+            context['enfermeras_turnos_json'] = json.dumps([
+                {
+                    'enfermera': {
+                        'id': enf['enfermera'].id,
+                        'nombre': enf['enfermera'].nombre
+                    },
+                    'turnos': [
+                        {
+                            'turno': {
+                                'id': turno['turno'].id,
+                                'nombre': turno['turno'].nombre,
+                                'hora_inicio': str(turno['turno'].hora_inicio) if turno['turno'] else None,
+                                'hora_fin': str(turno['turno'].hora_fin) if turno['turno'] else None
+                            } if turno['turno'] else None,
+                            'turno_color': turno['turno_color'],
+                            'es_libre': turno['es_libre'],
+                            'horario': turno.get('horario', '-')
+                        }
+                        for turno in enf['turnos']
+                    ]
+                }
+                for enf in context.get('enfermeras_turnos', [])
+            ], cls=DjangoJSONEncoder)
 
         return context
 
