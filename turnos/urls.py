@@ -4,7 +4,8 @@ URL configuration for turnos app
 from django.urls import path
 from . import views
 from django.views.generic import RedirectView, TemplateView
-from .views import CambiarWorkspaceView, ConfiguracionRestriccionesView
+from .views import CambiarWorkspaceView, ConfiguracionRestriccionesView, ExportarPlanillaCSV, ExportarPlanillaExcel, \
+    ExportarPlanillaPDF
 
 app_name = 'turnos'
 
@@ -95,4 +96,16 @@ urlpatterns = [
     path('terminos/', TemplateView.as_view(template_name='terminos.html'), name='terminos'),
     path('privacidad/', TemplateView.as_view(template_name='privacidad.html'), name='privacidad'),
 
+    # ✅ AGREGAR ESTAS RUTAS:
+    path('ejecuciones/<int:pk>/exportar/csv/',
+         ExportarPlanillaCSV.as_view(),
+         name='exportar_planilla_csv'),
+
+    path('ejecuciones/<int:pk>/exportar/excel/',
+         ExportarPlanillaExcel.as_view(),
+         name='exportar_planilla_excel'),
+
+    path('ejecuciones/<int:pk>/exportar/pdf/',
+         ExportarPlanillaPDF.as_view(),
+         name='exportar_planilla_pdf'),
 ]

@@ -57,7 +57,7 @@ class PlanillaRenderer {
         table.appendChild(thead);
 
         // Crear cuerpo
-        const tbody = this.createBody(enfermeras_turnos);
+        const tbody = this.createBody(dias, enfermeras_turnos);
         table.appendChild(tbody);
 
         // Agregar tabla al contenedor
@@ -93,7 +93,7 @@ class PlanillaRenderer {
             th.className = 'text-center';
             th.style.minWidth = '100px';
             
-            const fecha = new Date(dia.fecha);
+            const fecha = new Date(dia.fecha + 'T00:00:00'); // Asegurar que se interprete como fecha local
             const dia_mes = fecha.getDate().toString().padStart(2, '0');
             const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
             const dia_nombre = this.getNombreDia(fecha);
@@ -109,7 +109,7 @@ class PlanillaRenderer {
     /**
      * Crear cuerpo de la tabla
      */
-    createBody(enfermeras_turnos) {
+    createBody(dias, enfermeras_turnos) {
         const tbody = document.createElement('tbody');
 
         enfermeras_turnos.forEach(enfermera_data => {
@@ -125,38 +125,48 @@ class PlanillaRenderer {
             tdEnfermera.textContent = enfermera_data.enfermera.nombre;
             tr.appendChild(tdEnfermera);
 
-            // Columnas de turnos
-            enfermera_data.turnos.forEach(turno_data => {
+            // Crear un mapa de turnos por fecha para esta enfermera
+            const turnosPorFecha = new Map();
+            enfermera_data.turnos.forEach(turno => {
+                turnosPorFecha.set(turno.fecha, turno);
+            });
+
+            // Columnas de turnos, una por cada día en el header
+            dias.forEach(dia => {
                 const td = document.createElement('td');
                 td.className = 'text-center';
 
-                if (turno_data.es_libre) {
-                    // Día libre
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-secondary';
-                    badge.textContent = 'LIBRE';
-                    td.appendChild(badge);
-                } else if (turno_data.turno) {
-                    // Turno asignado
-                    const badge = document.createElement('span');
-                    badge.className = `badge bg-${turno_data.turno_color}`;
-                    badge.textContent = turno_data.turno.nombre;
-                    td.appendChild(badge);
+                const turno_data = turnosPorFecha.get(dia.fecha);
 
-                    // Horario
-                    const br = document.createElement('br');
-                    td.appendChild(br);
+                if (turno_data) {
+                    if (turno_data.es_libre) {
+                        // Día libre
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-secondary';
+                        badge.textContent = 'LIBRE';
+                        td.appendChild(badge);
+                    } else if (turno_data.turno) {
+                        // Turno asignado
+                        const badge = document.createElement('span');
+                        badge.className = `badge bg-${turno_data.turno_color}`;
+                        badge.textContent = turno_data.turno.nombre;
+                        td.appendChild(badge);
 
-                    const horario = document.createElement('small');
-                    horario.className = 'text-muted';
-                    horario.textContent = `${turno_data.horario}`;
-                    td.appendChild(horario);
+                        // Horario
+                        const br = document.createElement('br');
+                        td.appendChild(br);
+
+                        const horario = document.createElement('small');
+                        horario.className = 'text-muted';
+                        horario.textContent = `${turno_data.horario}`;
+                        td.appendChild(horario);
+                    }
                 } else {
-                    // Sin asignación
-                    const span = document.createElement('span');
-                    span.className = 'text-muted';
-                    span.textContent = '-';
-                    td.appendChild(span);
+                    // Si no hay turno para esa fecha, se asume libre
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-light text-dark';
+                    badge.textContent = '-';
+                    td.appendChild(badge);
                 }
 
                 tr.appendChild(td);
@@ -173,7 +183,7 @@ class PlanillaRenderer {
      */
     getNombreDia(fecha) {
         const dias = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-        return dias[fecha.getDay()];
+        return dias[fecha.getUTCDay()]; // Usar getUTCDay para evitar problemas de zona horaria
     }
 
     /**
@@ -183,28 +193,34 @@ class PlanillaRenderer {
         if (!this.data) return;
 
         const { dias, enfermeras_turnos } = this.data;
-        let csv = 'Enfermera,' + dias.map(d => {
-            const fecha = new Date(d.fecha);
-            return fecha.toLocaleDateString('es-ES');
-        }).join(',') + '\n';
+        let csv = 'Enfermera,' + dias.map(d => d.fecha).join(',') + '\n';
 
         enfermeras_turnos.forEach(enfermera_data => {
-            csv += enfermera_data.enfermera.nombre + ',';
-            csv += enfermera_data.turnos.map(t => {
-                if (t.es_libre) return 'LIBRE';
-                if (t.turno) return t.turno.nombre;
-                return '-';
-            }).join(',') + '\n';
+            const turnosPorFecha = new Map();
+            enfermera_data.turnos.forEach(turno => {
+                turnosPorFecha.set(turno.fecha, turno);
+            });
+
+            let row = enfermera_data.enfermera.nombre;
+            dias.forEach(dia => {
+                const turno = turnosPorFecha.get(dia.fecha);
+                if (turno) {
+                    row += ',' + (turno.es_libre ? 'LIBRE' : (turno.turno ? turno.turno.nombre : '-'));
+                } else {
+                    row += ',-';
+                }
+            });
+            csv += row + '\n';
         });
 
-        this.descargarArchivo(csv, 'planilla.csv', 'text/csv');
+        this.descargarArchivo(csv, 'planilla.csv', 'text/csv;charset=utf-8;');
     }
 
     /**
      * Descargar archivo
      */
     descargarArchivo(contenido, nombre, tipo) {
-        const blob = new Blob([contenido], { type: tipo });
+        const blob = new Blob(['\uFEFF' + contenido], { type: tipo }); // BOM para Excel
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -219,4 +235,10 @@ class PlanillaRenderer {
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     const renderer = new PlanillaRenderer('planilla-table');
+
+    // Opcional: añadir listeners a botones de exportación
+    const exportCsvButton = document.getElementById('export-csv-btn');
+    if (exportCsvButton) {
+        exportCsvButton.addEventListener('click', () => renderer.exportarCSV());
+    }
 });

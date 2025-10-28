@@ -238,45 +238,50 @@ class GeneradorTurnos:
         idxN = self.turnos_map.get('NOCHE')
         idxM = self.turnos_map.get('MANANA')
 
+        # RD020: Una enfermera, un turno por día
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 self.model.Add(sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1)
         logger.info("✓ RD020: Una enfermera, un turno por día")
 
+        # RD019: Cobertura mínima y máxima por turno
         logger.info(f"Aplicando RD019 con demanda: {self.demanda}")
         for d in range(self.num_dias):
             for t in range(self.num_turnos):
                 nombre = self.turnos[t].nombre
                 demanda_value = self.demanda.get(nombre)
-                
+
                 req_min, req_optimo, req_max = 1, None, self.num_enfermeras
 
                 if isinstance(demanda_value, dict):
                     req_min = demanda_value.get('min', 1)
                     req_optimo = demanda_value.get('optimo')
                     req_max = demanda_value.get('max', self.num_enfermeras)
-                    logger.debug(f"  - {nombre} d{d}: min={req_min} (requerido), optimo={req_optimo} (preferido), max={req_max} (límite)")
+                    logger.debug(
+                        f"  - {nombre} d{d}: min={req_min} (requerido), optimo={req_optimo} (preferido), max={req_max} (límite)")
                 elif isinstance(demanda_value, (int, float)):
                     req_min = int(demanda_value)
                     logger.debug(f"  - {nombre} d{d}: min={req_min} (requerido), max={req_max} (límite)")
-                
+
                 personal_asignado = sum(self.shifts[(e, d, t)] for e in range(self.num_enfermeras))
                 self.model.Add(personal_asignado >= req_min).OnlyEnforceIf(req_min > 0)
                 self.model.Add(personal_asignado <= req_max)
 
-
+        # RD006: Descanso mínimo 12h (prohibir NOCHE->MAÑANA)
         if idxN is not None and idxM is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
                     self.model.Add(self.shifts[(e, d, idxN)] + self.shifts[(e, d + 1, idxM)] <= 1)
             logger.info("✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)")
 
+        # RD021: Descanso obligatorio post-noche
         if 'RD021' in id_map and idxN is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
                     self.model.AddImplication(self.shifts[(e, d, idxN)], self.off_days[(e, d + 1)])
             logger.info("✓ RD021: Descanso obligatorio post-noche")
 
+        # RD022: Mínimo 2 días de descanso extra
         if 'RD022' in id_map and idxN is not None:
             for e in range(self.num_enfermeras):
                 noches_trabajadas = sum(self.shifts[(e, d, idxN)] for d in range(self.num_dias - 1))
@@ -284,18 +289,33 @@ class GeneradorTurnos:
                 self.model.Add(dias_libres_totales >= 2 + noches_trabajadas)
             logger.info("✓ RD022: Mínimo 2 días de descanso extra (además de post-noche)")
 
-        dias_libres_requeridos = int((self.num_dias / 365) * 28)
+        # RD017+RD018: Vacaciones y asuntos particulares (proporción anual)
+        dias_libres_requeridos = max(1, int((self.num_dias / 365) * 28))
         for e in range(self.num_enfermeras):
             dias_trabajados = sum(self.shifts[(e, d, t)] for d in range(self.num_dias) for t in range(self.num_turnos))
             self.model.Add(dias_trabajados <= self.num_dias - dias_libres_requeridos)
         logger.info(f"✓ RD017+RD018: Mínimo {dias_libres_requeridos} días libres por enfermera")
 
-        for e in range(self.num_enfermeras):
-            for semana in range(0, self.num_dias, 7):
-                fin_semana = min(semana + 7, self.num_dias)
-                turnos_en_semana = sum(self.shifts[(e, d, t)] for d in range(semana, fin_semana) for t in range(self.num_turnos))
-                self.model.Add(turnos_en_semana <= (fin_semana - semana) - 1)
-        logger.info("✓ RD007: Descanso semanal (mínimo 1 día libre cada 7 días)")
+        # ✅ RD007: Descanso semanal - SOLO PARA PERÍODOS LARGOS (>= 300 días ≈ anual)
+        if self.num_dias >= 300:
+            # Para períodos anuales: 1 día libre cada 7 días
+            for e in range(self.num_enfermeras):
+                for semana in range(0, self.num_dias, 7):
+                    fin_semana = min(semana + 7, self.num_dias)
+                    turnos_en_semana = sum(
+                        self.shifts[(e, d, t)]
+                        for d in range(semana, fin_semana)
+                        for t in range(self.num_turnos)
+                    )
+                    self.model.Add(turnos_en_semana <= (fin_semana - semana) - 1)
+            logger.info("✓ RD007: Descanso semanal aplicado (1 día libre cada 7 días)")
+        else:
+            # Para períodos cortos: solo garantizar mínimo 1 día libre total
+            for e in range(self.num_enfermeras):
+                dias_libres_totales = sum(self.off_days[(e, d)] for d in range(self.num_dias))
+                # Al menos 1 día libre (ya garantizado por RD017+RD018, pero explícito)
+                self.model.Add(dias_libres_totales >= 1)
+            logger.info(f"✓ RD007: ADAPTADA para {self.num_dias} días (mínimo 1 día libre total)")
 
     def aplicar_restricciones_blandas(self):
         penal = []

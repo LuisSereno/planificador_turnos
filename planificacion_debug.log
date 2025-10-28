@@ -4275,3 +4275,703 @@ NotImplementedError: Evaluating a BoundedLinearExpression '(50 * diff_sq_opt_d0_
 2025-10-28 11:36:06,675 - INFO - ================================================================================
 2025-10-28 11:36:06,675 - INFO - VALIDACIONES OK: 4  |  VIOLACIONES: 8
 2025-10-28 11:36:06,675 - INFO - ================================================================================
+2025-10-28 12:24:08,467 - INFO - RD (array): 4
+2025-10-28 12:24:08,468 - INFO - RB (array): 2
+2025-10-28 12:24:08,468 - INFO - ================================================================================
+2025-10-28 12:24:08,468 - INFO - INICIO GENERADOR
+2025-10-28 12:24:08,469 - INFO - ================================================================================
+2025-10-28 12:24:08,469 - INFO - Config: mierda | Días: 28 | Enfs: 23 | Turnos: 3
+2025-10-28 12:24:08,469 - INFO - Demanda raw: {'MANANA': {'min': 2, 'optimo': 2, 'max': 5}, 'TARDE': {'min': 2, 'optimo': 2, 'max': 5}, 'NOCHE': {'min': 1, 'optimo': 2, 'max': 3}}
+2025-10-28 12:24:08,470 - INFO - Creamos 1932 variables de turno (shifts)
+2025-10-28 12:24:08,525 - INFO - ✓ Creadas 644 variables de días libres (off_days)
+2025-10-28 12:24:08,566 - INFO - ✓ Creadas 644 variables de días libres extra (extra_off_days)
+2025-10-28 12:24:08,585 - INFO - ✓ RD020: Una enfermera, un turno por día
+2025-10-28 12:24:08,585 - INFO - Aplicando RD019 con demanda: {'MANANA': {'min': 2, 'optimo': 2, 'max': 5}, 'TARDE': {'min': 2, 'optimo': 2, 'max': 5}, 'NOCHE': {'min': 1, 'optimo': 2, 'max': 3}}
+2025-10-28 12:24:08,586 - DEBUG -   - MANANA d0: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,586 - DEBUG -   - NOCHE d0: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,586 - DEBUG -   - TARDE d0: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,587 - DEBUG -   - MANANA d1: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,587 - DEBUG -   - NOCHE d1: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,588 - DEBUG -   - TARDE d1: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,588 - DEBUG -   - MANANA d2: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,589 - DEBUG -   - NOCHE d2: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,589 - DEBUG -   - TARDE d2: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,589 - DEBUG -   - MANANA d3: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,590 - DEBUG -   - NOCHE d3: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,590 - DEBUG -   - TARDE d3: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,591 - DEBUG -   - MANANA d4: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,591 - DEBUG -   - NOCHE d4: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,591 - DEBUG -   - TARDE d4: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,592 - DEBUG -   - MANANA d5: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,592 - DEBUG -   - NOCHE d5: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,593 - DEBUG -   - TARDE d5: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,594 - DEBUG -   - MANANA d6: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,595 - DEBUG -   - NOCHE d6: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,596 - DEBUG -   - TARDE d6: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,596 - DEBUG -   - MANANA d7: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,597 - DEBUG -   - NOCHE d7: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,598 - DEBUG -   - TARDE d7: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,598 - DEBUG -   - MANANA d8: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,599 - DEBUG -   - NOCHE d8: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,599 - DEBUG -   - TARDE d8: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,600 - DEBUG -   - MANANA d9: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,601 - DEBUG -   - NOCHE d9: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,601 - DEBUG -   - TARDE d9: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,602 - DEBUG -   - MANANA d10: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,602 - DEBUG -   - NOCHE d10: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,603 - DEBUG -   - TARDE d10: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,604 - DEBUG -   - MANANA d11: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,604 - DEBUG -   - NOCHE d11: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,605 - DEBUG -   - TARDE d11: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,606 - DEBUG -   - MANANA d12: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,606 - DEBUG -   - NOCHE d12: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,607 - DEBUG -   - TARDE d12: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,607 - DEBUG -   - MANANA d13: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,608 - DEBUG -   - NOCHE d13: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,609 - DEBUG -   - TARDE d13: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,609 - DEBUG -   - MANANA d14: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,610 - DEBUG -   - NOCHE d14: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,611 - DEBUG -   - TARDE d14: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,612 - DEBUG -   - MANANA d15: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,613 - DEBUG -   - NOCHE d15: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,614 - DEBUG -   - TARDE d15: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,614 - DEBUG -   - MANANA d16: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,615 - DEBUG -   - NOCHE d16: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,615 - DEBUG -   - TARDE d16: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,616 - DEBUG -   - MANANA d17: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,616 - DEBUG -   - NOCHE d17: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,617 - DEBUG -   - TARDE d17: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,617 - DEBUG -   - MANANA d18: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,617 - DEBUG -   - NOCHE d18: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,618 - DEBUG -   - TARDE d18: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,618 - DEBUG -   - MANANA d19: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,619 - DEBUG -   - NOCHE d19: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,619 - DEBUG -   - TARDE d19: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,620 - DEBUG -   - MANANA d20: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,620 - DEBUG -   - NOCHE d20: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,621 - DEBUG -   - TARDE d20: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,621 - DEBUG -   - MANANA d21: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,622 - DEBUG -   - NOCHE d21: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,622 - DEBUG -   - TARDE d21: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,623 - DEBUG -   - MANANA d22: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,623 - DEBUG -   - NOCHE d22: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,624 - DEBUG -   - TARDE d22: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,624 - DEBUG -   - MANANA d23: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,625 - DEBUG -   - NOCHE d23: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,625 - DEBUG -   - TARDE d23: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,626 - DEBUG -   - MANANA d24: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,627 - DEBUG -   - NOCHE d24: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,627 - DEBUG -   - TARDE d24: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,628 - DEBUG -   - MANANA d25: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,628 - DEBUG -   - NOCHE d25: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,629 - DEBUG -   - TARDE d25: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,629 - DEBUG -   - MANANA d26: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,630 - DEBUG -   - NOCHE d26: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,630 - DEBUG -   - TARDE d26: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,631 - DEBUG -   - MANANA d27: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,631 - DEBUG -   - NOCHE d27: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:24:08,632 - DEBUG -   - TARDE d27: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:24:08,648 - INFO - ✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)
+2025-10-28 12:24:08,656 - INFO - ✓ RD017+RD018: Mínimo 2 días libres por enfermera
+2025-10-28 12:24:08,670 - INFO - ✓ RD007: Descanso semanal (mínimo 1 día libre cada 7 días)
+2025-10-28 12:24:08,671 - INFO - Aplicando restricciones blandas para cobertura óptima:
+2025-10-28 12:24:08,671 - INFO - - Mínimo (requerido): Solución debe cumplir este valor
+2025-10-28 12:24:08,671 - INFO - - Óptimo (preferido): Penalizamos desviaciones pero no afecta validez
+2025-10-28 12:24:08,672 - INFO - - Máximo (límite): Solución no puede superar este valor
+2025-10-28 12:24:08,673 - DEBUG -   - MANANA d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,673 - DEBUG -   - NOCHE d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,674 - DEBUG -   - TARDE d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,674 - DEBUG -   - MANANA d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,675 - DEBUG -   - NOCHE d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,676 - DEBUG -   - TARDE d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,676 - DEBUG -   - MANANA d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,677 - DEBUG -   - NOCHE d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,678 - DEBUG -   - TARDE d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,679 - DEBUG -   - MANANA d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,680 - DEBUG -   - NOCHE d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,680 - DEBUG -   - TARDE d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,681 - DEBUG -   - MANANA d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,682 - DEBUG -   - NOCHE d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,682 - DEBUG -   - TARDE d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,683 - DEBUG -   - MANANA d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,684 - DEBUG -   - NOCHE d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,685 - DEBUG -   - TARDE d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,686 - DEBUG -   - MANANA d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,687 - DEBUG -   - NOCHE d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,687 - DEBUG -   - TARDE d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,688 - DEBUG -   - MANANA d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,689 - DEBUG -   - NOCHE d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,690 - DEBUG -   - TARDE d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,690 - DEBUG -   - MANANA d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,691 - DEBUG -   - NOCHE d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,691 - DEBUG -   - TARDE d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,692 - DEBUG -   - MANANA d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,692 - DEBUG -   - NOCHE d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,693 - DEBUG -   - TARDE d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,694 - DEBUG -   - MANANA d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,695 - DEBUG -   - NOCHE d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,696 - DEBUG -   - TARDE d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,696 - DEBUG -   - MANANA d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,697 - DEBUG -   - NOCHE d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,697 - DEBUG -   - TARDE d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,698 - DEBUG -   - MANANA d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,698 - DEBUG -   - NOCHE d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,699 - DEBUG -   - TARDE d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,700 - DEBUG -   - MANANA d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,700 - DEBUG -   - NOCHE d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,701 - DEBUG -   - TARDE d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,702 - DEBUG -   - MANANA d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,702 - DEBUG -   - NOCHE d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,703 - DEBUG -   - TARDE d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,704 - DEBUG -   - MANANA d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,705 - DEBUG -   - NOCHE d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,705 - DEBUG -   - TARDE d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,706 - DEBUG -   - MANANA d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,706 - DEBUG -   - NOCHE d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,707 - DEBUG -   - TARDE d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,707 - DEBUG -   - MANANA d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,708 - DEBUG -   - NOCHE d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,708 - DEBUG -   - TARDE d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,709 - DEBUG -   - MANANA d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,710 - DEBUG -   - NOCHE d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,711 - DEBUG -   - TARDE d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,712 - DEBUG -   - MANANA d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,713 - DEBUG -   - NOCHE d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,714 - DEBUG -   - TARDE d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,714 - DEBUG -   - MANANA d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,715 - DEBUG -   - NOCHE d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,715 - DEBUG -   - TARDE d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,716 - DEBUG -   - MANANA d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,716 - DEBUG -   - NOCHE d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,717 - DEBUG -   - TARDE d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,718 - DEBUG -   - MANANA d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,719 - DEBUG -   - NOCHE d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,719 - DEBUG -   - TARDE d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,720 - DEBUG -   - MANANA d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,721 - DEBUG -   - NOCHE d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,722 - DEBUG -   - TARDE d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,722 - DEBUG -   - MANANA d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,723 - DEBUG -   - NOCHE d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,724 - DEBUG -   - TARDE d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,724 - DEBUG -   - MANANA d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,725 - DEBUG -   - NOCHE d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,726 - DEBUG -   - TARDE d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,727 - DEBUG -   - MANANA d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,728 - DEBUG -   - NOCHE d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,729 - DEBUG -   - TARDE d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,730 - DEBUG -   - MANANA d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,731 - DEBUG -   - NOCHE d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,731 - DEBUG -   - TARDE d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:24:08,731 - INFO - ✓ RB Cobertura óptima aplicada con penalización cuadrática
+2025-10-28 12:24:08,732 - INFO -    (Las soluciones se penalizan por desviarse del óptimo, pero siguen siendo válidas si cumplen min/max)
+2025-10-28 12:24:08,748 - INFO - ✓ RB Equidad aplicada
+2025-10-28 12:24:08,750 - INFO - Resolve: 60s | workers=4
+2025-10-28 12:25:08,822 - INFO - Estado: FEASIBLE | Time: 60.061s | Conflicts: 366572 | Branches: 696017
+2025-10-28 12:25:08,826 - INFO - Asignaciones generadas: 168
+2025-10-28 12:25:08,827 - INFO - Días cubiertos: 28 (desde 2025-10-28 hasta 2025-11-24)
+2025-10-28 12:25:08,827 - INFO - Resumen por día:
+2025-10-28 12:25:08,827 - INFO -  - 2025-10-28: 6 asignaciones
+2025-10-28 12:25:08,828 - INFO -  - 2025-10-29: 6 asignaciones
+2025-10-28 12:25:08,828 - INFO -  - 2025-10-30: 6 asignaciones
+2025-10-28 12:25:08,828 - INFO -  - 2025-10-31: 6 asignaciones
+2025-10-28 12:25:08,829 - INFO -  - 2025-11-01: 6 asignaciones
+2025-10-28 12:25:08,829 - INFO -  - 2025-11-02: 6 asignaciones
+2025-10-28 12:25:08,829 - INFO -  - 2025-11-03: 6 asignaciones
+2025-10-28 12:25:08,830 - INFO -  - 2025-11-04: 6 asignaciones
+2025-10-28 12:25:08,830 - INFO -  - 2025-11-05: 6 asignaciones
+2025-10-28 12:25:08,831 - INFO -  - 2025-11-06: 6 asignaciones
+2025-10-28 12:25:08,831 - INFO -  - 2025-11-07: 6 asignaciones
+2025-10-28 12:25:08,832 - INFO -  - 2025-11-08: 6 asignaciones
+2025-10-28 12:25:08,832 - INFO -  - 2025-11-09: 6 asignaciones
+2025-10-28 12:25:08,832 - INFO -  - 2025-11-10: 6 asignaciones
+2025-10-28 12:25:08,833 - INFO -  - 2025-11-11: 6 asignaciones
+2025-10-28 12:25:08,833 - INFO -  - 2025-11-12: 6 asignaciones
+2025-10-28 12:25:08,833 - INFO -  - 2025-11-13: 6 asignaciones
+2025-10-28 12:25:08,834 - INFO -  - 2025-11-14: 6 asignaciones
+2025-10-28 12:25:08,834 - INFO -  - 2025-11-15: 6 asignaciones
+2025-10-28 12:25:08,834 - INFO -  - 2025-11-16: 6 asignaciones
+2025-10-28 12:25:08,835 - INFO -  - 2025-11-17: 6 asignaciones
+2025-10-28 12:25:08,835 - INFO -  - 2025-11-18: 6 asignaciones
+2025-10-28 12:25:08,835 - INFO -  - 2025-11-19: 6 asignaciones
+2025-10-28 12:25:08,836 - INFO -  - 2025-11-20: 6 asignaciones
+2025-10-28 12:25:08,836 - INFO -  - 2025-11-21: 6 asignaciones
+2025-10-28 12:25:08,837 - INFO -  - 2025-11-22: 6 asignaciones
+2025-10-28 12:25:08,838 - INFO -  - 2025-11-23: 6 asignaciones
+2025-10-28 12:25:08,838 - INFO -  - 2025-11-24: 6 asignaciones
+2025-10-28 12:25:08,838 - INFO - ================================================================================
+2025-10-28 12:25:08,839 - INFO - INICIANDO VALIDACIONES
+2025-10-28 12:25:08,839 - INFO - ================================================================================
+2025-10-28 12:25:08,839 - INFO - ✓ VÁLIDO: RD020 - 168 asignaciones únicas
+2025-10-28 12:25:08,839 - INFO - 
+[RD019] Validando: Cobertura mínima por turno
+2025-10-28 12:25:08,840 - DEBUG -   ✓ MANANA 2025-10-28: 2 personal (requiere 2)
+2025-10-28 12:25:08,840 - DEBUG -   ✓ TARDE 2025-10-28: 2 personal (requiere 2)
+2025-10-28 12:25:08,840 - DEBUG -   ✓ NOCHE 2025-10-28: 2 personal (requiere 1)
+2025-10-28 12:25:08,840 - DEBUG -   ✓ TARDE 2025-10-29: 2 personal (requiere 2)
+2025-10-28 12:25:08,840 - DEBUG -   ✓ NOCHE 2025-10-29: 2 personal (requiere 1)
+2025-10-28 12:25:08,840 - DEBUG -   ✓ MANANA 2025-10-29: 2 personal (requiere 2)
+2025-10-28 12:25:08,841 - DEBUG -   ✓ TARDE 2025-10-30: 2 personal (requiere 2)
+2025-10-28 12:25:08,841 - DEBUG -   ✓ NOCHE 2025-10-30: 2 personal (requiere 1)
+2025-10-28 12:25:08,841 - DEBUG -   ✓ MANANA 2025-10-30: 2 personal (requiere 2)
+2025-10-28 12:25:08,841 - DEBUG -   ✓ MANANA 2025-10-31: 2 personal (requiere 2)
+2025-10-28 12:25:08,842 - DEBUG -   ✓ NOCHE 2025-10-31: 2 personal (requiere 1)
+2025-10-28 12:25:08,845 - DEBUG -   ✓ TARDE 2025-10-31: 2 personal (requiere 2)
+2025-10-28 12:25:08,845 - DEBUG -   ✓ MANANA 2025-11-01: 2 personal (requiere 2)
+2025-10-28 12:25:08,846 - DEBUG -   ✓ NOCHE 2025-11-01: 2 personal (requiere 1)
+2025-10-28 12:25:08,847 - DEBUG -   ✓ TARDE 2025-11-01: 2 personal (requiere 2)
+2025-10-28 12:25:08,847 - DEBUG -   ✓ MANANA 2025-11-02: 2 personal (requiere 2)
+2025-10-28 12:25:08,847 - DEBUG -   ✓ NOCHE 2025-11-02: 2 personal (requiere 1)
+2025-10-28 12:25:08,848 - DEBUG -   ✓ TARDE 2025-11-02: 2 personal (requiere 2)
+2025-10-28 12:25:08,848 - DEBUG -   ✓ TARDE 2025-11-03: 2 personal (requiere 2)
+2025-10-28 12:25:08,848 - DEBUG -   ✓ MANANA 2025-11-03: 2 personal (requiere 2)
+2025-10-28 12:25:08,849 - DEBUG -   ✓ NOCHE 2025-11-03: 2 personal (requiere 1)
+2025-10-28 12:25:08,849 - DEBUG -   ✓ TARDE 2025-11-04: 2 personal (requiere 2)
+2025-10-28 12:25:08,849 - DEBUG -   ✓ MANANA 2025-11-04: 2 personal (requiere 2)
+2025-10-28 12:25:08,850 - DEBUG -   ✓ NOCHE 2025-11-04: 2 personal (requiere 1)
+2025-10-28 12:25:08,850 - DEBUG -   ✓ TARDE 2025-11-05: 2 personal (requiere 2)
+2025-10-28 12:25:08,850 - DEBUG -   ✓ MANANA 2025-11-05: 2 personal (requiere 2)
+2025-10-28 12:25:08,850 - DEBUG -   ✓ NOCHE 2025-11-05: 2 personal (requiere 1)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ NOCHE 2025-11-06: 2 personal (requiere 1)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ MANANA 2025-11-06: 2 personal (requiere 2)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ TARDE 2025-11-06: 2 personal (requiere 2)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ TARDE 2025-11-07: 2 personal (requiere 2)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ NOCHE 2025-11-07: 2 personal (requiere 1)
+2025-10-28 12:25:08,851 - DEBUG -   ✓ MANANA 2025-11-07: 2 personal (requiere 2)
+2025-10-28 12:25:08,852 - DEBUG -   ✓ MANANA 2025-11-08: 2 personal (requiere 2)
+2025-10-28 12:25:08,852 - DEBUG -   ✓ TARDE 2025-11-08: 2 personal (requiere 2)
+2025-10-28 12:25:08,852 - DEBUG -   ✓ NOCHE 2025-11-08: 2 personal (requiere 1)
+2025-10-28 12:25:08,852 - DEBUG -   ✓ NOCHE 2025-11-09: 2 personal (requiere 1)
+2025-10-28 12:25:08,853 - DEBUG -   ✓ TARDE 2025-11-09: 2 personal (requiere 2)
+2025-10-28 12:25:08,853 - DEBUG -   ✓ MANANA 2025-11-09: 2 personal (requiere 2)
+2025-10-28 12:25:08,853 - DEBUG -   ✓ TARDE 2025-11-10: 2 personal (requiere 2)
+2025-10-28 12:25:08,853 - DEBUG -   ✓ NOCHE 2025-11-10: 2 personal (requiere 1)
+2025-10-28 12:25:08,853 - DEBUG -   ✓ MANANA 2025-11-10: 2 personal (requiere 2)
+2025-10-28 12:25:08,854 - DEBUG -   ✓ MANANA 2025-11-11: 2 personal (requiere 2)
+2025-10-28 12:25:08,854 - DEBUG -   ✓ NOCHE 2025-11-11: 2 personal (requiere 1)
+2025-10-28 12:25:08,854 - DEBUG -   ✓ TARDE 2025-11-11: 2 personal (requiere 2)
+2025-10-28 12:25:08,854 - DEBUG -   ✓ NOCHE 2025-11-12: 2 personal (requiere 1)
+2025-10-28 12:25:08,855 - DEBUG -   ✓ TARDE 2025-11-12: 2 personal (requiere 2)
+2025-10-28 12:25:08,855 - DEBUG -   ✓ MANANA 2025-11-12: 2 personal (requiere 2)
+2025-10-28 12:25:08,855 - DEBUG -   ✓ TARDE 2025-11-13: 2 personal (requiere 2)
+2025-10-28 12:25:08,855 - DEBUG -   ✓ MANANA 2025-11-13: 2 personal (requiere 2)
+2025-10-28 12:25:08,855 - DEBUG -   ✓ NOCHE 2025-11-13: 2 personal (requiere 1)
+2025-10-28 12:25:08,856 - DEBUG -   ✓ NOCHE 2025-11-14: 2 personal (requiere 1)
+2025-10-28 12:25:08,856 - DEBUG -   ✓ TARDE 2025-11-14: 2 personal (requiere 2)
+2025-10-28 12:25:08,856 - DEBUG -   ✓ MANANA 2025-11-14: 2 personal (requiere 2)
+2025-10-28 12:25:08,856 - DEBUG -   ✓ NOCHE 2025-11-15: 2 personal (requiere 1)
+2025-10-28 12:25:08,857 - DEBUG -   ✓ MANANA 2025-11-15: 2 personal (requiere 2)
+2025-10-28 12:25:08,857 - DEBUG -   ✓ TARDE 2025-11-15: 2 personal (requiere 2)
+2025-10-28 12:25:08,857 - DEBUG -   ✓ TARDE 2025-11-16: 2 personal (requiere 2)
+2025-10-28 12:25:08,857 - DEBUG -   ✓ NOCHE 2025-11-16: 2 personal (requiere 1)
+2025-10-28 12:25:08,857 - DEBUG -   ✓ MANANA 2025-11-16: 2 personal (requiere 2)
+2025-10-28 12:25:08,858 - DEBUG -   ✓ MANANA 2025-11-17: 2 personal (requiere 2)
+2025-10-28 12:25:08,858 - DEBUG -   ✓ NOCHE 2025-11-17: 2 personal (requiere 1)
+2025-10-28 12:25:08,858 - DEBUG -   ✓ TARDE 2025-11-17: 2 personal (requiere 2)
+2025-10-28 12:25:08,858 - DEBUG -   ✓ MANANA 2025-11-18: 2 personal (requiere 2)
+2025-10-28 12:25:08,859 - DEBUG -   ✓ NOCHE 2025-11-18: 2 personal (requiere 1)
+2025-10-28 12:25:08,859 - DEBUG -   ✓ TARDE 2025-11-18: 2 personal (requiere 2)
+2025-10-28 12:25:08,859 - DEBUG -   ✓ TARDE 2025-11-19: 2 personal (requiere 2)
+2025-10-28 12:25:08,860 - DEBUG -   ✓ NOCHE 2025-11-19: 2 personal (requiere 1)
+2025-10-28 12:25:08,860 - DEBUG -   ✓ MANANA 2025-11-19: 2 personal (requiere 2)
+2025-10-28 12:25:08,861 - DEBUG -   ✓ NOCHE 2025-11-20: 2 personal (requiere 1)
+2025-10-28 12:25:08,861 - DEBUG -   ✓ MANANA 2025-11-20: 2 personal (requiere 2)
+2025-10-28 12:25:08,861 - DEBUG -   ✓ TARDE 2025-11-20: 2 personal (requiere 2)
+2025-10-28 12:25:08,862 - DEBUG -   ✓ TARDE 2025-11-21: 2 personal (requiere 2)
+2025-10-28 12:25:08,862 - DEBUG -   ✓ MANANA 2025-11-21: 2 personal (requiere 2)
+2025-10-28 12:25:08,862 - DEBUG -   ✓ NOCHE 2025-11-21: 2 personal (requiere 1)
+2025-10-28 12:25:08,863 - DEBUG -   ✓ TARDE 2025-11-22: 2 personal (requiere 2)
+2025-10-28 12:25:08,863 - DEBUG -   ✓ MANANA 2025-11-22: 2 personal (requiere 2)
+2025-10-28 12:25:08,863 - DEBUG -   ✓ NOCHE 2025-11-22: 2 personal (requiere 1)
+2025-10-28 12:25:08,863 - DEBUG -   ✓ MANANA 2025-11-23: 2 personal (requiere 2)
+2025-10-28 12:25:08,863 - DEBUG -   ✓ NOCHE 2025-11-23: 2 personal (requiere 1)
+2025-10-28 12:25:08,864 - DEBUG -   ✓ TARDE 2025-11-23: 2 personal (requiere 2)
+2025-10-28 12:25:08,864 - DEBUG -   ✓ TARDE 2025-11-24: 2 personal (requiere 2)
+2025-10-28 12:25:08,864 - DEBUG -   ✓ NOCHE 2025-11-24: 2 personal (requiere 1)
+2025-10-28 12:25:08,864 - DEBUG -   ✓ MANANA 2025-11-24: 2 personal (requiere 2)
+2025-10-28 12:25:08,865 - INFO - ✓ VÁLIDO: RD019 - Cobertura verificada para 84 turnos
+2025-10-28 12:25:08,868 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera15 2025-11-02->2025-11-03 < 12h
+2025-10-28 12:25:08,869 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera17 2025-10-28->2025-10-29 < 12h
+2025-10-28 12:25:08,869 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera4 2025-10-28->2025-10-29 < 12h
+2025-10-28 12:25:08,870 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera9 2025-11-23->2025-11-24 < 12h
+2025-10-28 12:25:08,870 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera10 2025-11-08->2025-11-09 < 12h
+2025-10-28 12:25:08,870 - ERROR - ✗ VIOLACIÓN: RD006 - Pepa 2025-11-07->2025-11-08 < 12h
+2025-10-28 12:25:08,871 - ERROR - ✗ VIOLACIÓN: RD006 - Josefa 2025-11-20->2025-11-21 < 12h
+2025-10-28 12:25:08,871 - ERROR - ✗ VIOLACIÓN: RD006 - Ramón 2025-11-12->2025-11-13 < 12h
+2025-10-28 12:25:08,871 - ERROR - ✗ VIOLACIÓN: RD006 - Carlota 2025-11-22->2025-11-23 < 12h
+2025-10-28 12:25:08,874 - INFO - ✓ VÁLIDO: RD009 - Jornadas <= 12h
+2025-10-28 12:25:08,874 - INFO - [EQ] enfermera15: MANANA=3, TARDE=3, NOCHE=2
+2025-10-28 12:25:08,875 - INFO - [EQ] enfermera17: TARDE=2, MANANA=3, NOCHE=2
+2025-10-28 12:25:08,876 - INFO - [EQ] enfermera4: TARDE=2, MANANA=2, NOCHE=2
+2025-10-28 12:25:08,877 - INFO - [EQ] enfermera6: NOCHE=2, TARDE=3, MANANA=2
+2025-10-28 12:25:08,877 - INFO - [EQ] enfermera8: NOCHE=2, MANANA=3, TARDE=3
+2025-10-28 12:25:08,877 - INFO - [EQ] enfermera9: MANANA=3, NOCHE=3, TARDE=2
+2025-10-28 12:25:08,877 - INFO - [EQ] enfermera14: TARDE=2, NOCHE=2, MANANA=2
+2025-10-28 12:25:08,878 - INFO - [EQ] enfermera16: NOCHE=2, TARDE=3, MANANA=2
+2025-10-28 12:25:08,878 - INFO - [EQ] enfermera5: TARDE=3, MANANA=3, NOCHE=3
+2025-10-28 12:25:08,878 - INFO - [EQ] enfermera7: MANANA=3, NOCHE=3, TARDE=3
+2025-10-28 12:25:08,878 - INFO - [EQ] enfermera10: MANANA=3, TARDE=3, NOCHE=3
+2025-10-28 12:25:08,878 - INFO - [EQ] Pepa: MANANA=3, TARDE=3, NOCHE=2
+2025-10-28 12:25:08,879 - INFO - [EQ] enfermera12: NOCHE=3, MANANA=2, TARDE=2
+2025-10-28 12:25:08,879 - INFO - [EQ] enfermera3: NOCHE=3, MANANA=2, TARDE=2
+2025-10-28 12:25:08,879 - INFO - [EQ] enfermera11: MANANA=3, TARDE=2, NOCHE=2
+2025-10-28 12:25:08,879 - INFO - [EQ] enfermera13: NOCHE=2, TARDE=2, MANANA=3
+2025-10-28 12:25:08,880 - INFO - [EQ] Juan López: TARDE=2, NOCHE=2, MANANA=2
+2025-10-28 12:25:08,880 - INFO - [EQ] Jose: NOCHE=2, TARDE=2, MANANA=2
+2025-10-28 12:25:08,880 - INFO - [EQ] enfermera1: MANANA=2, NOCHE=3, TARDE=2
+2025-10-28 12:25:08,880 - INFO - [EQ] María García: TARDE=3, NOCHE=3, MANANA=2
+2025-10-28 12:25:08,881 - INFO - [EQ] Josefa: MANANA=2, TARDE=3, NOCHE=3
+2025-10-28 12:25:08,881 - INFO - [EQ] Ramón: NOCHE=3, TARDE=2, MANANA=2
+2025-10-28 12:25:08,881 - INFO - [EQ] Carlota: NOCHE=2, MANANA=2, TARDE=2
+2025-10-28 12:25:08,882 - INFO - ✓ VÁLIDO: RB001-RB003 - Resumen de equidad generado
+2025-10-28 12:25:08,882 - INFO - ================================================================================
+2025-10-28 12:25:08,882 - INFO - VALIDACIONES OK: 4  |  VIOLACIONES: 9
+2025-10-28 12:25:08,882 - INFO - ================================================================================
+2025-10-28 12:42:18,416 - INFO - RD (array): 4
+2025-10-28 12:42:18,416 - INFO - RB (array): 2
+2025-10-28 12:42:18,417 - INFO - ================================================================================
+2025-10-28 12:42:18,417 - INFO - INICIO GENERADOR
+2025-10-28 12:42:18,417 - INFO - ================================================================================
+2025-10-28 12:42:18,417 - INFO - Config: mierda | Días: 28 | Enfs: 23 | Turnos: 3
+2025-10-28 12:42:18,418 - INFO - Demanda raw: {'MANANA': {'min': 2, 'optimo': 2, 'max': 5}, 'TARDE': {'min': 2, 'optimo': 2, 'max': 5}, 'NOCHE': {'min': 1, 'optimo': 2, 'max': 3}}
+2025-10-28 12:42:18,418 - INFO - Creamos 1932 variables de turno (shifts)
+2025-10-28 12:42:18,463 - INFO - ✓ Creadas 644 variables de días libres (off_days)
+2025-10-28 12:42:18,497 - INFO - ✓ Creadas 644 variables de días libres extra (extra_off_days)
+2025-10-28 12:42:18,518 - INFO - ✓ RD020: Una enfermera, un turno por día
+2025-10-28 12:42:18,519 - INFO - Aplicando RD019 con demanda: {'MANANA': {'min': 2, 'optimo': 2, 'max': 5}, 'TARDE': {'min': 2, 'optimo': 2, 'max': 5}, 'NOCHE': {'min': 1, 'optimo': 2, 'max': 3}}
+2025-10-28 12:42:18,519 - DEBUG -   - MANANA d0: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,519 - DEBUG -   - NOCHE d0: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,520 - DEBUG -   - TARDE d0: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,520 - DEBUG -   - MANANA d1: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,520 - DEBUG -   - NOCHE d1: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,521 - DEBUG -   - TARDE d1: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,521 - DEBUG -   - MANANA d2: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,521 - DEBUG -   - NOCHE d2: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,522 - DEBUG -   - TARDE d2: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,523 - DEBUG -   - MANANA d3: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,523 - DEBUG -   - NOCHE d3: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,524 - DEBUG -   - TARDE d3: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,525 - DEBUG -   - MANANA d4: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,526 - DEBUG -   - NOCHE d4: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,526 - DEBUG -   - TARDE d4: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,527 - DEBUG -   - MANANA d5: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,527 - DEBUG -   - NOCHE d5: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,528 - DEBUG -   - TARDE d5: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,528 - DEBUG -   - MANANA d6: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,528 - DEBUG -   - NOCHE d6: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,529 - DEBUG -   - TARDE d6: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,529 - DEBUG -   - MANANA d7: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,529 - DEBUG -   - NOCHE d7: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,530 - DEBUG -   - TARDE d7: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,530 - DEBUG -   - MANANA d8: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,531 - DEBUG -   - NOCHE d8: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,531 - DEBUG -   - TARDE d8: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,531 - DEBUG -   - MANANA d9: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,532 - DEBUG -   - NOCHE d9: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,532 - DEBUG -   - TARDE d9: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,533 - DEBUG -   - MANANA d10: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,533 - DEBUG -   - NOCHE d10: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,534 - DEBUG -   - TARDE d10: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,534 - DEBUG -   - MANANA d11: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,535 - DEBUG -   - NOCHE d11: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,535 - DEBUG -   - TARDE d11: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,535 - DEBUG -   - MANANA d12: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,536 - DEBUG -   - NOCHE d12: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,536 - DEBUG -   - TARDE d12: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,536 - DEBUG -   - MANANA d13: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,537 - DEBUG -   - NOCHE d13: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,537 - DEBUG -   - TARDE d13: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,537 - DEBUG -   - MANANA d14: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,538 - DEBUG -   - NOCHE d14: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,539 - DEBUG -   - TARDE d14: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,539 - DEBUG -   - MANANA d15: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,540 - DEBUG -   - NOCHE d15: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,540 - DEBUG -   - TARDE d15: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,541 - DEBUG -   - MANANA d16: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,542 - DEBUG -   - NOCHE d16: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,542 - DEBUG -   - TARDE d16: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,543 - DEBUG -   - MANANA d17: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,543 - DEBUG -   - NOCHE d17: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,544 - DEBUG -   - TARDE d17: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,544 - DEBUG -   - MANANA d18: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,545 - DEBUG -   - NOCHE d18: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,545 - DEBUG -   - TARDE d18: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,546 - DEBUG -   - MANANA d19: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,546 - DEBUG -   - NOCHE d19: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,547 - DEBUG -   - TARDE d19: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,547 - DEBUG -   - MANANA d20: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,548 - DEBUG -   - NOCHE d20: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,548 - DEBUG -   - TARDE d20: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,549 - DEBUG -   - MANANA d21: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,550 - DEBUG -   - NOCHE d21: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,550 - DEBUG -   - TARDE d21: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,551 - DEBUG -   - MANANA d22: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,551 - DEBUG -   - NOCHE d22: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,551 - DEBUG -   - TARDE d22: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,552 - DEBUG -   - MANANA d23: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,552 - DEBUG -   - NOCHE d23: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,553 - DEBUG -   - TARDE d23: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,553 - DEBUG -   - MANANA d24: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,555 - DEBUG -   - NOCHE d24: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,558 - DEBUG -   - TARDE d24: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,559 - DEBUG -   - MANANA d25: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,559 - DEBUG -   - NOCHE d25: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,560 - DEBUG -   - TARDE d25: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,560 - DEBUG -   - MANANA d26: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,561 - DEBUG -   - NOCHE d26: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,561 - DEBUG -   - TARDE d26: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,561 - DEBUG -   - MANANA d27: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,562 - DEBUG -   - NOCHE d27: min=1 (requerido), optimo=2 (preferido), max=3 (límite)
+2025-10-28 12:42:18,562 - DEBUG -   - TARDE d27: min=2 (requerido), optimo=2 (preferido), max=5 (límite)
+2025-10-28 12:42:18,580 - INFO - ✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)
+2025-10-28 12:42:18,588 - INFO - ✓ RD017+RD018: Mínimo 2 días libres por enfermera
+2025-10-28 12:42:18,592 - INFO - ✓ RD007: ADAPTADA para 28 días (mínimo 1 día libre total)
+2025-10-28 12:42:18,593 - INFO - Aplicando restricciones blandas para cobertura óptima:
+2025-10-28 12:42:18,593 - INFO - - Mínimo (requerido): Solución debe cumplir este valor
+2025-10-28 12:42:18,593 - INFO - - Óptimo (preferido): Penalizamos desviaciones pero no afecta validez
+2025-10-28 12:42:18,593 - INFO - - Máximo (límite): Solución no puede superar este valor
+2025-10-28 12:42:18,594 - DEBUG -   - MANANA d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,594 - DEBUG -   - NOCHE d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,595 - DEBUG -   - TARDE d0: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,596 - DEBUG -   - MANANA d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,596 - DEBUG -   - NOCHE d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,597 - DEBUG -   - TARDE d1: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,598 - DEBUG -   - MANANA d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,598 - DEBUG -   - NOCHE d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,599 - DEBUG -   - TARDE d2: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,599 - DEBUG -   - MANANA d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,600 - DEBUG -   - NOCHE d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,600 - DEBUG -   - TARDE d3: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,601 - DEBUG -   - MANANA d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,601 - DEBUG -   - NOCHE d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,601 - DEBUG -   - TARDE d4: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,602 - DEBUG -   - MANANA d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,603 - DEBUG -   - NOCHE d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,603 - DEBUG -   - TARDE d5: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,604 - DEBUG -   - MANANA d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,605 - DEBUG -   - NOCHE d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,605 - DEBUG -   - TARDE d6: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,606 - DEBUG -   - MANANA d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,607 - DEBUG -   - NOCHE d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,607 - DEBUG -   - TARDE d7: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,608 - DEBUG -   - MANANA d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,609 - DEBUG -   - NOCHE d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,610 - DEBUG -   - TARDE d8: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,610 - DEBUG -   - MANANA d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,611 - DEBUG -   - NOCHE d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,611 - DEBUG -   - TARDE d9: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,612 - DEBUG -   - MANANA d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,613 - DEBUG -   - NOCHE d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,614 - DEBUG -   - TARDE d10: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,614 - DEBUG -   - MANANA d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,615 - DEBUG -   - NOCHE d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,615 - DEBUG -   - TARDE d11: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,616 - DEBUG -   - MANANA d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,616 - DEBUG -   - NOCHE d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,617 - DEBUG -   - TARDE d12: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,617 - DEBUG -   - MANANA d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,618 - DEBUG -   - NOCHE d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,618 - DEBUG -   - TARDE d13: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,619 - DEBUG -   - MANANA d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,619 - DEBUG -   - NOCHE d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,620 - DEBUG -   - TARDE d14: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,621 - DEBUG -   - MANANA d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,622 - DEBUG -   - NOCHE d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,622 - DEBUG -   - TARDE d15: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,623 - DEBUG -   - MANANA d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,623 - DEBUG -   - NOCHE d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,624 - DEBUG -   - TARDE d16: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,625 - DEBUG -   - MANANA d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,625 - DEBUG -   - NOCHE d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,626 - DEBUG -   - TARDE d17: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,627 - DEBUG -   - MANANA d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,627 - DEBUG -   - NOCHE d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,628 - DEBUG -   - TARDE d18: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,629 - DEBUG -   - MANANA d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,630 - DEBUG -   - NOCHE d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,630 - DEBUG -   - TARDE d19: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,631 - DEBUG -   - MANANA d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,631 - DEBUG -   - NOCHE d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,632 - DEBUG -   - TARDE d20: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,632 - DEBUG -   - MANANA d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,632 - DEBUG -   - NOCHE d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,633 - DEBUG -   - TARDE d21: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,633 - DEBUG -   - MANANA d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,634 - DEBUG -   - NOCHE d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,635 - DEBUG -   - TARDE d22: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,635 - DEBUG -   - MANANA d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,636 - DEBUG -   - NOCHE d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,636 - DEBUG -   - TARDE d23: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,637 - DEBUG -   - MANANA d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,637 - DEBUG -   - NOCHE d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,638 - DEBUG -   - TARDE d24: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,638 - DEBUG -   - MANANA d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,639 - DEBUG -   - NOCHE d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,639 - DEBUG -   - TARDE d25: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,640 - DEBUG -   - MANANA d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,640 - DEBUG -   - NOCHE d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,641 - DEBUG -   - TARDE d26: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,642 - DEBUG -   - MANANA d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,643 - DEBUG -   - NOCHE d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,643 - DEBUG -   - TARDE d27: optimo=2, penalización por falta (x100 cuadrática) y exceso (x20 lineal)
+2025-10-28 12:42:18,644 - INFO - ✓ RB Cobertura óptima aplicada con penalización cuadrática
+2025-10-28 12:42:18,644 - INFO -    (Las soluciones se penalizan por desviarse del óptimo, pero siguen siendo válidas si cumplen min/max)
+2025-10-28 12:42:18,661 - INFO - ✓ RB Equidad aplicada
+2025-10-28 12:42:18,662 - INFO - Resolve: 60s | workers=4
+2025-10-28 12:43:18,729 - INFO - Estado: FEASIBLE | Time: 60.051s | Conflicts: 3606 | Branches: 324565
+2025-10-28 12:43:18,736 - INFO - Asignaciones generadas: 168
+2025-10-28 12:43:18,736 - INFO - Días cubiertos: 28 (desde 2025-10-28 hasta 2025-11-24)
+2025-10-28 12:43:18,736 - INFO - Resumen por día:
+2025-10-28 12:43:18,737 - INFO -  - 2025-10-28: 6 asignaciones
+2025-10-28 12:43:18,737 - INFO -  - 2025-10-29: 6 asignaciones
+2025-10-28 12:43:18,737 - INFO -  - 2025-10-30: 6 asignaciones
+2025-10-28 12:43:18,738 - INFO -  - 2025-10-31: 6 asignaciones
+2025-10-28 12:43:18,738 - INFO -  - 2025-11-01: 6 asignaciones
+2025-10-28 12:43:18,738 - INFO -  - 2025-11-02: 6 asignaciones
+2025-10-28 12:43:18,739 - INFO -  - 2025-11-03: 6 asignaciones
+2025-10-28 12:43:18,739 - INFO -  - 2025-11-04: 6 asignaciones
+2025-10-28 12:43:18,739 - INFO -  - 2025-11-05: 6 asignaciones
+2025-10-28 12:43:18,739 - INFO -  - 2025-11-06: 6 asignaciones
+2025-10-28 12:43:18,740 - INFO -  - 2025-11-07: 6 asignaciones
+2025-10-28 12:43:18,740 - INFO -  - 2025-11-08: 6 asignaciones
+2025-10-28 12:43:18,741 - INFO -  - 2025-11-09: 6 asignaciones
+2025-10-28 12:43:18,741 - INFO -  - 2025-11-10: 6 asignaciones
+2025-10-28 12:43:18,742 - INFO -  - 2025-11-11: 6 asignaciones
+2025-10-28 12:43:18,742 - INFO -  - 2025-11-12: 6 asignaciones
+2025-10-28 12:43:18,743 - INFO -  - 2025-11-13: 6 asignaciones
+2025-10-28 12:43:18,743 - INFO -  - 2025-11-14: 6 asignaciones
+2025-10-28 12:43:18,743 - INFO -  - 2025-11-15: 6 asignaciones
+2025-10-28 12:43:18,744 - INFO -  - 2025-11-16: 6 asignaciones
+2025-10-28 12:43:18,744 - INFO -  - 2025-11-17: 6 asignaciones
+2025-10-28 12:43:18,745 - INFO -  - 2025-11-18: 6 asignaciones
+2025-10-28 12:43:18,745 - INFO -  - 2025-11-19: 6 asignaciones
+2025-10-28 12:43:18,745 - INFO -  - 2025-11-20: 6 asignaciones
+2025-10-28 12:43:18,746 - INFO -  - 2025-11-21: 6 asignaciones
+2025-10-28 12:43:18,746 - INFO -  - 2025-11-22: 6 asignaciones
+2025-10-28 12:43:18,746 - INFO -  - 2025-11-23: 6 asignaciones
+2025-10-28 12:43:18,747 - INFO -  - 2025-11-24: 6 asignaciones
+2025-10-28 12:43:18,747 - INFO - ================================================================================
+2025-10-28 12:43:18,747 - INFO - INICIANDO VALIDACIONES
+2025-10-28 12:43:18,747 - INFO - ================================================================================
+2025-10-28 12:43:18,748 - INFO - ✓ VÁLIDO: RD020 - 168 asignaciones únicas
+2025-10-28 12:43:18,748 - INFO - 
+[RD019] Validando: Cobertura mínima por turno
+2025-10-28 12:43:18,748 - DEBUG -   ✓ MANANA 2025-10-28: 2 personal (requiere 2)
+2025-10-28 12:43:18,748 - DEBUG -   ✓ TARDE 2025-10-28: 2 personal (requiere 2)
+2025-10-28 12:43:18,748 - DEBUG -   ✓ NOCHE 2025-10-28: 2 personal (requiere 1)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ MANANA 2025-10-29: 2 personal (requiere 2)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ TARDE 2025-10-29: 2 personal (requiere 2)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ NOCHE 2025-10-29: 2 personal (requiere 1)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ TARDE 2025-10-30: 2 personal (requiere 2)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ NOCHE 2025-10-30: 2 personal (requiere 1)
+2025-10-28 12:43:18,749 - DEBUG -   ✓ MANANA 2025-10-30: 2 personal (requiere 2)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ TARDE 2025-10-31: 2 personal (requiere 2)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ MANANA 2025-10-31: 2 personal (requiere 2)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ NOCHE 2025-10-31: 2 personal (requiere 1)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ TARDE 2025-11-01: 2 personal (requiere 2)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ MANANA 2025-11-01: 2 personal (requiere 2)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ NOCHE 2025-11-01: 2 personal (requiere 1)
+2025-10-28 12:43:18,750 - DEBUG -   ✓ TARDE 2025-11-02: 2 personal (requiere 2)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ MANANA 2025-11-02: 2 personal (requiere 2)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ NOCHE 2025-11-02: 2 personal (requiere 1)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ TARDE 2025-11-03: 2 personal (requiere 2)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ MANANA 2025-11-03: 2 personal (requiere 2)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ NOCHE 2025-11-03: 2 personal (requiere 1)
+2025-10-28 12:43:18,751 - DEBUG -   ✓ TARDE 2025-11-04: 2 personal (requiere 2)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ MANANA 2025-11-04: 2 personal (requiere 2)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ NOCHE 2025-11-04: 2 personal (requiere 1)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ NOCHE 2025-11-05: 2 personal (requiere 1)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ MANANA 2025-11-05: 2 personal (requiere 2)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ TARDE 2025-11-05: 2 personal (requiere 2)
+2025-10-28 12:43:18,752 - DEBUG -   ✓ NOCHE 2025-11-06: 2 personal (requiere 1)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ MANANA 2025-11-06: 2 personal (requiere 2)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ TARDE 2025-11-06: 2 personal (requiere 2)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ TARDE 2025-11-07: 2 personal (requiere 2)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ NOCHE 2025-11-07: 2 personal (requiere 1)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ MANANA 2025-11-07: 2 personal (requiere 2)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ NOCHE 2025-11-08: 2 personal (requiere 1)
+2025-10-28 12:43:18,753 - DEBUG -   ✓ MANANA 2025-11-08: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ TARDE 2025-11-08: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ NOCHE 2025-11-09: 2 personal (requiere 1)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ TARDE 2025-11-09: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ MANANA 2025-11-09: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ NOCHE 2025-11-10: 2 personal (requiere 1)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ TARDE 2025-11-10: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ MANANA 2025-11-10: 2 personal (requiere 2)
+2025-10-28 12:43:18,754 - DEBUG -   ✓ TARDE 2025-11-11: 2 personal (requiere 2)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ MANANA 2025-11-11: 2 personal (requiere 2)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ NOCHE 2025-11-11: 2 personal (requiere 1)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ MANANA 2025-11-12: 2 personal (requiere 2)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ NOCHE 2025-11-12: 2 personal (requiere 1)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ TARDE 2025-11-12: 2 personal (requiere 2)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ NOCHE 2025-11-13: 2 personal (requiere 1)
+2025-10-28 12:43:18,755 - DEBUG -   ✓ MANANA 2025-11-13: 2 personal (requiere 2)
+2025-10-28 12:43:18,756 - DEBUG -   ✓ TARDE 2025-11-13: 2 personal (requiere 2)
+2025-10-28 12:43:18,756 - DEBUG -   ✓ NOCHE 2025-11-14: 2 personal (requiere 1)
+2025-10-28 12:43:18,756 - DEBUG -   ✓ MANANA 2025-11-14: 2 personal (requiere 2)
+2025-10-28 12:43:18,756 - DEBUG -   ✓ TARDE 2025-11-14: 2 personal (requiere 2)
+2025-10-28 12:43:18,757 - DEBUG -   ✓ TARDE 2025-11-15: 2 personal (requiere 2)
+2025-10-28 12:43:18,757 - DEBUG -   ✓ NOCHE 2025-11-15: 2 personal (requiere 1)
+2025-10-28 12:43:18,757 - DEBUG -   ✓ MANANA 2025-11-15: 2 personal (requiere 2)
+2025-10-28 12:43:18,757 - DEBUG -   ✓ MANANA 2025-11-16: 2 personal (requiere 2)
+2025-10-28 12:43:18,757 - DEBUG -   ✓ TARDE 2025-11-16: 2 personal (requiere 2)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ NOCHE 2025-11-16: 2 personal (requiere 1)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ MANANA 2025-11-17: 2 personal (requiere 2)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ NOCHE 2025-11-17: 2 personal (requiere 1)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ TARDE 2025-11-17: 2 personal (requiere 2)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ MANANA 2025-11-18: 2 personal (requiere 2)
+2025-10-28 12:43:18,758 - DEBUG -   ✓ TARDE 2025-11-18: 2 personal (requiere 2)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ NOCHE 2025-11-18: 2 personal (requiere 1)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ NOCHE 2025-11-19: 2 personal (requiere 1)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ MANANA 2025-11-19: 2 personal (requiere 2)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ TARDE 2025-11-19: 2 personal (requiere 2)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ TARDE 2025-11-20: 2 personal (requiere 2)
+2025-10-28 12:43:18,759 - DEBUG -   ✓ NOCHE 2025-11-20: 2 personal (requiere 1)
+2025-10-28 12:43:18,760 - DEBUG -   ✓ MANANA 2025-11-20: 2 personal (requiere 2)
+2025-10-28 12:43:18,760 - DEBUG -   ✓ MANANA 2025-11-21: 2 personal (requiere 2)
+2025-10-28 12:43:18,760 - DEBUG -   ✓ NOCHE 2025-11-21: 2 personal (requiere 1)
+2025-10-28 12:43:18,760 - DEBUG -   ✓ TARDE 2025-11-21: 2 personal (requiere 2)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ TARDE 2025-11-22: 2 personal (requiere 2)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ NOCHE 2025-11-22: 2 personal (requiere 1)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ MANANA 2025-11-22: 2 personal (requiere 2)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ TARDE 2025-11-23: 2 personal (requiere 2)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ NOCHE 2025-11-23: 2 personal (requiere 1)
+2025-10-28 12:43:18,761 - DEBUG -   ✓ MANANA 2025-11-23: 2 personal (requiere 2)
+2025-10-28 12:43:18,762 - DEBUG -   ✓ TARDE 2025-11-24: 2 personal (requiere 2)
+2025-10-28 12:43:18,762 - DEBUG -   ✓ MANANA 2025-11-24: 2 personal (requiere 2)
+2025-10-28 12:43:18,762 - DEBUG -   ✓ NOCHE 2025-11-24: 2 personal (requiere 1)
+2025-10-28 12:43:18,762 - INFO - ✓ VÁLIDO: RD019 - Cobertura verificada para 84 turnos
+2025-10-28 12:43:18,764 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera6 2025-10-30->2025-10-31 < 12h
+2025-10-28 12:43:18,764 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera8 2025-10-31->2025-11-01 < 12h
+2025-10-28 12:43:18,765 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera7 2025-11-14->2025-11-15 < 12h
+2025-10-28 12:43:18,765 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera11 2025-11-09->2025-11-10 < 12h
+2025-10-28 12:43:18,765 - ERROR - ✗ VIOLACIÓN: RD006 - Juan López 2025-11-04->2025-11-05 < 12h
+2025-10-28 12:43:18,765 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera10 2025-11-18->2025-11-19 < 12h
+2025-10-28 12:43:18,766 - ERROR - ✗ VIOLACIÓN: RD006 - enfermera1 2025-11-16->2025-11-17 < 12h
+2025-10-28 12:43:18,769 - INFO - ✓ VÁLIDO: RD009 - Jornadas <= 12h
+2025-10-28 12:43:18,769 - INFO - [EQ] María García: MANANA=3, TARDE=2, NOCHE=2
+2025-10-28 12:43:18,769 - INFO - [EQ] enfermera14: MANANA=2, TARDE=3, NOCHE=3
+2025-10-28 12:43:18,769 - INFO - [EQ] enfermera17: TARDE=2, MANANA=3, NOCHE=2
+2025-10-28 12:43:18,769 - INFO - [EQ] enfermera4: TARDE=2, NOCHE=2, MANANA=3
+2025-10-28 12:43:18,770 - INFO - [EQ] enfermera6: NOCHE=3, TARDE=2, MANANA=3
+2025-10-28 12:43:18,770 - INFO - [EQ] enfermera8: NOCHE=3, TARDE=3, MANANA=3
+2025-10-28 12:43:18,770 - INFO - [EQ] Josefa: MANANA=2, NOCHE=3, TARDE=3
+2025-10-28 12:43:18,770 - INFO - [EQ] enfermera15: TARDE=3, MANANA=2, NOCHE=2
+2025-10-28 12:43:18,770 - INFO - [EQ] enfermera16: TARDE=3, NOCHE=2, MANANA=3
+2025-10-28 12:43:18,771 - INFO - [EQ] Pepa: TARDE=2, NOCHE=3, MANANA=2
+2025-10-28 12:43:18,771 - INFO - [EQ] enfermera3: MANANA=2, NOCHE=3, TARDE=2
+2025-10-28 12:43:18,771 - INFO - [EQ] enfermera7: NOCHE=3, MANANA=2, TARDE=2
+2025-10-28 12:43:18,771 - INFO - [EQ] enfermera11: TARDE=2, MANANA=2, NOCHE=2
+2025-10-28 12:43:18,771 - INFO - [EQ] enfermera9: TARDE=2, MANANA=3, NOCHE=2
+2025-10-28 12:43:18,771 - INFO - [EQ] Jose: TARDE=3, NOCHE=2, MANANA=2
+2025-10-28 12:43:18,772 - INFO - [EQ] Juan López: TARDE=3, MANANA=3, NOCHE=3
+2025-10-28 12:43:18,772 - INFO - [EQ] enfermera12: MANANA=3, TARDE=2, NOCHE=3
+2025-10-28 12:43:18,772 - INFO - [EQ] enfermera5: TARDE=3, NOCHE=2, MANANA=2
+2025-10-28 12:43:18,772 - INFO - [EQ] enfermera10: MANANA=3, TARDE=2, NOCHE=2
+2025-10-28 12:43:18,773 - INFO - [EQ] enfermera13: TARDE=2, NOCHE=2, MANANA=2
+2025-10-28 12:43:18,773 - INFO - [EQ] enfermera1: NOCHE=2, TARDE=2, MANANA=2
+2025-10-28 12:43:18,773 - INFO - [EQ] Ramón: NOCHE=3, TARDE=3, MANANA=2
+2025-10-28 12:43:18,773 - INFO - [EQ] Carlota: NOCHE=2, MANANA=2, TARDE=3
+2025-10-28 12:43:18,773 - INFO - ✓ VÁLIDO: RB001-RB003 - Resumen de equidad generado
+2025-10-28 12:43:18,774 - INFO - ================================================================================
+2025-10-28 12:43:18,774 - INFO - VALIDACIONES OK: 4  |  VIOLACIONES: 7
+2025-10-28 12:43:18,774 - INFO - ================================================================================

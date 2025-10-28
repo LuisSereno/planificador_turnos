@@ -454,6 +454,9 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             # Obtener todas las asignaciones
             asignaciones = planilla.asignaciones.select_related('enfermera', 'turno').order_by('fecha',
                                                                                                'enfermera__nombre')
+            # Añadir datos clave al contexto
+            context['num_asignaciones'] = asignaciones.count()
+            context['num_dias_total'] = ejecucion.configuracion.num_dias
 
             # Agrupar por enfermera para la tabla
             enfermeras_turnos = {}
@@ -532,6 +535,7 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
                     },
                     'turnos': [
                         {
+                            'fecha': turno['fecha'].isoformat() if isinstance(turno['fecha'], date) else turno['fecha'],
                             'turno': {
                                 'id': turno['turno'].id,
                                 'nombre': turno['turno'].nombre,
@@ -1915,3 +1919,283 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
             messages.error(request, f"Se produjo un error inesperado: {e}")
 
         return redirect('turnos:config_restricciones', pk=config_id)
+
+
+# ========================================
+# VISTAS DE EXPORTACIÓN
+# ========================================
+
+from django.http import HttpResponse
+from django.views import View
+from django.shortcuts import get_object_or_404
+import csv
+from datetime import timedelta
+from collections import defaultdict
+
+
+class ExportarPlanillaCSV(View):
+    """Exportar planilla a CSV"""
+
+    def get(self, request, pk):
+        ejecucion = get_object_or_404(Ejecucion, pk=pk)
+
+        # Verificar permisos
+        if not request.user.is_authenticated:
+            return HttpResponse('No autorizado', status=401)
+
+        if not ejecucion.planilla:
+            return HttpResponse('Ejecución sin planilla', status=404)
+
+        planilla = ejecucion.planilla
+        config = ejecucion.configuracion
+
+        # Crear response CSV
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.csv"'
+
+        writer = csv.writer(response)
+
+        # Obtener datos
+        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
+        enfermeras = config.enfermeras.all().order_by('nombre')
+
+        # Encabezado
+        header = ['Enfermera'] + [dia.strftime('%d/%m/%Y') for dia in dias]
+        writer.writerow(header)
+
+        # Agrupar asignaciones por enfermera y fecha
+        asignaciones_dict = defaultdict(dict)
+        for asig in planilla.asignaciones.all():
+            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'LIBRE'
+
+        # Escribir filas
+        for enfermera in enfermeras:
+            fila = [enfermera.nombre]
+            for dia in dias:
+                turno = asignaciones_dict[enfermera].get(dia, '')
+                fila.append(turno)
+            writer.writerow(fila)
+
+        return response
+
+
+class ExportarPlanillaExcel(View):
+    """Exportar planilla a Excel"""
+
+    def get(self, request, pk):
+        ejecucion = get_object_or_404(Ejecucion, pk=pk)
+
+        if not request.user.is_authenticated:
+            return HttpResponse('No autorizado', status=401)
+
+        if not ejecucion.planilla:
+            return HttpResponse('Ejecución sin planilla', status=404)
+
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            return HttpResponse('openpyxl no instalado. Ejecuta: pip install openpyxl', status=500)
+
+        planilla = ejecucion.planilla
+        config = ejecucion.configuracion
+
+        # Crear workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Planilla de Turnos"
+
+        # Obtener datos
+        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
+        enfermeras = config.enfermeras.all().order_by('nombre')
+
+        # Estilos
+        header_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+        center_align = Alignment(horizontal="center", vertical="center")
+
+        # Encabezado
+        header = ['Enfermera'] + [dia.strftime('%d/%m/%Y') for dia in dias]
+        ws.append(header)
+
+        # Aplicar estilo al encabezado
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center_align
+
+        # Agrupar asignaciones
+        asignaciones_dict = defaultdict(dict)
+        for asig in planilla.asignaciones.all():
+            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'LIBRE'
+
+        # Escribir filas
+        for enfermera in enfermeras:
+            fila = [enfermera.nombre]
+            for dia in dias:
+                turno = asignaciones_dict[enfermera].get(dia, '')
+                fila.append(turno)
+            ws.append(fila)
+
+        # Aplicar colores por turno
+        turno_colors = {
+            'MANANA': 'FFC107',  # Amarillo
+            'TARDE': '17A2B8',  # Azul
+            'NOCHE': '343A40',  # Negro
+            'LIBRE': '6C757D'  # Gris
+        }
+
+        for row in ws.iter_rows(min_row=2, min_col=2):
+            for cell in row:
+                if cell.value in turno_colors:
+                    cell.fill = PatternFill(start_color=turno_colors[cell.value],
+                                            end_color=turno_colors[cell.value],
+                                            fill_type="solid")
+                    if cell.value == 'NOCHE':
+                        cell.font = Font(color="FFFFFF")
+                cell.alignment = center_align
+
+        # Ajustar anchos
+        ws.column_dimensions['A'].width = 20
+        for col in range(2, len(header) + 1):
+            ws.column_dimensions[chr(64 + col)].width = 12
+
+        # Respuesta
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.xlsx"'
+        wb.save(response)
+
+        return response
+
+
+class ExportarPlanillaPDF(View):
+    """Exportar planilla a PDF"""
+
+    def get(self, request, pk):
+        ejecucion = get_object_or_404(Ejecucion, pk=pk)
+
+        if not request.user.is_authenticated:
+            return HttpResponse('No autorizado', status=401)
+
+        if not ejecucion.planilla:
+            return HttpResponse('Ejecución sin planilla', status=404)
+
+        try:
+            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.lib import colors
+            from reportlab.lib.units import inch
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+        except ImportError:
+            return HttpResponse('reportlab no instalado. Ejecuta: pip install reportlab', status=500)
+
+        from io import BytesIO
+
+        planilla = ejecucion.planilla
+        config = ejecucion.configuracion
+
+        # Crear buffer
+        buffer = BytesIO()
+
+        # Crear documento
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(letter),
+            rightMargin=30,
+            leftMargin=30,
+            topMargin=30,
+            bottomMargin=18
+        )
+
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Título
+        title = Paragraph(
+            f"<b>Planilla de Turnos - {config.nombre}</b>",
+            styles['Title']
+        )
+        elements.append(title)
+        elements.append(Spacer(1, 12))
+
+        # Información
+        info = Paragraph(
+            f"Período: {config.fecha_inicio.strftime('%d/%m/%Y')} - "
+            f"{(config.fecha_inicio + timedelta(days=config.num_dias - 1)).strftime('%d/%m/%Y')}<br/>"
+            f"Enfermeras: {config.enfermeras.count()} | Días: {config.num_dias}",
+            styles['Normal']
+        )
+        elements.append(info)
+        elements.append(Spacer(1, 12))
+
+        # Obtener datos
+        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
+        enfermeras = config.enfermeras.all().order_by('nombre')[:15]  # Máximo 15 para que quepa
+
+        # Preparar tabla
+        data = []
+
+        # Encabezado
+        header = ['Enfermera'] + [dia.strftime('%d/%m') for dia in dias[:20]]  # Máximo 20 días
+        data.append(header)
+
+        # Agrupar asignaciones
+        asignaciones_dict = defaultdict(dict)
+        for asig in planilla.asignaciones.all():
+            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'L'
+
+        # Filas
+        for enfermera in enfermeras:
+            fila = [enfermera.nombre[:15]]  # Truncar nombres largos
+            for dia in dias[:20]:
+                turno = asignaciones_dict[enfermera].get(dia, '')
+                # Abreviar turnos
+                turno_abrev = {
+                    'MANANA': 'M',
+                    'TARDE': 'T',
+                    'NOCHE': 'N',
+                    'LIBRE': 'L'
+                }.get(turno, '')
+                fila.append(turno_abrev)
+            data.append(fila)
+
+        # Crear tabla
+        table = Table(data)
+
+        # Estilos de tabla
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667EEA')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+
+        elements.append(table)
+
+        # Leyenda
+        elements.append(Spacer(1, 12))
+        legend = Paragraph(
+            "<b>Leyenda:</b> M=Mañana, T=Tarde, N=Noche, L=Libre",
+            styles['Normal']
+        )
+        elements.append(legend)
+
+        # Construir PDF
+        doc.build(elements)
+
+        # Respuesta
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.pdf"'
+        response.write(pdf)
+
+        return response

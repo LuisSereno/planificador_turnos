@@ -1,500 +1,398 @@
+{% extends 'base.html' %}
 {% load static %}
+{% load i18n %}
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Ejecución - Sistema de Planificación de Turnos</title>
+{% block title %}{{ ejecucion.configuracion.nombre }} - Detalle de Ejecución{% endblock %}
+    {% block breadcrumb_items %}
+       <li class="breadcrumb-item"><a href="{% url 'turnos:ejecucion_lista' %}">Ejecuciones</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ ejecucion.configuracion.nombre }}</li>
+    {% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/planilla.css' %}">
+<style>
+    .badge-status {
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        border-radius: 20px;
+    }
 
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    .badge-completada {
+        background-color: #28a745;
+        color: white;
+    }
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    .badge-optima {
+        background-color: #ffc107;
+        color: #212529;
+    }
 
-    <!-- CSS de Planilla -->
-    <link rel="stylesheet" href="{% static 'css/planilla.css' %}">
+    .stat-box {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 4px solid #667eea;
+    }
 
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-        }
+    .stat-box h6 {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
 
-        .navbar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+    .stat-box .value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
 
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.3rem;
-        }
+    .btn-export {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
 
-        .container-main {
-            margin-top: 30px;
-            margin-bottom: 30px;
-        }
+    .btn-export:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
 
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-        }
+    .dropdown-menu {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 8px;
+        border: none;
+        padding: 8px 0;
+        margin-top: 8px;
+    }
 
-        .card-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 12px 12px 0 0;
-            padding: 20px;
-        }
+    .dropdown-item {
+        padding: 10px 20px;
+        transition: all 0.2s;
+        color: #495057;
+    }
 
-        .badge-status {
-            font-size: 0.95rem;
-            padding: 8px 16px;
-            border-radius: 20px;
-        }
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        padding-left: 25px;
+    }
 
-        .badge-completada {
-            background-color: #28a745;
-            color: white;
-        }
+    .dropdown-item i {
+        width: 20px;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
 
-        .badge-optima {
-            background-color: #ffc107;
-            color: #212529;
-        }
+{% block content %}
+<div class="container-fluid py-4">
 
-        .badge-error {
-            background-color: #dc3545;
-            color: white;
-        }
+    <!-- Encabezado con estado -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h1 class="mb-3">
+                <i class="fas fa-clipboard-list"></i> {{ ejecucion.configuracion.nombre }}
+            </h1>
+            <div class="mb-2">
+                <span class="badge-status badge-completada">
+                    <i class="fas fa-check-circle"></i> COMPLETADA
+                </span>
+                {% if ejecucion.es_optima %}
+                <span class="badge-status badge-optima">
+                    <i class="fas fa-star"></i> Óptima
+                </span>
+                {% endif %}
+                <span style="color: #6c757d; margin-left: 10px;">
+                    <i class="fas fa-clock"></i> {{ ejecucion.fecha_creacion|date:"d/m/Y H:i" }}
+                </span>
+            </div>
+        </div>
 
-        .stat-box {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
-        }
-
-        .stat-box h6 {
-            color: #6c757d;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .stat-box .value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #2c3e50;
-        }
-
-        .nav-tabs .nav-link {
-            color: #6c757d;
-            border: none;
-            border-bottom: 3px solid transparent;
-            border-radius: 0;
-            padding: 12px 20px;
-            font-weight: 500;
-        }
-
-        .nav-tabs .nav-link:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .nav-tabs .nav-link.active {
-            color: #667eea;
-            background-color: transparent;
-            border-color: #667eea;
-        }
-
-        .tab-content {
-            padding: 20px 0;
-        }
-
-        .breadcrumb {
-            background-color: transparent;
-            padding-left: 0;
-            padding-right: 0;
-        }
-
-        .breadcrumb a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-
-        .btn-export {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-weight: 600;
-        }
-
-        .btn-export:hover {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-calendar-alt"></i> Planificador de Turnos
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin/turnos/ejecucion/">Ejecuciones</a>
+        <!-- Botonera compacta con dropdown -->
+        <div class="col-lg-4 text-end">
+            <div class="btn-group me-2" role="group">
+                <button type="button" class="btn btn-export dropdown-toggle"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download"></i> Descargar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_csv' ejecucion.id %}">
+                            <i class="fas fa-file-csv text-success"></i> CSV
+                        </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin/">Admin</a>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_excel' ejecucion.id %}">
+                            <i class="fas fa-file-excel text-success"></i> Excel
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_pdf' ejecucion.id %}">
+                            <i class="fas fa-file-pdf text-danger"></i> PDF
+                        </a>
                     </li>
                 </ul>
             </div>
-        </div>
-    </nav>
-
-    <!-- Contenedor principal -->
-    <div class="container-main">
-        <div class="container-fluid">
-
-            <!-- Breadcrumb -->
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="/">Inicio</a></li>
-                    <li class="breadcrumb-item"><a href="/admin/turnos/ejecucion/">Ejecuciones</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">{{ ejecucion.configuracion.nombre }}</li>
-                </ol>
-            </nav>
-
-            <!-- Encabezado con estado -->
-            <div class="row mb-4">
-                <div class="col-lg-8">
-                    <h1 class="mb-3">
-                        <i class="fas fa-clipboard-list"></i> {{ ejecucion.configuracion.nombre }}
-                    </h1>
-                    <div class="mb-2">
-                        <span class="badge-status badge-completada" style="background-color: #28a745;">
-                            <i class="fas fa-check-circle"></i> COMPLETADA
-                        </span>
-                        {% if ejecucion.es_optima %}
-                        <span class="badge-status badge-optima">
-                            <i class="fas fa-star"></i> Óptima
-                        </span>
-                        {% endif %}
-                        <span style="color: #6c757d; margin-left: 10px;">
-                            <i class="fas fa-clock"></i> {{ ejecucion.fecha_creacion|date:"d/m/Y H:i" }}
-                        </span>
-                    </div>
-                </div>
-                <div class="col-lg-4 text-end">
-                    <button class="btn btn-export" onclick="exportarPlanilla()">
-                        <i class="fas fa-download"></i> Descargar Planilla
-                    </button>
-                    <button class="btn btn-export ms-2" onclick="imprimirPlanilla()">
-                        <i class="fas fa-print"></i> Imprimir
-                    </button>
-                </div>
-            </div>
-
-            <!-- Estadísticas -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="stat-box">
-                        <h6>Asignaciones totales</h6>
-                        <div class="value">{{ num_asignaciones|default:0 }}</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stat-box">
-                        <h6>Enfermeras</h6>
-                        <div class="value">{{ enfermeras_turnos|length|default:0 }}</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stat-box">
-                        <h6>Período</h6>
-                        <div class="value">{{ num_dias_total|default:28 }} días</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stat-box">
-                        <h6>Tiempo de ejecución</h6>
-                        <div class="value">{{ ejecucion.duracion|default:"--" }}s</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabs -->
-            <div class="card">
-                <div class="card-body p-0">
-                    <ul class="nav nav-tabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="planilla-tab" data-bs-toggle="tab"
-                                    data-bs-target="#planilla" type="button" role="tab">
-                                <i class="fas fa-table"></i> Planilla
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="estadisticas-tab" data-bs-toggle="tab"
-                                    data-bs-target="#estadisticas" type="button" role="tab">
-                                <i class="fas fa-chart-bar"></i> Estadísticas
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="detalles-tab" data-bs-toggle="tab"
-                                    data-bs-target="#detalles" type="button" role="tab">
-                                <i class="fas fa-info-circle"></i> Detalles
-                            </button>
-                        </li>
-                    </ul>
-
-                    <!-- Contenido de tabs -->
-                    <div class="tab-content p-4">
-
-                        <!-- TAB 1: PLANILLA -->
-  <!-- TAB 1: PLANILLA -->
-<div class="tab-pane fade show active" id="planilla" role="tabpanel">
-    <!-- Contenedor donde se renderizará la tabla -->
-    <div id="planilla-table"></div>
-
-    <!-- Datos JSON ocultos para JavaScript - CONVERTIDOS CORRECTAMENTE -->
-    <script type="application/json" data-planilla-json>
-    {
-        "dias": [
-            {% for dia in dias %}
-            {
-                "fecha": "{{ dia.fecha|date:'Y-m-d' }}",
-                "dia_semana": "{{ dia.dia_semana }}"
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ],
-        "enfermeras_turnos": [
-            {% for enfermera_data in enfermeras_turnos %}
-            {
-                "enfermera": {
-                    "id": {{ enfermera_data.enfermera.id }},
-                    "nombre": "{{ enfermera_data.enfermera.nombre }}"
-                },
-                "turnos": [
-                    {% for turno_data in enfermera_data.turnos %}
-                    {
-                        "turno": {% if turno_data.turno %}{
-                            "id": {{ turno_data.turno.id }},
-                            "nombre": "{{ turno_data.turno.nombre }}",
-                            "hora_inicio": "{{ turno_data.turno.hora_inicio|time:'H:i' }}",
-                            "hora_fin": "{{ turno_data.turno.hora_fin|time:'H:i' }}"
-                        }{% else %}null{% endif %},
-                        "turno_color": "{{ turno_data.turno_color }}",
-                        "es_libre": {{ turno_data.es_libre|lower }},
-                        "horario": "{{ turno_data.horario|default:'-' }}"
-                    }{% if not forloop.last %},{% endif %}
-                    {% endfor %}
-                ]
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ]
-    }
-    </script>
-</div>
-
-
-                        <!-- TAB 2: ESTADÍSTICAS -->
-                        <div class="tab-pane fade" id="estadisticas" role="tabpanel">
-                            <div class="row">
-                                <div class="col-lg-6">
-                                    <h5 class="mb-3">Distribución de Turnos</h5>
-                                    <table class="table table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Turno</th>
-                                                <th class="text-end">Cantidad</th>
-                                                <th class="text-end">Porcentaje</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for turno_nombre, datos in distribucion_turnos.items %}
-                                            <tr>
-                                                <td>
-                                                    {% if turno_nombre == "LIBRE" %}
-                                                    <span class="badge bg-secondary">{{ turno_nombre }}</span>
-                                                    {% else %}
-                                                    <span class="badge bg-{{ datos.turno.color|default:'primary' }}">
-                                                        {{ turno_nombre }}
-                                                    </span>
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-end">{{ datos.cantidad }}</td>
-                                                <td class="text-end">{{ datos.porcentaje }}%</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="col-lg-6">
-                                    <h5 class="mb-3">Carga por Enfermera</h5>
-                                    <div style="max-height: 400px; overflow-y: auto;">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>Enfermera</th>
-                                                    <th class="text-center">Trabajados</th>
-                                                    <th class="text-center">Libres</th>
-                                                    <th class="text-end">%</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for enfermera in carga_enfermeras %}
-                                                <tr>
-                                                    <td>{{ enfermera.enfermera.nombre }}</td>
-                                                    <td class="text-center">{{ enfermera.turnos_trabajados }}</td>
-                                                    <td class="text-center">{{ enfermera.dias_libres }}</td>
-                                                    <td class="text-end">
-                                                        <div class="progress" style="height: 20px;">
-                                                            <div class="progress-bar" role="progressbar"
-                                                                 style="width: {{ enfermera.porcentaje }}%">
-                                                                {{ enfermera.porcentaje }}%
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TAB 3: DETALLES -->
-                        <div class="tab-pane fade" id="detalles" role="tabpanel">
-                            <div class="row">
-                                <div class="col-lg-6">
-                                    <h5 class="mb-3">Información de la Ejecución</h5>
-                                    <table class="table table-sm">
-                                        <tr>
-                                            <td><strong>ID:</strong></td>
-                                            <td>{{ ejecucion.id }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Configuración:</strong></td>
-                                            <td>{{ ejecucion.configuracion.nombre }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Estado:</strong></td>
-                                            <td><span class="badge bg-success">{{ ejecucion.estado }}</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Fecha Inicio:</strong></td>
-                                            <td>{{ ejecucion.configuracion.fecha_inicio|date:"d/m/Y" }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Período (días):</strong></td>
-                                            <td>{{ ejecucion.configuracion.num_dias }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Duración:</strong></td>
-                                            <td>{{ ejecucion.duracion }} segundos</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Óptima:</strong></td>
-                                            <td>
-                                                {% if ejecucion.es_optima %}
-                                                <span class="badge bg-success">Sí</span>
-                                                {% else %}
-                                                <span class="badge bg-warning">No (factible)</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <div class="col-lg-6">
-                                    <h5 class="mb-3">Información de la Planilla</h5>
-                                    <table class="table table-sm">
-                                        <tr>
-                                            <td><strong>ID Planilla:</strong></td>
-                                            <td>{{ ejecucion.planilla.id }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Asignaciones:</strong></td>
-                                            <td>{{ num_asignaciones }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Enfermeras:</strong></td>
-                                            <td>{{ enfermeras_turnos|length }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Turnos:</strong></td>
-                                            <td>{{ ejecucion.configuracion.turnos.count }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Validaciones OK:</strong></td>
-                                            <td>{{ ejecucion.validacion_resultado.validaciones_ok|default:0 }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Violaciones:</strong></td>
-                                            <td>{{ ejecucion.validacion_resultado.violaciones|default:0 }}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
+            <button class="btn btn-export" onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
         </div>
     </div>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6>Asignaciones totales</h6>
+                <div class="value">{{ num_asignaciones|default:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6>Enfermeras</h6>
+                <div class="value">{{ enfermeras_turnos|length|default:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6>Período</h6>
+                <div class="value">{{ num_dias_total|default:28 }} días</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <h6>Tiempo de ejecución</h6>
+                <div class="value">{{ ejecucion.duracion|default:"--" }}s</div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Script de Planilla (renderización dinámica) -->
-    <script src="{% static 'js/planilla.js' %}"></script>
+    <!-- Tabs -->
+    <div class="card">
+        <div class="card-body p-0">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="planilla-tab" data-bs-toggle="tab"
+                            data-bs-target="#planilla" type="button" role="tab">
+                        <i class="fas fa-table"></i> Planilla
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="estadisticas-tab" data-bs-toggle="tab"
+                            data-bs-target="#estadisticas" type="button" role="tab">
+                        <i class="fas fa-chart-bar"></i> Estadísticas
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="detalles-tab" data-bs-toggle="tab"
+                            data-bs-target="#detalles" type="button" role="tab">
+                        <i class="fas fa-info-circle"></i> Detalles
+                    </button>
+                </li>
+            </ul>
 
-    <!-- Scripts auxiliares -->
-    <script>
-        function exportarPlanilla() {
-            const renderer = window.planillaRenderer;
-            if (renderer && renderer.exportarCSV) {
-                renderer.exportarCSV();
-            } else {
-                alert('Error: Planilla no cargada');
-            }
-        }
+            <!-- Contenido de tabs -->
+            <div class="tab-content p-4">
 
-        function imprimirPlanilla() {
-            window.print();
-        }
+                <!-- TAB 1: PLANILLA -->
+                <div class="tab-pane fade show active" id="planilla" role="tabpanel">
+                    <div id="planilla-table"></div>
 
-        // Hacer disponible el renderer globalmente
-        document.addEventListener('DOMContentLoaded', function() {
-            window.planillaRenderer = new PlanillaRenderer('planilla-table');
-        });
-    </script>
+                    <script type="application/json" data-planilla-json>
+                    {
+                        "dias": [
+                            {% for dia in dias %}
+                            {
+                                "fecha": "{{ dia.fecha|date:'Y-m-d' }}",
+                                "dia_semana": "{{ dia.dia_semana }}"
+                            }{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        ],
+                        "enfermeras_turnos": [
+                            {% for enfermera_data in enfermeras_turnos %}
+                            {
+                                "enfermera": {
+                                    "id": {{ enfermera_data.enfermera.id }},
+                                    "nombre": "{{ enfermera_data.enfermera.nombre }}"
+                                },
+                                "turnos": [
+                                    {% for turno_data in enfermera_data.turnos %}
+                                    {
+                                        "fecha": "{{ turno_data.fecha|date:'Y-m-d' }}",
+                                        "turno": {% if turno_data.turno %}{
+                                            "id": {{ turno_data.turno.id }},
+                                            "nombre": "{{ turno_data.turno.nombre }}",
+                                            "hora_inicio": "{{ turno_data.turno.hora_inicio|time:'H:i' }}",
+                                            "hora_fin": "{{ turno_data.turno.hora_fin|time:'H:i' }}"
+                                        }{% else %}null{% endif %},
+                                        "turno_color": "{{ turno_data.turno_color }}",
+                                        "es_libre": {{ turno_data.es_libre|lower }},
+                                        "horario": "{{ turno_data.horario|default:'-' }}"
+                                    }{% if not forloop.last %},{% endif %}
+                                    {% endfor %}
+                                ]
+                            }{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        ]
+                    }
+                    </script>
+                </div>
 
-</body>
-</html>
+                <!-- TAB 2: ESTADÍSTICAS -->
+                <div class="tab-pane fade" id="estadisticas" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h5 class="mb-3">Distribución de Turnos</h5>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Turno</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th class="text-end">Porcentaje</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for turno_nombre, datos in distribucion_turnos.items %}
+                                    <tr>
+                                        <td>
+                                            {% if turno_nombre == "LIBRE" %}
+                                            <span class="badge bg-secondary">{{ turno_nombre }}</span>
+                                            {% else %}
+                                            <span class="badge bg-{{ datos.turno.color|default:'primary' }}">
+                                                {{ turno_nombre }}
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">{{ datos.cantidad }}</td>
+                                        <td class="text-end">{{ datos.porcentaje }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <h5 class="mb-3">Carga por Enfermera</h5>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Enfermera</th>
+                                            <th class="text-center">Trabajados</th>
+                                            <th class="text-center">Libres</th>
+                                            <th class="text-end">%</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for enfermera in carga_enfermeras %}
+                                        <tr>
+                                            <td>{{ enfermera.enfermera.nombre }}</td>
+                                            <td class="text-center">{{ enfermera.turnos_trabajados }}</td>
+                                            <td class="text-center">{{ enfermera.dias_libres }}</td>
+                                            <td class="text-end">
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar" role="progressbar"
+                                                         style="width: {{ enfermera.porcentaje }}%">
+                                                        {{ enfermera.porcentaje }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: DETALLES -->
+                <div class="tab-pane fade" id="detalles" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h5 class="mb-3">Información de la Ejecución</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>ID:</strong></td>
+                                    <td>{{ ejecucion.id }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Configuración:</strong></td>
+                                    <td>{{ ejecucion.configuracion.nombre }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Estado:</strong></td>
+                                    <td><span class="badge bg-success">{{ ejecucion.estado }}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fecha Inicio:</strong></td>
+                                    <td>{{ ejecucion.configuracion.fecha_inicio|date:"d/m/Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Período (días):</strong></td>
+                                    <td>{{ ejecucion.configuracion.num_dias }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Duración:</strong></td>
+                                    <td>{{ ejecucion.duracion }} segundos</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Óptima:</strong></td>
+                                    <td>
+                                        {% if ejecucion.es_optima %}
+                                        <span class="badge bg-success">Sí</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">No (factible)</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <h5 class="mb-3">Información de la Planilla</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>ID Planilla:</strong></td>
+                                    <td>{{ ejecucion.planilla.id }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Asignaciones:</strong></td>
+                                    <td>{{ num_asignaciones }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Enfermeras:</strong></td>
+                                    <td>{{ enfermeras_turnos|length }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Turnos:</strong></td>
+                                    <td>{{ ejecucion.configuracion.turnos.count }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Validaciones OK:</strong></td>
+                                    <td>{{ ejecucion.validacion_resultado.validaciones_ok|default:0 }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Violaciones:</strong></td>
+                                    <td>{{ ejecucion.validacion_resultado.violaciones|default:0 }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/planilla.js' %}"></script>
+{% endblock %}
