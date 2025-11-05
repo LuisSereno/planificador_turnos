@@ -122,13 +122,47 @@ class ValidadorRestricciones:
                 tb = id2turno.get(b['turno_id'])
                 if not ta or not tb:
                     continue
-                fa = datetime.fromisoformat(a['fecha'])
-                fb = datetime.fromisoformat(b['fecha'])
-                ha_fin = datetime.combine(fa.date(), ta.hora_fin)
-                hb_ini = datetime.combine(fb.date(), tb.hora_inicio)
-                if (hb_ini - ha_fin).total_seconds()/3600 < 12:
-                    self._ko("RD006", f"{a['enfermera_nombre']} {a['fecha']}->{b['fecha']} < 12h")
-                    ok = False
+                try:
+                    # Get the date and time for the first shift
+                    fecha_a = a['fecha']
+                    # Ensure fecha_a is a string (should be, but handle cases)
+                    if not isinstance(fecha_a, str):
+                        fecha_a = fecha_a.isoformat()
+                    
+                    # Calculate the start datetime for a's shift
+                    # Convert to datetime, then add the shift start time
+                    start_dt_a = datetime.fromisoformat(fecha_a) + timedelta(hours=ta.hora_inicio.hour, minutes=ta.hora_inicio.minute)
+                    
+                    # Calculate the end datetime for a's shift using its duration or from start time and end time
+                    if hasattr(ta, 'duracion_horas'):
+                        duration = ta.duracion_horas
+                        end_dt_a = start_dt_a + timedelta(hours=duration)
+                    else:
+                        # Fallback if duration is not available; compute from start to end time (accounting for possible date change)
+                        end_dt_a = start_dt_a + timedelta(days=1) + timedelta(hours=ta.hora_fin.hour, minutes=ta.hora_fin.minute)
+                        
+                    # Get the date and time for the second shift
+                    fecha_b = b['fecha']
+                    if not isinstance(fecha_b, str):
+                        fecha_b = fecha_b.isoformat()
+                    
+                    start_dt_b = datetime.fromisoformat(fecha_b) + timedelta(hours=tb.hora_inicio.hour, minutes=tb.hora_inicio.minute)
+                    
+                    # Now, check the interval between end of first shift and start of second shift
+                    # Ensure we're comparing correct times
+                    interval = (start_dt_b - end_dt_a).total_seconds() / 3600
+                    
+                    # Only log if interval is less than 12 hours, but ensure it's not negative due to time calculation errors
+                    if interval < 0:
+                        logger.warning(f"Illegal interval detected: {start_dt_b} before {end_dt_a}; something wrong with time calculation.")
+                        self._ko("RD006", f"Error in time calculation for {e}")
+                    elif interval < 12:
+                        self._ko("RD006", f"{a['enfermera_nombre']} {a['fecha']}->{b['fecha']} < 12h")
+                        ok = False
+                except Exception as e:
+                    logger.error(f"Error processing shifts: {e}")
+                    continue
+
         if ok:
             self._ok("RD006", "Descansos verificados")
 
@@ -355,10 +389,10 @@ class GeneradorTurnos:
                     self.model.Add(overage >= personal_asignado - req_optimo)
 
                     # Aplicar pesos diferentes a las penalizaciones
-                    penal.append(shortfall_sq * 100)  # Penalización cuadrática por estar por debajo
-                    penal.append(overage * 20)    # Penalización lineal por estar por encima
+                    penal.append(shortfall_sq * 0.1)  # Reduced weight from 100 to 10
+                    penal.append(overage * 0.02)    # Reduced weight from 20 to 2
                     
-                    logger.debug(f"  - {nombre} d{d}: optimo={req_optimo}, penalización por falta (x100 cuadrática) y exceso (x20 lineal)")
+                    logger.debug(f"  - {nombre} d{d}: optimo={req_optimo}, penalización por falta (x0.1 cuadrática) y exceso (x0.02 lineal)")
         
         if tiene_optimo:
             logger.info("✓ RB Cobertura óptima aplicada con penalización cuadrática")
@@ -375,7 +409,7 @@ class GeneradorTurnos:
                 self.model.AddMinEquality(mn, tot)
                 diff = self.model.NewIntVar(0, self.num_dias, f"df_t{t}")
                 self.model.Add(diff == mx - mn)
-                penal.append(diff * 100)
+                penal.append(diff * 0.1)  # Reduced weight to 0.1 from 100
         logger.info(f"✓ RB Equidad aplicada")
 
         if 'RB016' in id_map and self.extra_off_days:
