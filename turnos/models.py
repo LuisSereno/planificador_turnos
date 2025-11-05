@@ -134,12 +134,14 @@ class ConfiguracionPlanificacion(models.Model):
     restricciones_duras = models.JSONField(
         _('Restricciones duras'),
         default=list,
-        blank=True
+        blank=True,
+        null=True
     )
     restricciones_blandas = models.JSONField(
         _('Restricciones blandas'),
         default=list,
-        blank=True
+        blank=True,
+        null=True
     )
 
     # Configuración del solver
