@@ -298,17 +298,23 @@ class GeneradorTurnos:
 
         # ✅ RD007: Descanso semanal - SOLO PARA PERÍODOS LARGOS (>= 300 días ≈ anual)
         if self.num_dias >= 300:
-            # Para períodos anuales: 1 día libre cada 7 días
+            # Número de semanas completas
+            num_semanas = self.num_dias // 7
+
+            # Aplicar RD007: al menos 1 día libre por semana (semanas completas)
             for e in range(self.num_enfermeras):
-                for semana in range(0, self.num_dias, 7):
-                    fin_semana = min(semana + 7, self.num_dias)
+                for semana in range(num_semanas):
+                    inicio_semana = semana * 7
+                    fin_semana = min((semana + 1) * 7, self.num_dias)
+                    # Suma los turnos en esa semana
                     turnos_en_semana = sum(
                         self.shifts[(e, d, t)]
-                        for d in range(semana, fin_semana)
+                        for d in range(inicio_semana, fin_semana)
                         for t in range(self.num_turnos)
                     )
-                    self.model.Add(turnos_en_semana <= (fin_semana - semana) - 1)
-            logger.info("✓ RD007: Descanso semanal aplicado (1 día libre cada 7 días)")
+                    # Limitar a que tenga al menos un día libre (menos un turno en esa semana)
+                    self.model.Add(turnos_en_semana <= (fin_semana - inicio_semana) - 1)
+            logger.info("✓ RD007: Descanso semanal aplicado (1 día libre cada 7 días) (versión corregida)")
         else:
             # Para períodos cortos: solo garantizar mínimo 1 día libre total
             for e in range(self.num_enfermeras):
