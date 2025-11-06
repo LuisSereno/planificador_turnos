@@ -121,21 +121,13 @@
                     <i class="fas fa-download"></i> Descargar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_csv' ejecucion.id %}">
-                            <i class="fas fa-file-csv text-success"></i> CSV
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_excel' ejecucion.id %}">
-                            <i class="fas fa-file-excel text-success"></i> Excel
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{% url 'turnos:exportar_planilla_pdf' ejecucion.id %}">
-                            <i class="fas fa-file-pdf text-danger"></i> PDF
-                        </a>
-                    </li>
+                    <li><h6 class="dropdown-header">Exportar Planificación</h6></li>
+                    <li><a class="dropdown-item" href="{% url 'turnos:descargar_excel' ejecucion.id %}"><i class="fas fa-file-excel text-success"></i> Excel (6 Hojas)</a></li>
+                    <li><a class="dropdown-item" href="{% url 'turnos:descargar_pdf' ejecucion.id %}"><i class="fas fa-file-pdf text-danger"></i> PDF</a></li>
+                    <li><a class="dropdown-item" href="{% url 'turnos:descargar_csv' ejecucion.id %}"><i class="fas fa-file-csv text-info"></i> CSV</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'turnos:descargar_json' ejecucion.id %}"><i class="fas fa-code text-warning"></i> JSON</a></li>
+                    <li><a class="dropdown-item" href="{% url 'turnos:descargar_ical' ejecucion.id %}"><i class="fas fa-calendar text-primary"></i> iCalendar</a></li>
                 </ul>
             </div>
             <button class="btn btn-export" onclick="window.print()">

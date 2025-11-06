@@ -4,6 +4,9 @@ from .models import Workspace
 from django.db import transaction
 
 from .models import Workspace
+from .utils import generar_json_planilla, generar_ical_planilla
+from .utils.exportacion import exportar_enfermeras_excel, generar_csv_planilla, generar_pdf_planilla, \
+    generar_excel_planilla
 
 """
 Views for turnos app
@@ -13,7 +16,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Avg, F, ExpressionWrapper, DurationField
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -43,10 +46,10 @@ from .models import (
     Enfermera, TipoTurno, Planilla, AsignacionTurno
 )
 from collections import defaultdict
-from datetime import date, timedelta
 import json
 from django.core.serializers.json import DjangoJSONEncoder
 
+from datetime import date, time, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +160,7 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
             f"Creating new configuration by user {self.request.user.username} ({self.request.user.id})"
         )
         logger.debug(f"Form data: {form.cleaned_data}")
-        
+
         form.instance.creado_por = self.request.user
         try:
             response = super().form_valid(form)
@@ -168,7 +171,7 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
             return response
         except Exception as e:
             logger.error(
-                f"Error creating configuration: {str(e)}", 
+                f"Error creating configuration: {str(e)}",
                 exc_info=True,
                 extra={'user': self.request.user, 'form_data': form.cleaned_data}
             )
@@ -190,7 +193,7 @@ class ConfiguracionUpdateView(LoginRequiredMixin, OwnerRequiredMixin, FormMessag
             f"({self.request.user.id})"
         )
         logger.debug(f"Form changes: {form.changed_data}")
-        
+
         try:
             response = super().form_valid(form)
             logger.info(
@@ -221,7 +224,7 @@ class ConfiguracionDeleteView(LoginRequiredMixin, OwnerRequiredMixin, DeleteView
             f"User {request.user.username} ({request.user.id}) attempting to delete "
             f"configuration ID {config.id} - '{config.nombre}'"
         )
-        
+
         try:
             response = super().delete(request, *args, **kwargs)
             logger.info(
@@ -360,15 +363,15 @@ class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
                 try:
                     enfermeras_count = len(form_data['enfermeras'])
                     turnos_count = len(form_data['turnos'])
-                    
+
                     logger.debug(
                         f"Assigning {enfermeras_count} enfermeras and {turnos_count} turnos "
                         f"to configuration {config.id}"
                     )
-                    
+
                     config.enfermeras.set(form_data['enfermeras'])
                     config.turnos.set(form_data['turnos'])
-                    
+
                     logger.info(
                         f"Relationships assigned - Enfermeras: {enfermeras_count}, "
                         f"Turnos: {turnos_count}"
@@ -394,7 +397,7 @@ class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
                 extra={'user': self.request.user}
             )
             messages.error(
-                self.request, 
+                self.request,
                 f"Se produjo un error inesperado al guardar la configuración: {e}"
             )
             return redirect('turnos:config_wizard')
@@ -455,7 +458,7 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
         if isinstance(ejecucion.mensajes, dict):
             validacion_resultado['validaciones_ok'] = len(ejecucion.mensajes.get('validaciones', []))
             validacion_resultado['violaciones'] = len(ejecucion.mensajes.get('violaciones', []))
-        
+
         context['validacion_resultado'] = validacion_resultado
 
         # Si tiene planilla, calcular datos para visualización
@@ -616,7 +619,7 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
         errores = []
         enfermeras_count = config.enfermeras.count()
         turnos_count = config.turnos.count()
-        
+
         if enfermeras_count < 2:
             error_msg = f'Se necesitan al menos 2 enfermeras (actual: {enfermeras_count})'
             logger.warning(error_msg)
@@ -670,14 +673,14 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
             try:
                 config_id_int = int(config_id)
                 logger.info(f"Dispatching Celery task for config ID {config_id_int}")
-                
+
                 task = ejecutar_planificacion_async.delay(config_id_int)
-                
+
                 logger.info(
                     f"Celery task dispatched - Task ID: {task.id}, "
                     f"Execution ID: {ejecucion.id}"
                 )
-                
+
                 messages.success(
                     request,
                     f'✓ Planificación enviada. Ejecución #{ejecucion.id}. Task: {task.id}'
@@ -702,7 +705,7 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
                 extra={'config_id': config_id}
             )
             messages.error(
-                request, 
+                request,
                 f'Error inesperado: {e}'
             )
             return redirect('turnos:config_detalle', pk=config_id)
@@ -805,7 +808,7 @@ class EnfermeraCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
             "creating new enfermera"
         )
         logger.debug(f"Enfermera form data: {form.cleaned_data}")
-        
+
         try:
             response = super().form_valid(form)
             logger.info(
@@ -836,7 +839,7 @@ class EnfermeraUpdateView(LoginRequiredMixin, FormMessageMixin, UpdateView):
             f"updating enfermera ID {self.object.id}"
         )
         logger.debug(f"Changes: {form.changed_data}")
-        
+
         try:
             response = super().form_valid(form)
             logger.info(
@@ -866,7 +869,7 @@ class EnfermeraDeleteView(LoginRequiredMixin, DeleteView):
             f"User {request.user.username} ({request.user.id}) attempting to delete "
             f"enfermera ID {enfermera.id} - {enfermera.nombre}"
         )
-        
+
         try:
             response = super().delete(request, *args, **kwargs)
             logger.info(
@@ -916,7 +919,7 @@ class ImportarEnfermerasView(LoginRequiredMixin, FormView):
 
             for row in ws.iter_rows(min_row=2, values_only=True):
                 nombre, email, telefono, dni, activa = row[:5]
-                
+
                 if not nombre or not email:
                     logger.warning(f"Skipping row with missing name/email: {row}")
                     continue
@@ -950,7 +953,7 @@ class ImportarEnfermerasView(LoginRequiredMixin, FormView):
                         logger.debug(f"New enfermera created for email {email}")
                 except Exception as e:
                     logger.error(
-                        f"Error processing row {row}: {str(e)}", 
+                        f"Error processing row {row}: {str(e)}",
                         exc_info=True,
                         extra={'row_data': row}
                     )
@@ -1069,8 +1072,6 @@ class CrearTurnosPredeterminadosView(LoginRequiredMixin, View):
     """Crea los turnos predeterminados (Mañana, Tarde, Noche)"""
 
     def post(self, request):
-        from datetime import time
-
         turnos_default = [
             {
                 'nombre': 'MANANA',
@@ -1657,7 +1658,7 @@ class ExportarEjecucionICalView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         from icalendar import Calendar, Event
-        from datetime import datetime, timedelta
+
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
@@ -1939,7 +1940,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
                         messages.success(request, 'Restricción blanda eliminada')
                     else:
                         logger.warning(f"Índice de restricción blanda inválido o fuera de rango para config {config_id}. Index: {idx}, Total: {len(rb)}")
-            
+
             else:
                 logger.warning(f"Acción desconocida '{action}' en ConfiguracionRestriccionesView.")
 
@@ -1953,278 +1954,197 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
 # ========================================
 # VISTAS DE EXPORTACIÓN
 # ========================================
+# =========================================================================
+# DESCARGAS DE EXPORTACIÓN
+# =========================================================================
 
-from django.http import HttpResponse
-from django.views import View
-from django.shortcuts import get_object_or_404
-import csv
-from datetime import timedelta
-from collections import defaultdict
-
-
-class ExportarPlanillaCSV(View):
-    """Exportar planilla a CSV"""
+class DescargarExcelView(LoginRequiredMixin, View):
+    """Descarga Excel de ejecución"""
 
     def get(self, request, pk):
-        ejecucion = get_object_or_404(Ejecucion, pk=pk)
-
-        # Verificar permisos
-        if not request.user.is_authenticated:
-            return HttpResponse('No autorizado', status=401)
-
-        if not ejecucion.planilla:
-            return HttpResponse('Ejecución sin planilla', status=404)
-
-        planilla = ejecucion.planilla
-        config = ejecucion.configuracion
-
-        # Crear response CSV
-        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.csv"'
-
-        writer = csv.writer(response)
-
-        # Obtener datos
-        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
-        enfermeras = config.enfermeras.all().order_by('nombre')
-
-        # Encabezado
-        header = ['Enfermera'] + [dia.strftime('%d/%m/%Y') for dia in dias]
-        writer.writerow(header)
-
-        # Agrupar asignaciones por enfermera y fecha
-        asignaciones_dict = defaultdict(dict)
-        for asig in planilla.asignaciones.all():
-            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'LIBRE'
-
-        # Escribir filas
-        for enfermera in enfermeras:
-            fila = [enfermera.nombre]
-            for dia in dias:
-                turno = asignaciones_dict[enfermera].get(dia, '')
-                fila.append(turno)
-            writer.writerow(fila)
-
-        return response
-
-
-class ExportarPlanillaExcel(View):
-    """Exportar planilla a Excel"""
-
-    def get(self, request, pk):
-        ejecucion = get_object_or_404(Ejecucion, pk=pk)
-
-        if not request.user.is_authenticated:
-            return HttpResponse('No autorizado', status=401)
-
-        if not ejecucion.planilla:
-            return HttpResponse('Ejecución sin planilla', status=404)
-
+        """Descarga el Excel"""
         try:
-            from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment
-        except ImportError:
-            return HttpResponse('openpyxl no instalado. Ejecuta: pip install openpyxl', status=500)
+            ejecucion = Ejecucion.objects.get(pk=pk)
+            logger.info(f"Excel download requested for execution {pk}")
 
-        planilla = ejecucion.planilla
-        config = ejecucion.configuracion
+            # Generar Excel
+            buffer = generar_excel_planilla(ejecucion)
 
-        # Crear workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Planilla de Turnos"
+            # Crear respuesta
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planificacion_{ejecucion.configuracion.nombre}_{ejecucion.id}.xlsx',
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
 
-        # Obtener datos
-        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
-        enfermeras = config.enfermeras.all().order_by('nombre')
+            logger.info(f"Excel downloaded successfully for execution {pk}")
+            return response
 
-        # Estilos
-        header_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True)
-        center_align = Alignment(horizontal="center", vertical="center")
-
-        # Encabezado
-        header = ['Enfermera'] + [dia.strftime('%d/%m/%Y') for dia in dias]
-        ws.append(header)
-
-        # Aplicar estilo al encabezado
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = center_align
-
-        # Agrupar asignaciones
-        asignaciones_dict = defaultdict(dict)
-        for asig in planilla.asignaciones.all():
-            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'LIBRE'
-
-        # Escribir filas
-        for enfermera in enfermeras:
-            fila = [enfermera.nombre]
-            for dia in dias:
-                turno = asignaciones_dict[enfermera].get(dia, '')
-                fila.append(turno)
-            ws.append(fila)
-
-        # Aplicar colores por turno
-        turno_colors = {
-            'MANANA': 'FFC107',  # Amarillo
-            'TARDE': '17A2B8',  # Azul
-            'NOCHE': '343A40',  # Negro
-            'LIBRE': '6C757D'  # Gris
-        }
-
-        for row in ws.iter_rows(min_row=2, min_col=2):
-            for cell in row:
-                if cell.value in turno_colors:
-                    cell.fill = PatternFill(start_color=turno_colors[cell.value],
-                                            end_color=turno_colors[cell.value],
-                                            fill_type="solid")
-                    if cell.value == 'NOCHE':
-                        cell.font = Font(color="FFFFFF")
-                cell.alignment = center_align
-
-        # Ajustar anchos
-        ws.column_dimensions['A'].width = 20
-        for col in range(2, len(header) + 1):
-            ws.column_dimensions[chr(64 + col)].width = 12
-
-        # Respuesta
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.xlsx"'
-        wb.save(response)
-
-        return response
+        except Ejecucion.DoesNotExist:
+            logger.error(f"Execution {pk} not found")
+            messages.error(request, "Ejecución no encontrada")
+            return redirect('turnos:ejecucion_lista')
+        except Exception as e:
+            logger.error(f"Error generating Excel: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar Excel: {str(e)}")
+            return redirect('turnos:ejecucion_detalle', pk=pk)
 
 
-class ExportarPlanillaPDF(View):
-    """Exportar planilla a PDF"""
+class DescargarPDFView(LoginRequiredMixin, View):
+    """Descarga PDF de ejecución"""
 
     def get(self, request, pk):
-        ejecucion = get_object_or_404(Ejecucion, pk=pk)
-
-        if not request.user.is_authenticated:
-            return HttpResponse('No autorizado', status=401)
-
-        if not ejecucion.planilla:
-            return HttpResponse('Ejecución sin planilla', status=404)
-
+        """Descarga el PDF"""
         try:
-            from reportlab.lib.pagesizes import letter, landscape
-            from reportlab.lib import colors
-            from reportlab.lib.units import inch
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-            from reportlab.lib.styles import getSampleStyleSheet
-        except ImportError:
-            return HttpResponse('reportlab no instalado. Ejecuta: pip install reportlab', status=500)
+            ejecucion = Ejecucion.objects.get(pk=pk)
+            logger.info(f"PDF download requested for execution {pk}")
 
-        from io import BytesIO
+            # Generar PDF
+            buffer = generar_pdf_planilla(ejecucion)
 
-        planilla = ejecucion.planilla
-        config = ejecucion.configuracion
+            # Crear respuesta
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planificacion_{ejecucion.configuracion.nombre}_{ejecucion.id}.pdf',
+                content_type='application/pdf'
+            )
 
-        # Crear buffer
-        buffer = BytesIO()
+            logger.info(f"PDF downloaded successfully for execution {pk}")
+            return response
 
-        # Crear documento
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=landscape(letter),
-            rightMargin=30,
-            leftMargin=30,
-            topMargin=30,
-            bottomMargin=18
-        )
+        except Ejecucion.DoesNotExist:
+            logger.error(f"Execution {pk} not found")
+            messages.error(request, "Ejecución no encontrada")
+            return redirect('turnos:ejecucion_lista')
+        except Exception as e:
+            logger.error(f"Error generating PDF: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar PDF: {str(e)}")
+            return redirect('turnos:ejecucion_detalle', pk=pk)
 
-        elements = []
-        styles = getSampleStyleSheet()
 
-        # Título
-        title = Paragraph(
-            f"<b>Planilla de Turnos - {config.nombre}</b>",
-            styles['Title']
-        )
-        elements.append(title)
-        elements.append(Spacer(1, 12))
+class DescargarCSVView(LoginRequiredMixin, View):
+    """Descarga CSV de ejecución"""
 
-        # Información
-        info = Paragraph(
-            f"Período: {config.fecha_inicio.strftime('%d/%m/%Y')} - "
-            f"{(config.fecha_inicio + timedelta(days=config.num_dias - 1)).strftime('%d/%m/%Y')}<br/>"
-            f"Enfermeras: {config.enfermeras.count()} | Días: {config.num_dias}",
-            styles['Normal']
-        )
-        elements.append(info)
-        elements.append(Spacer(1, 12))
+    def get(self, request, pk):
+        """Descarga el CSV"""
+        try:
+            ejecucion = Ejecucion.objects.get(pk=pk)
+            logger.info(f"CSV download requested for execution {pk}")
 
-        # Obtener datos
-        dias = [config.fecha_inicio + timedelta(days=i) for i in range(config.num_dias)]
-        enfermeras = config.enfermeras.all().order_by('nombre')[:15]  # Máximo 15 para que quepa
+            # Generar CSV
+            buffer = generar_csv_planilla(ejecucion)
 
-        # Preparar tabla
-        data = []
+            # Crear respuesta
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planificacion_{ejecucion.configuracion.nombre}_{ejecucion.id}.csv',
+                content_type='text/csv; charset=utf-8-sig'
+            )
 
-        # Encabezado
-        header = ['Enfermera'] + [dia.strftime('%d/%m') for dia in dias[:20]]  # Máximo 20 días
-        data.append(header)
+            logger.info(f"CSV downloaded successfully for execution {pk}")
+            return response
 
-        # Agrupar asignaciones
-        asignaciones_dict = defaultdict(dict)
-        for asig in planilla.asignaciones.all():
-            asignaciones_dict[asig.enfermera][asig.fecha] = asig.turno.nombre if asig.turno else 'L'
+        except Ejecucion.DoesNotExist:
+            logger.error(f"Execution {pk} not found")
+            messages.error(request, "Ejecución no encontrada")
+            return redirect('turnos:ejecucion_lista')
+        except Exception as e:
+            logger.error(f"Error generating CSV: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar CSV: {str(e)}")
+            return redirect('turnos:ejecucion_detalle', pk=pk)
 
-        # Filas
-        for enfermera in enfermeras:
-            fila = [enfermera.nombre[:15]]  # Truncar nombres largos
-            for dia in dias[:20]:
-                turno = asignaciones_dict[enfermera].get(dia, '')
-                # Abreviar turnos
-                turno_abrev = {
-                    'MANANA': 'M',
-                    'TARDE': 'T',
-                    'NOCHE': 'N',
-                    'LIBRE': 'L'
-                }.get(turno, '')
-                fila.append(turno_abrev)
-            data.append(fila)
 
-        # Crear tabla
-        table = Table(data)
+class DescargarJSONView(LoginRequiredMixin, View):
+    """Descarga JSON de ejecución"""
 
-        # Estilos de tabla
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667EEA')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ]))
+    def get(self, request, pk):
+        """Descarga el JSON"""
+        try:
+            ejecucion = Ejecucion.objects.get(pk=pk)
+            logger.info(f"JSON download requested for execution {pk}")
 
-        elements.append(table)
+            # Generar JSON
+            buffer = generar_json_planilla(ejecucion)
 
-        # Leyenda
-        elements.append(Spacer(1, 12))
-        legend = Paragraph(
-            "<b>Leyenda:</b> M=Mañana, T=Tarde, N=Noche, L=Libre",
-            styles['Normal']
-        )
-        elements.append(legend)
+            # Crear respuesta
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planificacion_{ejecucion.configuracion.nombre}_{ejecucion.id}.json',
+                content_type='application/json'
+            )
 
-        # Construir PDF
-        doc.build(elements)
+            logger.info(f"JSON downloaded successfully for execution {pk}")
+            return response
 
-        # Respuesta
-        pdf = buffer.getvalue()
-        buffer.close()
+        except Ejecucion.DoesNotExist:
+            logger.error(f"Execution {pk} not found")
+            messages.error(request, "Ejecución no encontrada")
+            return redirect('turnos:ejecucion_lista')
+        except Exception as e:
+            logger.error(f"Error generating JSON: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar JSON: {str(e)}")
+            return redirect('turnos:ejecucion_detalle', pk=pk)
 
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="planilla_{pk}.pdf"'
-        response.write(pdf)
 
-        return response
+class DescargarICalView(LoginRequiredMixin, View):
+    """Descarga iCalendar de ejecución"""
+
+    def get(self, request, pk):
+        """Descarga el iCal"""
+        try:
+            ejecucion = Ejecucion.objects.get(pk=pk)
+            logger.info(f"iCal download requested for execution {pk}")
+
+            # Generar iCal
+            buffer = generar_ical_planilla(ejecucion)
+
+            # Crear respuesta
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planificacion_{ejecucion.configuracion.nombre}_{ejecucion.id}.ics',
+                content_type='text/calendar'
+            )
+
+            logger.info(f"iCal downloaded successfully for execution {pk}")
+            return response
+
+        except Ejecucion.DoesNotExist:
+            logger.error(f"Execution {pk} not found")
+            messages.error(request, "Ejecución no encontrada")
+            return redirect('turnos:ejecucion_lista')
+        except Exception as e:
+            logger.error(f"Error generating iCal: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar iCalendar: {str(e)}")
+            return redirect('turnos:ejecucion_detalle', pk=pk)
+
+
+class DescargarEnfermerasExcelView(LoginRequiredMixin, View):
+    """Descarga lista de enfermeras en Excel"""
+
+    def get(self, request):
+        """Descarga el Excel de enfermeras"""
+        try:
+            logger.info(f"Enfermeras Excel download requested by user {request.user.username}")
+
+            enfermeras = Enfermera.objects.all()
+            buffer = exportar_enfermeras_excel(enfermeras)
+
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'enfermeras_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+            logger.info(f"Enfermeras Excel downloaded successfully")
+            return response
+
+        except Exception as e:
+            logger.error(f"Error generating enfermeras Excel: {str(e)}", exc_info=True)
+            messages.error(request, f"Error al generar Excel: {str(e)}")
+            return redirect('turnos:dashboard')

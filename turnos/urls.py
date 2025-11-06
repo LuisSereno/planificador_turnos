@@ -4,8 +4,7 @@ URL configuration for turnos app
 from django.urls import path
 from . import views
 from django.views.generic import RedirectView, TemplateView
-from .views import CambiarWorkspaceView, ConfiguracionRestriccionesView, ExportarPlanillaCSV, ExportarPlanillaExcel, \
-    ExportarPlanillaPDF
+from .views import CambiarWorkspaceView, ConfiguracionRestriccionesView
 
 app_name = 'turnos'
 
@@ -96,16 +95,13 @@ urlpatterns = [
     path('terminos/', TemplateView.as_view(template_name='terminos.html'), name='terminos'),
     path('privacidad/', TemplateView.as_view(template_name='privacidad.html'), name='privacidad'),
 
-    # ✅ AGREGAR ESTAS RUTAS:
-    path('ejecuciones/<int:pk>/exportar/csv/',
-         ExportarPlanillaCSV.as_view(),
-         name='exportar_planilla_csv'),
+    # Descargas de exportación
+    path('descargar/excel/<int:pk>/', views.DescargarExcelView.as_view(), name='descargar_excel'),
+    path('descargar/pdf/<int:pk>/', views.DescargarPDFView.as_view(), name='descargar_pdf'),
+    path('descargar/csv/<int:pk>/', views.DescargarCSVView.as_view(), name='descargar_csv'),
+    path('descargar/json/<int:pk>/', views.DescargarJSONView.as_view(), name='descargar_json'),
+    path('descargar/ical/<int:pk>/', views.DescargarICalView.as_view(), name='descargar_ical'),
+    path('descargar/enfermeras/', views.DescargarEnfermerasExcelView.as_view(), name='descargar_enfermeras'),
 
-    path('ejecuciones/<int:pk>/exportar/excel/',
-         ExportarPlanillaExcel.as_view(),
-         name='exportar_planilla_excel'),
 
-    path('ejecuciones/<int:pk>/exportar/pdf/',
-         ExportarPlanillaPDF.as_view(),
-         name='exportar_planilla_pdf'),
 ]
