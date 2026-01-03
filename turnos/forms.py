@@ -7,8 +7,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import (
-    Enfermera, TipoTurno, ConfiguracionPlanificacion,
-    Ejecucion, Planilla
+    Enfermera, TipoTurno, ConfiguracionPlanificacion
 )
 
 
@@ -133,7 +132,7 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
         model = ConfiguracionPlanificacion
         fields = [
             'nombre', 'descripcion', 'activa', 'num_dias', 'fecha_inicio',
-            'enfermeras', 'turnos', 'demanda_por_turno',
+            'enfermeras', 'turnos', 'turnos_por_dia', 'demanda_por_turno',
             'restricciones_duras', 'restricciones_blandas',
             'num_trabajadores', 'tiempo_maximo_segundos', 'seed'
         ]
@@ -161,10 +160,11 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             }),
             'enfermeras': forms.CheckboxSelectMultiple(),
             'turnos': forms.CheckboxSelectMultiple(),
+            'turnos_por_dia': forms.CheckboxSelectMultiple(),
             'demanda_por_turno': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 5,
-                'placeholder': 'Opcional: {\"MANANA\": {\"min\": 2, \"optimo\": 3, \"max\": 5}}'
+                'placeholder': 'Opcional: {"MANANA": {"min": 2, "optimo": 3, "max": 5}}'
             }),
             'restricciones_duras': forms.Textarea(attrs={
                 'class': 'form-control',

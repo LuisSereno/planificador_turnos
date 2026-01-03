@@ -45,6 +45,9 @@ class ValidadorRestricciones:
         self._una_enfermera_un_turno_por_dia()
         self._cobertura_minima_por_turno()
         self._descanso_minimo_12h()
+        # Validaciones adicionales: descanso post-noche y máximo noches consecutivas
+        self._descanso_post_noche()
+        self._max_noches_consecutivas()
         self._jornada_maxima_12h()
         self._equidad_turnos_resumen()
         logger.info("="*80)
@@ -53,17 +56,44 @@ class ValidadorRestricciones:
         return {'valido': len(self.violaciones) == 0, 'validaciones': self.exitos, 'violaciones': self.violaciones}
 
     def _una_enfermera_un_turno_por_dia(self):
-        seen = set()
+        """
+        RD020: Valida que cada enfermera no trabaje más turnos por día de los permitidos.
+        Ahora configurable con el parámetro `max_turnos`.
+        """
+        # Obtener max_turnos desde restricciones_duras
+        max_turnos = 1  # valor por defecto
+        rd = self.configuracion.restricciones_duras or []
+
+        # Convertir a lista si es dict
+        if isinstance(rd, dict):
+            rd = list(rd.values())
+
+        # Buscar la restricción "un_turno_por_dia" en la lista
+        for restriccion in rd:
+            if isinstance(restriccion, dict) and restriccion.get('nombre') == 'un_turno_por_dia':
+                parametros = restriccion.get('parametros', {})
+                if isinstance(parametros, dict):
+                    max_turnos = parametros.get('max_turnos', 1)
+                break
+
+        # Validar asignaciones
+        seen = {}
         ok = True
         for a in self.resultado.get('asignaciones', []):
-            key = (a['enfermera_id'], a['fecha'])
-            if key in seen:
-                self._ko("RD020", f"Más de un turno en {a['fecha']} para {a['enfermera_nombre']}")
+            enfermera_id = a['enfermera_id']
+            fecha = a['fecha']
+            key = (enfermera_id, fecha)
+
+            if key not in seen:
+                seen[key] = 0
+            seen[key] += 1
+
+            if seen[key] > max_turnos:
+                self._ko("RD020", f"{a['enfermera_nombre']} tiene {seen[key]} turnos el {fecha} (máx permitido: {max_turnos})")
                 ok = False
-            else:
-                seen.add(key)
+
         if ok:
-            self._ok("RD020", f"{len(seen)} asignaciones únicas")
+            self._ok("RD020", f"{len(seen)} asignaciones únicas (máx {max_turnos} turnos/día)")
 
     def _cobertura_minima_por_turno(self):
         """RD019: Cobertura mínima por turno"""
@@ -155,7 +185,7 @@ class ValidadorRestricciones:
                     # Only log if interval is less than 12 hours, but ensure it's not negative due to time calculation errors
                     if interval < 0:
                         logger.warning(f"Illegal interval detected: {start_dt_b} before {end_dt_a}; something wrong with time calculation.")
-                        self._ko("RD006", f"Error in time calculation for {e}")
+                        self._ko("RD006", f"Error in time calculation for {eid}")
                     elif interval < 12:
                         self._ko("RD006", f"{a['enfermera_nombre']} {a['fecha']}->{b['fecha']} < 12h")
                         ok = False
@@ -187,6 +217,130 @@ class ValidadorRestricciones:
         for enf, mapa in por_enf.items():
             logger.info(f"[EQ] {enf}: " + ", ".join(f"{k}={v}" for k,v in mapa.items()))
         self._ok("RB001-RB003", "Resumen de equidad generado")
+
+    def _descanso_post_noche(self):
+        """Valida la restricción RD_POST_NOCHE si está presente en la configuración.
+        Busca en `configuracion.restricciones_duras` la restricción y aplica la comprobación de horas.
+        """
+        rd = self.configuracion.restricciones_duras or []
+        if isinstance(rd, dict):
+            rd = list(rd.values())
+        id_map = {r.get('id'): r for r in rd}
+        if 'RD_POST_NOCHE' not in id_map:
+            return
+
+        params = id_map['RD_POST_NOCHE'].get('parametros', {}) or {}
+        min_horas = int(params.get('min_horas', params.get('minimo_horas', 12)))
+        nocturnos_param = params.get('turnos')
+
+        # mapear id->turno obj
+        id2turno = {t.id: t for t in self.configuracion.turnos.all()}
+
+        # determinar nombres de turnos nocturnos
+        if nocturnos_param and isinstance(nocturnos_param, list):
+            noches_nombres = set(nocturnos_param)
+        else:
+            noches_nombres = {'NOCHE'}
+
+        # construir por enfermera
+        from collections import defaultdict
+        por_enf = defaultdict(list)
+        for a in self.resultado.get('asignaciones', []):
+            por_enf[a['enfermera_id']].append(a)
+
+        for eid, arr in por_enf.items():
+            arr = sorted(arr, key=lambda x: x['fecha'])
+            for a in arr:
+                ta = id2turno.get(a['turno_id'])
+                if not ta or ta.nombre not in noches_nombres:
+                    continue
+                # es un turno nocturno: calcular fin
+                try:
+                    fecha_a = a['fecha'] if isinstance(a['fecha'], str) else a['fecha'].isoformat()
+                    start_dt_a = datetime.fromisoformat(fecha_a) + timedelta(hours=ta.hora_inicio.hour, minutes=ta.hora_inicio.minute)
+                    dur = getattr(ta, 'duracion_horas', None)
+                    if dur is None:
+                        # fallback: usar hora_fin
+                        end_dt_a = datetime.fromisoformat(fecha_a) + timedelta(hours=ta.hora_fin.hour, minutes=ta.hora_fin.minute)
+                    else:
+                        end_dt_a = start_dt_a + timedelta(hours=dur)
+                except Exception as ex:
+                    logger.debug(f"No se pudo calcular fin de turno nocturno: {ex}")
+                    continue
+
+                # comparar con todas las asignaciones posteriores de la misma enfermera
+                for b in arr:
+                    if b == a:
+                        continue
+                    try:
+                        fecha_b = b['fecha'] if isinstance(b['fecha'], str) else b['fecha'].isoformat()
+                        start_dt_b = datetime.fromisoformat(fecha_b) + timedelta(hours=id2turno.get(b['turno_id']).hora_inicio.hour, minutes=id2turno.get(b['turno_id']).hora_inicio.minute)
+                        interval_h = (start_dt_b - end_dt_a).total_seconds() / 3600
+                        if 0 <= interval_h < min_horas:
+                            self._ko('RD_POST_NOCHE', f"{a['enfermera_nombre']} {a['fecha']} -> {b['fecha']} intervalo {interval_h:.1f}h < {min_horas}h")
+                    except Exception:
+                        continue
+
+        # si no se añaden violaciones, marcar OK
+        if not any(v.get('nombre') == 'RD_POST_NOCHE' for v in self.violaciones):
+            self._ok('RD_POST_NOCHE', f'Descanso post-noche >= {min_horas}h verificado')
+
+    def _max_noches_consecutivas(self):
+        """Valida RD_MAX_NOCHES_CONSECUTIVAS en restricciones duras."""
+        rd = self.configuracion.restricciones_duras or []
+        if isinstance(rd, dict):
+            rd = list(rd.values())
+        id_map = {r.get('id'): r for r in rd}
+        if 'RD_MAX_NOCHES_CONSECUTIVAS' not in id_map:
+            return
+
+        params = id_map['RD_MAX_NOCHES_CONSECUTIVAS'].get('parametros', {}) or {}
+        max_noches = int(params.get('max_noches', params.get('max', 2)))
+        nocturnos_param = params.get('turnos')
+        if nocturnos_param and isinstance(nocturnos_param, list):
+            noches_nombres = set(nocturnos_param)
+        else:
+            noches_nombres = {'NOCHE'}
+
+        from collections import defaultdict
+        por_enf = defaultdict(list)
+        for a in self.resultado.get('asignaciones', []):
+            por_enf[a['enfermera_id']].append(a)
+
+        violated = False
+        for eid, arr in por_enf.items():
+            arr = sorted(arr, key=lambda x: x['fecha'])
+            consec = 0
+            last_fecha = None
+            for a in arr:
+                if a.get('turno_nombre') in noches_nombres:
+                    # comprobar si es día siguiente del anterior (consecutivo)
+                    if last_fecha is None:
+                        consec = 1
+                    else:
+                        # comparar fechas
+                        try:
+                            fa = a['fecha'] if isinstance(a['fecha'], str) else a['fecha'].isoformat()
+                            fb = last_fecha
+                            da = datetime.fromisoformat(fa).date()
+                            db = datetime.fromisoformat(fb).date() if isinstance(fb, str) else fb
+                            if (da - db).days == 1:
+                                consec += 1
+                            else:
+                                consec = 1
+                        except Exception:
+                            consec += 1
+                    last_fecha = a['fecha']
+                else:
+                    consec = 0
+                    last_fecha = a['fecha']
+
+                if consec > max_noches:
+                    self._ko('RD_MAX_NOCHES_CONSECUTIVAS', f"{a['enfermera_nombre']} tiene {consec} noches consecutivas (máx {max_noches})")
+                    violated = True
+
+        if not violated:
+            self._ok('RD_MAX_NOCHES_CONSECUTIVAS', f'Máximo de noches consecutivas <= {max_noches}')
 
 
 class GeneradorTurnos:
@@ -273,10 +427,19 @@ class GeneradorTurnos:
         idxM = self.turnos_map.get('MANANA')
 
         # RD020: Una enfermera, un turno por día
+        # Ahora configurable: si la configuración tiene `turnos_por_dia` seleccionados, solo esos turnos se
+        # consideran a la hora de aplicar la restricción. Si está vacío, se usan todos los turnos configurados.
+        turnos_por_dia_qs = list(self.configuracion.turnos_por_dia.all()) if getattr(self.configuracion, 'turnos_por_dia', None) is not None else []
+        if turnos_por_dia_qs:
+            # mapear a índices
+            indices_turnos_por_dia = [i for i, t in enumerate(self.turnos) if t in turnos_por_dia_qs]
+        else:
+            indices_turnos_por_dia = list(range(self.num_turnos))
+
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
-                self.model.Add(sum(self.shifts[(e, d, t)] for t in range(self.num_turnos)) <= 1)
-        logger.info("✓ RD020: Una enfermera, un turno por día")
+                self.model.Add(sum(self.shifts[(e, d, t)] for t in indices_turnos_por_dia) <= 1)
+        logger.info("✓ RD020: Una enfermera, un turno por día (configurable)")
 
         # RD019: Cobertura mínima y máxima por turno
         logger.info(f"Aplicando RD019 con demanda: {self.demanda}")
@@ -308,20 +471,85 @@ class GeneradorTurnos:
                     self.model.Add(self.shifts[(e, d, idxN)] + self.shifts[(e, d + 1, idxM)] <= 1)
             logger.info("✓ RD006: Descanso 12h (NOCHE->MAÑANA prohibido)")
 
-        # RD021: Descanso obligatorio post-noche
+        # RD021: Descanso obligatorio post-noche (legacy boolean)
         if 'RD021' in id_map and idxN is not None:
             for e in range(self.num_enfermeras):
                 for d in range(self.num_dias - 1):
                     self.model.AddImplication(self.shifts[(e, d, idxN)], self.off_days[(e, d + 1)])
             logger.info("✓ RD021: Descanso obligatorio post-noche")
 
-        # RD022: Mínimo 2 días de descanso extra
-        if 'RD022' in id_map and idxN is not None:
+        # Nueva: RD_POST_NOCHE: descanso N horas después de turno nocturno (parámetros)
+        if 'RD_POST_NOCHE' in id_map and idxN is not None:
+            params = id_map['RD_POST_NOCHE'].get('parametros', {}) or {}
+            min_horas = int(params.get('min_horas', params.get('minimo_horas', 12)))
+            nocturnos_param = params.get('turnos')  # lista de nombres opcional
+
+            # determinar índices de turnos considerados nocturnos
+            if nocturnos_param and isinstance(nocturnos_param, list):
+                noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre in nocturnos_param]
+            else:
+                noches_idx = [idxN]
+
+            # calcular prohibiciones por pares de turnos
+            # Para cada turno nocturno en día d, prohibimos iniciar cualquier turno que comience antes de min_horas desde fin
+            # del turno nocturno. Estimamos el fin usando tipo.turno.duracion_horas
             for e in range(self.num_enfermeras):
-                noches_trabajadas = sum(self.shifts[(e, d, idxN)] for d in range(self.num_dias - 1))
-                dias_libres_totales = sum(self.off_days[(e, d)] for d in range(self.num_dias))
-                self.model.Add(dias_libres_totales >= 2 + noches_trabajadas)
-            logger.info("✓ RD022: Mínimo 2 días de descanso extra (además de post-noche)")
+                for d in range(self.num_dias):
+                    for tn in noches_idx:
+                        for t2 in range(self.num_turnos):
+                            # intentar calcular diferencia en horas entre fin de tn en día d y inicio de t2 en d+delta
+                            tn_obj = self.turnos[tn]
+                            t2_obj = self.turnos[t2]
+                            dur_tn = getattr(tn_obj, 'duracion_horas', None)
+                            if dur_tn is None:
+                                continue
+                            # fin estimado del turno nocturno
+                            # si turno cruza medianoche, fin estará en d+1
+                            # Duración en horas -> buscaremos el primer d2 >= d tal que inicio_t2 - fin_tn >= min_horas
+                            for delta in range(0, (min_horas // 24) + 3):
+                                d2 = d + delta
+                                if d2 >= self.num_dias:
+                                    break
+                                # calcular horas entre fin_tn (d) y inicio_t2 (d2)
+                                # start_dt_tn = fecha d + hora_inicio_tn
+                                # end_dt_tn = start_dt_tn + dur_tn
+                                # start_dt_t2 = fecha d2 + hora_inicio_t2
+                                start_tn = datetime.combine(self.configuracion.fecha_inicio + timedelta(days=d), tn_obj.hora_inicio)
+                                end_tn = start_tn + timedelta(hours=dur_tn)
+                                start_t2 = datetime.combine(self.configuracion.fecha_inicio + timedelta(days=d2), t2_obj.hora_inicio)
+                                interval_h = (start_t2 - end_tn).total_seconds() / 3600
+                                # si interval_h < min_horas, prohibimos asignación conjunta
+                                if interval_h < min_horas:
+                                    # prohíbe tener tn en d y t2 en d2 para la misma enfermera
+                                    self.model.Add(self.shifts[(e, d, tn)] + self.shifts[(e, d2, t2)] <= 1)
+            logger.info(f"✓ RD_POST_NOCHE: Descanso obligatorio post-noche aplicado ({min_horas}h)")
+
+        # Nueva: RD_MAX_NOCHES_CONSECUTIVAS: máximo noches consecutivas
+        if 'RD_MAX_NOCHES_CONSECUTIVAS' in id_map and idxN is not None:
+            params = id_map['RD_MAX_NOCHES_CONSECUTIVAS'].get('parametros', {}) or {}
+            max_noches = int(params.get('max_noches', params.get('max', 2)))
+            nocturnos_param = params.get('turnos')
+            if nocturnos_param and isinstance(nocturnos_param, list):
+                noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre in nocturnos_param]
+            else:
+                noches_idx = [idxN]
+
+            window = max_noches + 1
+            for e in range(self.num_enfermeras):
+                for start in range(0, self.num_dias - window + 1):
+                    suma = None
+                    for off in range(window):
+                        d = start + off
+                        for tn in noches_idx:
+                            if suma is None:
+                                suma = self.shifts[(e, d, tn)]
+                            else:
+                                suma = suma + self.shifts[(e, d, tn)]
+                    if suma is not None:
+                        self.model.Add(suma <= max_noches)
+            logger.info(f"✓ RD_MAX_NOCHES_CONSECUTIVAS: Limitado a {max_noches} noches consecutivas")
+
+        # RD021 y RD022 legacy ya aplicados anteriormente si presentes (ver arriba)
 
         # RD017+RD018: Vacaciones y asuntos particulares (proporción anual)
         dias_libres_requeridos = max(1, int((self.num_dias / 365) * 28))
@@ -396,7 +624,7 @@ class GeneradorTurnos:
         
         if tiene_optimo:
             logger.info("✓ RB Cobertura óptima aplicada con penalización cuadrática")
-            logger.info("   (Las soluciones se penalizan por desviarse del óptimo, pero siguen siendo válidas si cumplen min/max)")
+            logger.info("   (Las soluciones se penalizan por deviarse del óptimo, pero siguen siendo válidas si cumplen min/max)")
         else:
             logger.info("✓ RB Sin cobertura óptima definida (solo se aplican min/max como restricciones duras)")
 

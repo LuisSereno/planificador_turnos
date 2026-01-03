@@ -65,11 +65,26 @@
                     <!-- Barra de progreso -->
                     <div class="progress wizard-progress">
                         {% widthratio wizard.steps.step1 wizard.steps.count 100 as progress_percent %}
+                        {% with pp=progress_percent|default:0 %}
                         <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
                              role="progressbar"
-                             style="width: {{ progress_percent }}%">
-                            {{ progress_percent }}% Completado
+                             data-pp="{{ pp }}"
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ pp }}&#37; Completado
                         </div>
+                        <script>
+                            (function(){
+                                try{
+                                    const el = document.currentScript.previousElementSibling;
+                                    if(el && el.dataset && el.dataset.pp !== undefined){
+                                        const val = el.dataset.pp || '0';
+                                        el.style.width = val + '%';
+                                        el.setAttribute('aria-valuenow', val);
+                                    }
+                                }catch(e){console && console.warn && console.warn('Progress JS error', e)}
+                            })();
+                        </script>
+                        {% endwith %}
                     </div>
                 </div>
             </div>
@@ -106,7 +121,9 @@
                                 <i class="fas fa-code text-warning me-2"></i>
                                 Restricciones Duras (JSON)
                             </label>
-                            {{ wizard.form.restricciones_duras|add_class:"form-control font-monospace"|attr:"rows:10"|attr:"placeholder:Opcional: deja vacío para usar valores predeterminados" }}
+                            <label for="restricciones_duras">Restricciones Duras (JSON)</label>
+                            <textarea id="restricciones_duras" name="restricciones_duras" class="form-control"
+                                      rows="10" placeholder="Opcional: deja vacío para usar valores predeterminados">{% if wizard.form.restricciones_duras.value %}{{ wizard.form.restricciones_duras.value|escapejs }}{% else %}[{"nombre": "un_turno_por_dia", "parametros": {"max_turnos": 2}}, {"nombre": "cobertura_minima", "parametros": {"min": 2}}, {"nombre": "descanso_minimo", "parametros": {"horas": 11}}, {"nombre": "descanso_post_noche", "parametros": {"min_horas": 12}}, {"nombre": "max_noches_consecutivas", "parametros": {"max": 3}}]{% endif %}</textarea>
                             <div class="help-text">
                                 <i class="fas fa-lightbulb text-warning me-1"></i>
                                 Opcional: Define restricciones personalizadas o deja vacío para usar las predeterminadas
@@ -120,14 +137,55 @@
                         <div class="example-box">
                             <h6 class="text-warning mb-3">
                                 <i class="fas fa-copy me-2"></i>
-                                Ejemplo de restricciones (opcional):
+                                Ejemplo de restricciones (plantilla completa, lista para copiar/pegar)
                             </h6>
                             <pre><code>[
-  {"nombre": "un_turno_por_dia"},
-  {"nombre": "cobertura_minima", "parametros": {"min": 2}},
-  {"nombre": "descanso_minimo", "parametros": {"horas": 11}},
-  {"nombre": "turnos_consecutivos_max", "parametros": {"max": 5}}
+  {
+    "nombre": "un_turno_por_dia",
+    "parametros": {
+      "max_turnos": 2
+    }
+  },
+
+  {
+    "nombre": "cobertura_minima",
+    "parametros": {
+      "min": 2
+    }
+  },
+
+  {
+    "nombre": "descanso_minimo",
+    "parametros": {
+      "horas": 11
+    }
+  },
+
+  {
+    "nombre": "descanso_post_noche",
+    "parametros": {
+      "min_horas": 12
+    }
+  },
+
+  {
+    "nombre": "max_noches_consecutivas",
+    "parametros": {
+      "max": 3
+    }
+  }
 ]</code></pre>
+
+                            <div class="help-text mt-2">
+                                <strong>Notas rápidas sobre el ejemplo:</strong>
+                                <ul class="mb-0">
+                                    <li><strong>nombre</strong>: nombre legible de la restricción.</li>
+                                    <li><strong>parametros</strong>: según la restricción, por ejemplo horas o límites por tipo de turno.</li>
+                                    <li>Para <em>cobertura_minima</em> puedes pasar un mapa por tipo de turno con <code>min</code>, <code>optimo</code> y <code>max</code>.</li>
+                                    <li><em>RD_POST_NOCHE</em> y <em>RD_MAX_NOCHES_CONSECUTIVAS</em> aceptan el parámetro <code>turnos</code> con los nombres de los turnos considerados (ej. <code>["NOCHE"]</code>).</li>
+                                    <li>Si usas la opción <code>turnos_por_dia</code> en la configuración, la restricción <em>un_turno_por_dia</em> se aplicará sólo a esos turnos.</li>
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- Información de restricciones disponibles -->
@@ -138,7 +196,7 @@
                             </h6>
                             <ul class="mb-0">
                                 <li class="mb-2">
-                                    <strong>un_turno_por_dia:</strong> Una enfermera solo puede trabajar un turno por día
+                                    <strong>un_turno_por_dia:</strong> Una enfermera solo puede trabajar un turno por día (configurable desde "Turnos por día" en la configuración)
                                 </li>
                                 <li class="mb-2">
                                     <strong>cobertura_minima:</strong> Garantiza un número mínimo de enfermeras por turno
@@ -148,6 +206,12 @@
                                 </li>
                                 <li class="mb-2">
                                     <strong>descanso_minimo:</strong> Descanso obligatorio entre turnos (ej: 11 horas)
+                                </li>
+                                <li class="mb-2">
+                                    <strong>RD_POST_NOCHE:</strong> Descanso obligatorio tras turno(s) nocturno(s). Parámetros: {"min_horas": 12, "turnos": ["NOCHE"]}
+                                </li>
+                                <li class="mb-2">
+                                    <strong>RD_MAX_NOCHES_CONSECUTIVAS:</strong> Límite de noches consecutivas. Parámetros: {"max_noches": 2, "turnos": ["NOCHE"]}
                                 </li>
                                 <li class="mb-2">
                                     <strong>turnos_consecutivos_max:</strong> Máximo de días trabajados consecutivos

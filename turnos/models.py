@@ -1,5 +1,4 @@
-﻿from django.contrib.auth.models import User
-from django.db import models
+﻿from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
@@ -122,6 +121,8 @@ class ConfiguracionPlanificacion(models.Model):
     # Enfermeras y turnos
     enfermeras = models.ManyToManyField(Enfermera, verbose_name=_('Enfermeras'))
     turnos = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos'))
+    # Turnos que cuentan para la regla "uno por día" (si está vacío se utilizarán todos los turnos configurados)
+    turnos_por_dia = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos por día'), related_name='config_turnos_por_dia', blank=True)
 
     # Demanda
     demanda_por_turno = models.JSONField(

@@ -21,8 +21,8 @@ INSTALLED_APPS = [
     # Third party apps
     'widget_tweaks',  # âœ… AGREGAR ESTO
     'formtools',
-
     'turnos',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [

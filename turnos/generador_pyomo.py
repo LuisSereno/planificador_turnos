@@ -75,14 +75,21 @@ class GeneradorTurnosPyomo:
         logger.info(f"✓ Variables creadas: {self.num_enfermeras * self.num_dias * self.num_turnos} binarias")
 
     def aplicar_rd020_no_solapamiento(self):
-        """RD020: Una enfermera, máximo un turno por día"""
+        """RD020: Una enfermera, máximo un turno por día (configurable por turnos_por_dia)"""
         m = self.model
 
+        # Determinar índices de turnos que cuentan para la restricción
+        turnos_por_dia_qs = list(self.configuracion.turnos_por_dia.all()) if getattr(self.configuracion, 'turnos_por_dia', None) is not None else []
+        if turnos_por_dia_qs:
+            indices_turnos_por_dia = [i for i, t in enumerate(self.turnos) if t in turnos_por_dia_qs]
+        else:
+            indices_turnos_por_dia = list(range(self.num_turnos))
+
         def rule(m, e, d):
-            return sum(m.X[e, d, t] for t in m.T) + m.Y[e, d] == 1
+            return sum(m.X[e, d, t] for t in indices_turnos_por_dia) + m.Y[e, d] == 1
 
         m.RD020 = Constraint(m.E, m.D, rule=rule)
-        logger.info("✓ RD020: No solapamiento aplicada")
+        logger.info("✓ RD020: No solapamiento aplicada (configurable)")
 
     def aplicar_rd019_cobertura(self):
         """RD019: Cobertura mínima y máxima por turno"""
@@ -151,14 +158,14 @@ class GeneradorTurnosPyomo:
                     pares_prohibidos.append((t1_idx, t2_idx, t1.nombre, t2.nombre, horas_descanso))
                     logger.debug(f"  Prohibir {t1.nombre}→{t2.nombre}: solo {horas_descanso:.1f}h descanso")
 
-        # Aplicar restricciones para pares prohibidos
+        # Aplicar restricciones para pares prohibidos (usar variables Pyomo m.X)
+        m = self.model
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias - 1):
                 for t1_idx, t2_idx, t1_nom, t2_nom, horas in pares_prohibidos:
                     # Si trabaja t1 en día d, NO puede trabajar t2 en día d+1
-                    self.model.Add(
-                        self.shifts[(e, d, t1_idx)] + self.shifts[(e, d + 1, t2_idx)] <= 1
-                    )
+                    con_name = f'RD006_prohibido_e{e}_d{d}_t{t1_idx}_{t2_idx}'
+                    setattr(m, con_name, Constraint(expr=m.X[e, d, t1_idx] + m.X[e, d + 1, t2_idx] <= 1))
 
         logger.info(f"✓ RD006: Descanso 12h aplicado ({len(pares_prohibidos)} pares prohibidos)")
 
@@ -203,10 +210,77 @@ class GeneradorTurnosPyomo:
             self.crear_variables()
             self.aplicar_rd020_no_solapamiento()
             self.aplicar_rd019_cobertura()
-            self.aplicar_rd017_rd018_vacaciones()
+            # RD017+RD018 ya se aplican en aplicar_rd019_cobertura
             self.aplicar_rd006_descanso_12h()
             self.aplicar_limite_turnos_por_semana()
             self.aplicar_objetivos_blandos()
+
+            # Leer restricciones duras extras definidas en la configuración
+            rd = self.configuracion.restricciones_duras or []
+            if isinstance(rd, dict):
+                rd = list(rd.values())
+            id_map = {r.get('id'): r for r in rd}
+
+            # Aplicar RD_POST_NOCHE si está configurada
+            if 'RD_POST_NOCHE' in id_map:
+                params = id_map['RD_POST_NOCHE'].get('parametros', {}) or {}
+                min_horas = int(params.get('min_horas', params.get('minimo_horas', 12)))
+                nocturnos_param = params.get('turnos')
+                if nocturnos_param and isinstance(nocturnos_param, list):
+                    noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre in nocturnos_param]
+                else:
+                    # fallback a turnos con nombre NOCHE
+                    noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre == 'NOCHE']
+
+                m = self.model
+                for e in range(self.num_enfermeras):
+                    for d in range(self.num_dias):
+                        for tn in noches_idx:
+                            for t2 in range(self.num_turnos):
+                                tn_obj = self.turnos[tn]
+                                t2_obj = self.turnos[t2]
+                                dur_tn = getattr(tn_obj, 'duracion_horas', None)
+                                if dur_tn is None:
+                                    continue
+                                for delta in range(0, (min_horas // 24) + 3):
+                                    d2 = d + delta
+                                    if d2 >= self.num_dias:
+                                        break
+                                    start_tn = datetime.combine(self.configuracion.fecha_inicio + timedelta(days=d), tn_obj.hora_inicio)
+                                    end_tn = start_tn + timedelta(hours=dur_tn)
+                                    start_t2 = datetime.combine(self.configuracion.fecha_inicio + timedelta(days=d2), t2_obj.hora_inicio)
+                                    interval_h = (start_t2 - end_tn).total_seconds() / 3600
+                                    if interval_h < min_horas:
+                                        con_name = f'RD_POSTN_e{e}_d{d}_tn{tn}_t2{t2}_d2{d2}'
+                                        setattr(m, con_name, Constraint(expr=m.X[e, d, tn] + m.X[e, d2, t2] <= 1))
+                logger.info(f"✓ RD_POST_NOCHE aplicado ({min_horas}h)")
+
+            # Aplicar RD_MAX_NOCHES_CONSECUTIVAS si está configurada
+            if 'RD_MAX_NOCHES_CONSECUTIVAS' in id_map:
+                params = id_map['RD_MAX_NOCHES_CONSECUTIVAS'].get('parametros', {}) or {}
+                max_noches = int(params.get('max_noches', params.get('max', 2)))
+                nocturnos_param = params.get('turnos')
+                if nocturnos_param and isinstance(nocturnos_param, list):
+                    noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre in nocturnos_param]
+                else:
+                    noches_idx = [i for i, t in enumerate(self.turnos) if t.nombre == 'NOCHE']
+
+                window = max_noches + 1
+                m = self.model
+                for e in range(self.num_enfermeras):
+                    for start in range(0, self.num_dias - window + 1):
+                        expr = None
+                        for off in range(window):
+                            d = start + off
+                            for tn in noches_idx:
+                                if expr is None:
+                                    expr = m.X[e, d, tn]
+                                else:
+                                    expr = expr + m.X[e, d, tn]
+                        if expr is not None:
+                            con_name = f'RD_MAXN_e{e}_start{start}'
+                            setattr(m, con_name, Constraint(expr=expr <= max_noches))
+                logger.info(f"✓ RD_MAX_NOCHES_CONSECUTIVAS aplicado (max={max_noches})")
 
             # Resolver
             opt = SolverFactory(solver)
