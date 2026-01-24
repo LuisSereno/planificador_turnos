@@ -7,7 +7,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import (
-    Enfermera, TipoTurno, ConfiguracionPlanificacion
+    Enfermera, TipoTurno, ConfiguracionPlanificacion, PatronTurnos
 )
 
 
@@ -128,67 +128,37 @@ class TipoTurnoForm(forms.ModelForm):
 class ConfiguracionPlanificacionForm(forms.ModelForm):
     """Form para crear/editar configuraciones de planificación"""
 
+    # ✅ CAMPO PATRONES_TURNOS_JSON
+    patrones_turnos_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        help_text="JSON con patrones de turnos (opcional)"
+    )
+
     class Meta:
         model = ConfiguracionPlanificacion
         fields = [
             'nombre', 'descripcion', 'activa', 'num_dias', 'fecha_inicio',
-            'enfermeras', 'turnos', 'turnos_por_dia', 'demanda_por_turno',
-            'restricciones_duras', 'restricciones_blandas',
+            'enfermeras', 'turnos', 'demanda_por_turno',
+            'restricciones_duras', 'restricciones_blandas', 'patrones_turnos_json',
             'num_trabajadores', 'tiempo_maximo_segundos', 'seed'
         ]
         widgets = {
-            'nombre': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nombre de la configuración'
-            }),
-            'descripcion': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Descripción de la configuración'
-            }),
-            'activa': forms.CheckboxInput(attrs={
-                'class': 'form-check-input'
-            }),
-            'num_dias': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 7,
-                'max': 365
-            }),
-            'fecha_inicio': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la configuración'}),
+            'descripcion': forms.Textarea(
+                attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción de la configuración'}),
+            'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'num_dias': forms.NumberInput(attrs={'class': 'form-control', 'min': 7, 'max': 365}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'enfermeras': forms.CheckboxSelectMultiple(),
             'turnos': forms.CheckboxSelectMultiple(),
-            'turnos_por_dia': forms.CheckboxSelectMultiple(),
-            'demanda_por_turno': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 5,
-                'placeholder': 'Opcional: {"MANANA": {"min": 2, "optimo": 3, "max": 5}}'
-            }),
-            'restricciones_duras': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 5,
-                'placeholder': 'Opcional: [{\"nombre\": \"un_turno_por_dia\"}]'
-            }),
-            'restricciones_blandas': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 5,
-                'placeholder': 'Opcional: [{\"nombre\": \"equidad_turnos\", \"peso\": 10.0}]'
-            }),
-            'num_trabajadores': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 1,
-                'max': 8
-            }),
-            'tiempo_maximo_segundos': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 10,
-                'max': 600
-            }),
-            'seed': forms.NumberInput(attrs={
-                'class': 'form-control'
-            }),
+            'demanda_por_turno': forms.HiddenInput(),
+            'restricciones_duras': forms.HiddenInput(),
+            'restricciones_blandas': forms.HiddenInput(),
+            'patrones_turnos_json': forms.HiddenInput(),
+            'num_trabajadores': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 8}),
+            'tiempo_maximo_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': 10, 'max': 600}),
+            'seed': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
     def clean_num_dias(self):
@@ -212,7 +182,101 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             raise ValidationError(_('Debe seleccionar al menos 1 tipo de turno.'))
         return turnos
 
-    # ELIMINADAS las validaciones obligatorias de demanda_por_turno y restricciones
+    def clean_demanda_por_turno(self):
+        """Valida JSON de demanda - maneja tanto string como dict"""
+        data = self.cleaned_data.get('demanda_por_turno', '{}')
+
+        if isinstance(data, dict):
+            return data
+
+        if not data or (isinstance(data, str) and data.strip() == ''):
+            return {}
+
+        try:
+            demanda = json.loads(data)
+            if not isinstance(demanda, dict):
+                raise ValidationError("demanda_por_turno debe ser un diccionario")
+            return demanda
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"JSON inválido en demanda_por_turno: {e}")
+
+    def clean_restricciones_duras(self):
+        """Valida JSON de restricciones duras - maneja tanto string como list"""
+        data = self.cleaned_data.get('restricciones_duras', '[]')
+
+        if isinstance(data, list):
+            return data
+
+        if not data or (isinstance(data, str) and data.strip() == ''):
+            return []
+
+        try:
+            restricciones = json.loads(data)
+            if not isinstance(restricciones, list):
+                raise ValidationError("restricciones_duras debe ser una lista")
+            return restricciones
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"JSON inválido en restricciones_duras: {e}")
+
+    def clean_restricciones_blandas(self):
+        """Valida JSON de restricciones blandas - maneja tanto string como list"""
+        data = self.cleaned_data.get('restricciones_blandas', '[]')
+
+        if isinstance(data, list):
+            return data
+
+        if not data or (isinstance(data, str) and data.strip() == ''):
+            return []
+
+        try:
+            restricciones = json.loads(data)
+            if not isinstance(restricciones, list):
+                raise ValidationError("restricciones_blandas debe ser una lista")
+            return restricciones
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"JSON inválido en restricciones_blandas: {e}")
+
+    def clean_patrones_turnos_json(self):
+        """Validar JSON de patrones de turnos (OPCIONAL) - maneja tanto string como list"""
+        data = self.cleaned_data.get('patrones_turnos_json', '[]')
+
+        if isinstance(data, list):
+            for i, patron in enumerate(data):
+                if not isinstance(patron, dict):
+                    raise ValidationError(f"El patrón {i + 1} debe ser un diccionario")
+                if 'tipo' not in patron:
+                    raise ValidationError(f"El patrón {i + 1} debe tener el campo 'tipo'")
+                if 'configuracion' not in patron:
+                    raise ValidationError(f"El patrón {i + 1} debe tener el campo 'configuracion'")
+                if not isinstance(patron.get('configuracion'), dict):
+                    raise ValidationError(f"El patrón {i + 1}: 'configuracion' debe ser un diccionario")
+            return data
+
+        if not data or (isinstance(data, str) and (data.strip() == '' or data.strip() == '[]')):
+            return []
+
+        try:
+            patrones = json.loads(data)
+
+            if not isinstance(patrones, list):
+                raise ValidationError("patrones_turnos_json debe ser una lista")
+
+            for i, patron in enumerate(patrones):
+                if not isinstance(patron, dict):
+                    raise ValidationError(f"El patrón {i + 1} debe ser un diccionario")
+                if 'tipo' not in patron:
+                    raise ValidationError(f"El patrón {i + 1} debe tener el campo 'tipo'")
+                if 'configuracion' not in patron:
+                    raise ValidationError(f"El patrón {i + 1} debe tener el campo 'configuracion'")
+                if not isinstance(patron.get('configuracion'), dict):
+                    raise ValidationError(f"El patrón {i + 1}: 'configuracion' debe ser un diccionario")
+
+            return patrones
+
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"JSON inválido en patrones_turnos_json: {e}")
+        except Exception as e:
+            raise ValidationError(f"Error validando patrones_turnos_json: {e}")
 
 
 class ConfiguracionWizardStep1Form(forms.Form):
@@ -347,6 +411,14 @@ class ConfiguracionWizardStep4BlandasForm(forms.Form):
             'placeholder': 'Ej: [{\"nombre\": \"equidad_turnos\", \"peso\": 10.0}]'
         }),
         help_text=_('Opcional. Introduce las restricciones blandas en formato JSON.')
+    )
+
+    patrones_turnos = forms.ModelMultipleChoiceField(
+        queryset=PatronTurnos.objects.filter(activo=True),
+        required=False,
+        label=_('Patrones de Turnos'),
+        widget=forms.CheckboxSelectMultiple(),
+        help_text=_('Selecciona los patrones de turnos a aplicar (ej. descansos, secuencias, etc.)')
     )
 
     num_trabajadores = forms.IntegerField(
@@ -514,13 +586,20 @@ class ImportarEnfermerasForm(forms.Form):
         return archivo
 
 
-
 # ════════════════════════════════════════════════════════════════
 # FORMULARIOS EXTENDIDOS PARA RESTRICCIONES SACYL
 # ════════════════════════════════════════════════════════════════
 
 class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
     """Formulario extendido con soporte para restricciones JSON"""
+
+    """Form para crear/editar configuraciones de planificación"""
+
+    patrones_turnos_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        help_text="JSON con patrones de turnos (opcional)"
+    )
 
     restricciones_json = forms.CharField(
         required=False,
@@ -564,7 +643,9 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if self.instance and self.instance.pk:
+            # ✅ Manejar restricciones_json (existente)
             rd = self.instance.restricciones_duras
             rb = self.instance.restricciones_blandas
             if rd or rb:
@@ -572,6 +653,24 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
                 if rd: data['restricciones_duras'] = rd if isinstance(rd, list) else []
                 if rb: data['restricciones_blandas'] = rb if isinstance(rb, list) else []
                 self.initial['restricciones_json'] = json.dumps(data, indent=2, ensure_ascii=False)
+
+            # ✅ NUEVO: Manejar patrones_turnos_json
+            if hasattr(self.instance, 'patrones_turnos_json'):
+                patrones = self.instance.patrones_turnos_json
+
+                # Convertir a JSON string válido para JavaScript
+                if isinstance(patrones, list):
+                    self.initial['patrones_turnos_json'] = json.dumps(patrones, ensure_ascii=False)
+                elif isinstance(patrones, str):
+                    # Si ya es string, validar que sea JSON válido
+                    try:
+                        json.loads(patrones)
+                        self.initial['patrones_turnos_json'] = patrones
+                    except json.JSONDecodeError:
+                        self.initial['patrones_turnos_json'] = '[]'
+                else:
+                    self.initial['patrones_turnos_json'] = '[]'
+
         self.fields['demanda_por_turno'].help_text = 'Ejemplo: {\"MANANA\": 2, \"TARDE\": 2, \"NOCHE\": 1}'
 
     def clean_restricciones_json(self):

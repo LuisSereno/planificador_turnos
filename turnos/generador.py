@@ -1,7 +1,8 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import logging
 from datetime import timedelta, datetime
 from ortools.sat.python import cp_model
+from .generador_patrones import AplicadorPatrones
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -359,12 +360,14 @@ class GeneradorTurnos:
         self.demanda = self.configuracion.demanda_por_turno or {}
         self.rd = self._restricciones_duras()
         self.rb = self._restricciones_blandas()
+        self.patrones_penalties = []
 
         logger.info("="*80)
         logger.info("INICIO GENERADOR")
         logger.info("="*80)
         logger.info(f"Config: {configuracion.nombre} | Días: {self.num_dias} | Enfs: {self.num_enfermeras} | Turnos: {self.num_turnos}")
         logger.info(f"Demanda raw: {self.demanda}")
+        self._log_configuracion_completa()
 
     def _restricciones_duras(self):
         rd = self.configuracion.restricciones_duras
@@ -387,6 +390,148 @@ class GeneradorTurnos:
             return list(rb.values())
         logger.info("RB vacías")
         return []
+
+    def _log_configuracion_completa(self):
+        """Registra todos los parámetros de configuración de forma detallada"""
+        try:
+            logger.info("\n" + "="*80)
+            logger.info("CONFIGURACIÓN COMPLETA DE EJECUCIÓN")
+            logger.info("="*80)
+
+            # 1. INFORMACIÓN BÁSICA
+            logger.info("\n[1] INFORMACIÓN BÁSICA")
+            logger.info(f"    • Nombre: {self.configuracion.nombre}")
+            logger.info(f"    • ID: {self.configuracion.id}")
+            logger.info(f"    • Descripción: {self.configuracion.descripcion or 'N/A'}")
+            logger.info(f"    • Activa: {self.configuracion.activa}")
+            logger.info(f"    • Creado por: {self.configuracion.creado_por.username if self.configuracion.creado_por else 'N/A'}")
+            logger.info(f"    • Fecha de creación: {self.configuracion.fecha_creacion}")
+
+            # 2. PERÍODO DE PLANIFICACIÓN
+            logger.info("\n[2] PERÍODO DE PLANIFICACIÓN")
+            logger.info(f"    • Número de días: {self.num_dias}")
+            logger.info(f"    • Fecha inicio: {self.configuracion.fecha_inicio}")
+            fecha_fin = self.configuracion.fecha_inicio + timedelta(days=self.num_dias - 1)
+            logger.info(f"    • Fecha fin: {fecha_fin}")
+            try:
+                rango_dias = f"{self.configuracion.fecha_inicio.strftime('%A')} a {fecha_fin.strftime('%A')}"
+            except:
+                rango_dias = "N/A"
+            logger.info(f"    • Rango: {self.num_dias} días ({rango_dias})")
+
+            # 3. RECURSOS HUMANOS
+            logger.info("\n[3] RECURSOS HUMANOS")
+            logger.info(f"    • Total enfermeras: {self.num_enfermeras}")
+            if self.num_enfermeras <= 20:
+                for i, enf in enumerate(self.enfermeras, 1):
+                    logger.info(f"      {i}. {enf.nombre} (ID: {enf.id})")
+            else:
+                logger.info(f"      {self.enfermeras[0].nombre}, {self.enfermeras[1].nombre}, ... ({self.num_enfermeras} enfermeras)")
+
+            # 4. TIPOS DE TURNO
+            logger.info("\n[4] TIPOS DE TURNO")
+            logger.info(f"    • Total turnos: {self.num_turnos}")
+            for i, turno in enumerate(self.turnos, 1):
+                try:
+                    duracion = getattr(turno, 'duracion_horas', 'N/A')
+                    hora_inicio = turno.hora_inicio.strftime('%H:%M') if hasattr(turno, 'hora_inicio') and turno.hora_inicio else 'N/A'
+                    hora_fin = turno.hora_fin.strftime('%H:%M') if hasattr(turno, 'hora_fin') and turno.hora_fin else 'N/A'
+                except:
+                    duracion = hora_inicio = hora_fin = 'N/A'
+                logger.info(f"      {i}. {turno.nombre}: {hora_inicio}-{hora_fin} ({duracion}h)")
+
+            # 5. TURNOS POR DÍA (si está configurado)
+            try:
+                turnos_por_dia = list(self.configuracion.turnos_por_dia.all()) if hasattr(self.configuracion, 'turnos_por_dia') and self.configuracion.turnos_por_dia else []
+            except:
+                turnos_por_dia = []
+
+            if turnos_por_dia:
+                logger.info("\n[5] TURNOS POR DÍA (Restricción RD020)")
+                logger.info(f"    • Turnos que contar en restricción: {len(turnos_por_dia)}")
+                for turno in turnos_por_dia:
+                    logger.info(f"      • {turno.nombre}")
+
+            # 6. DEMANDA POR TURNO
+            logger.info("\n[6] DEMANDA POR TURNO")
+            for turno_nombre, demanda_value in self.demanda.items():
+                if isinstance(demanda_value, dict):
+                    min_d = demanda_value.get('min', 'N/A')
+                    optimo = demanda_value.get('optimo', 'N/A')
+                    max_d = demanda_value.get('max', 'N/A')
+                    logger.info(f"    • {turno_nombre}: min={min_d}, óptimo={optimo}, máx={max_d}")
+                else:
+                    logger.info(f"    • {turno_nombre}: {demanda_value}")
+
+            # 7. RESTRICCIONES DURAS
+            logger.info("\n[7] RESTRICCIONES DURAS")
+            if self.rd:
+                for idx, restriccion in enumerate(self.rd, 1):
+                    if isinstance(restriccion, dict):
+                        nombre = restriccion.get('nombre', 'Sin nombre')
+                        id_res = restriccion.get('id', 'Sin ID')
+                        parametros = restriccion.get('parametros', {})
+                        logger.info(f"    {idx}. {nombre} (ID: {id_res})")
+                        if parametros:
+                            if isinstance(parametros, dict):
+                                for param_key, param_val in parametros.items():
+                                    logger.info(f"        └─ {param_key}: {param_val}")
+                            else:
+                                logger.info(f"        └─ Parámetros: {parametros}")
+                    else:
+                        logger.info(f"    {idx}. {restriccion}")
+            else:
+                logger.info("    • Ninguna restricción dura configurada")
+
+            # 8. RESTRICCIONES BLANDAS
+            logger.info("\n[8] RESTRICCIONES BLANDAS")
+            if self.rb:
+                for idx, restriccion in enumerate(self.rb, 1):
+                    if isinstance(restriccion, dict):
+                        nombre = restriccion.get('nombre', 'Sin nombre')
+                        id_res = restriccion.get('id', 'Sin ID')
+                        peso = restriccion.get('peso', 'N/A')
+                        parametros = restriccion.get('parametros', {})
+                        logger.info(f"    {idx}. {nombre} (ID: {id_res}, Peso: {peso})")
+                        if parametros:
+                            if isinstance(parametros, dict):
+                                for param_key, param_val in parametros.items():
+                                    logger.info(f"        └─ {param_key}: {param_val}")
+                            else:
+                                logger.info(f"        └─ Parámetros: {parametros}")
+                    else:
+                        logger.info(f"    {idx}. {restriccion}")
+            else:
+                logger.info("    • Ninguna restricción blanda configurada")
+
+            # 8.5 PATRONES DE TURNOS
+            logger.info("\n[8.5] PATRONES DE TURNOS")
+            patrones = self.configuracion.get_patrones_combinados()
+            if patrones:
+                for idx, p in enumerate(patrones, 1):
+                    tipo = p.get('tipo', 'N/A')
+                    nombre = p.get('nombre', 'Sin nombre')
+                    dura = "DURA" if p.get('es_restriccion_dura') else f"BLANDA (Peso: {p.get('peso_penalizacion')})"
+                    config = p.get('configuracion', {})
+                    logger.info(f"    {idx}. {nombre} [{tipo}] - {dura}")
+                    logger.info(f"       └─ Config: {config}")
+            else:
+                logger.info("    ⚠️ NO APARECE NINGÚN PATRÓN")
+
+            # 9. CONFIGURACIÓN DE EJECUCIÓN
+            logger.info("\n[9] CONFIGURACIÓN DE EJECUCIÓN")
+            logger.info(f"    • Número de trabajadores: {self.configuracion.num_trabajadores}")
+            logger.info(f"    • Tiempo máximo (segundos): {self.configuracion.tiempo_maximo_segundos}")
+            logger.info(f"    • Semilla aleatoria: {self.configuracion.seed if self.configuracion.seed else 'No configurada'}")
+
+            # 10. RESUMEN
+            logger.info("\n[10] RESUMEN")
+            total_turnos_posibles = self.num_enfermeras * self.num_dias
+            logger.info(f"    • Combinaciones posibles: {total_turnos_posibles} (enfermeras × días)")
+            logger.info(f"    • Variables de decisión: ~{self.num_enfermeras * self.num_dias * self.num_turnos} (shifts)")
+            logger.info("="*80 + "\n")
+        except Exception as e:
+            logger.warning(f"Error al loguear configuración completa: {str(e)}")
 
     def crear_variables(self):
         total_shifts = self.num_enfermeras * self.num_dias * self.num_turnos
@@ -537,16 +682,14 @@ class GeneradorTurnos:
             window = max_noches + 1
             for e in range(self.num_enfermeras):
                 for start in range(0, self.num_dias - window + 1):
-                    suma = None
+                    turnos_en_ventana = []
                     for off in range(window):
                         d = start + off
                         for tn in noches_idx:
-                            if suma is None:
-                                suma = self.shifts[(e, d, tn)]
-                            else:
-                                suma = suma + self.shifts[(e, d, tn)]
-                    if suma is not None:
-                        self.model.Add(suma <= max_noches)
+                            turnos_en_ventana.append(self.shifts[(e, d, tn)])
+                    
+                    if turnos_en_ventana:
+                        self.model.Add(sum(turnos_en_ventana) <= max_noches)
             logger.info(f"✓ RD_MAX_NOCHES_CONSECUTIVAS: Limitado a {max_noches} noches consecutivas")
 
         # RD021 y RD022 legacy ya aplicados anteriormente si presentes (ver arriba)
@@ -584,6 +727,45 @@ class GeneradorTurnos:
                 # Al menos 1 día libre (ya garantizado por RD017+RD018, pero explícito)
                 self.model.Add(dias_libres_totales >= 1)
             logger.info(f"✓ RD007: ADAPTADA para {self.num_dias} días (mínimo 1 día libre total)")
+        
+        # Aplicar patrones personalizados
+        self._aplicar_patrones_personalizados()
+
+    def _aplicar_patrones_personalizados(self):
+        """Aplica patrones de turnos configurados (JSON + Legacy)"""
+        # Importación local para evitar ciclos
+        from .models import PatronTurnos
+
+        # Obtener todos los patrones (JSON y relación DB)
+        patrones_data = self.configuracion.get_patrones_combinados()
+        
+        if not patrones_data:
+            logger.info("📋 No hay patrones de turnos configurados")
+            return
+        
+        # Convertir diccionarios a objetos PatronTurnos temporales
+        patrones_objs = []
+        for p_data in patrones_data:
+            try:
+                # Crear instancia temporal (no se guarda en BD)
+                patron = PatronTurnos(
+                    nombre=p_data.get('nombre', f"Patrón {p_data.get('tipo')}"),
+                    tipo=p_data.get('tipo'),
+                    activo=p_data.get('activo', True),
+                    es_restriccion_dura=p_data.get('es_restriccion_dura', True),
+                    peso_penalizacion=p_data.get('peso_penalizacion', 100),
+                    configuracion=p_data.get('configuracion', {})
+                )
+                patrones_objs.append(patron)
+            except Exception as e:
+                logger.error(f"Error procesando patrón: {e}")
+
+        aplicador = AplicadorPatrones(self)
+        violaciones_blandas = aplicador.aplicar_patrones(patrones_objs)
+        
+        if violaciones_blandas:
+            self.patrones_penalties.extend(violaciones_blandas)
+            logger.info(f"⚖️ {len(violaciones_blandas)} restricciones blandas de patrones agregadas")
 
     def aplicar_restricciones_blandas(self):
         penal = []
@@ -655,6 +837,11 @@ class GeneradorTurnos:
             if penal_finde:
                 penal.append(sum(penal_finde) * peso)
                 logger.info(f"✓ RB016: Penalización de {peso} por día libre extra fuera de fin de semana")
+
+        # Agregar penalizaciones de patrones
+        if self.patrones_penalties:
+            for var, peso in self.patrones_penalties:
+                penal.append(var * peso)
 
         if penal:
             self.model.Minimize(sum(penal))

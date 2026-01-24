@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from datetime import datetime, timedelta
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -98,6 +99,128 @@ class TipoTurno(models.Model):
         return round(duracion, 2)
 
 
+class TipoPatron(models.TextChoices):
+    """Tipos de patrones de turnos soportados"""
+    SECUENCIA_OBLIGATORIA = 'SEQ', 'Secuencia Obligatoria'  # A → B → C
+    DESCANSO_POST_TURNO = 'REST', 'Descanso Post-Turno'  # 2N → 3 libres
+    MAX_CONSECUTIVOS = 'MAX_CONS', 'Máximo Consecutivos'  # Max 5 seguidos
+    ROTACION_CICLICA = 'ROT', 'Rotación Cíclica'  # M→T→N→M→T→N
+    COBERTURA_MINIMA = 'COV_MIN', 'Cobertura Mínima'  # Min 2 enfermeras/turno
+    BLOQUEO_TRANSICION = 'BLOCK', 'Transición Bloqueada'  # Noche → NO → Mañana
+    DISTRIBUCION_EQUITATIVA = 'EQUI', 'Distribución Equitativa'  # Igualdad de turnos
+
+
+class PatronTurnos(models.Model):
+    """
+    Patrón genérico de turnos configurable.
+    Permite definir reglas de secuencias, descansos y restricciones.
+    """
+
+    # Identificación
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    tipo = models.CharField(
+        max_length=20,
+        choices=TipoPatron.choices,
+        help_text="Tipo de patrón a aplicar"
+    )
+
+    # Estado
+    activo = models.BooleanField(default=True)
+    es_restriccion_dura = models.BooleanField(
+        default=True,
+        help_text="Si es False, se penaliza pero no se prohíbe"
+    )
+    peso_penalizacion = models.IntegerField(
+        default=100,
+        help_text="Peso de penalización si no es restricción dura"
+    )
+
+    # Configuración JSON genérica
+    configuracion = models.JSONField(
+        default=dict,
+        help_text="""
+        Configuración específica del patrón. Ejemplos:
+
+        DESCANSO_POST_TURNO: {
+            "turno_tipo": "NOCHE",
+            "cantidad_consecutiva": 2,
+            "dias_descanso_requeridos": 3
+        }
+
+        MAX_CONSECUTIVOS: {
+            "turno_tipo": "CUALQUIERA",  # o "NOCHE", "MAÑANA"
+            "cantidad_maxima": 5
+        }
+
+        SECUENCIA_OBLIGATORIA: {
+            "secuencia": ["MAÑANA", "TARDE", "NOCHE"],
+            "ciclica": true
+        }
+
+        BLOQUEO_TRANSICION: {
+            "turno_origen": "NOCHE",
+            "turno_destino": "MAÑANA",
+            "dias_minimos_entre": 1
+        }
+
+        COBERTURA_MINIMA: {
+            "turno_tipo": "NOCHE",
+            "enfermeras_minimas": 2,
+            "aplicar_dias": [5, 6, 0]  # Vie, Sab, Dom (0=Lunes)
+        }
+        """
+    )
+
+    # Metadatos
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        verbose_name = "Patrón de Turnos"
+        verbose_name_plural = "Patrones de Turnos"
+        ordering = ['-activo', 'nombre']
+
+    def __str__(self):
+        estado = "✓" if self.activo else "✗"
+        tipo_str = "DURA" if self.es_restriccion_dura else f"BLANDA({self.peso_penalizacion})"
+        return f"{estado} {self.nombre} [{self.get_tipo_display()}] - {tipo_str}"
+
+    def validar_configuracion(self):
+        """Valida que la configuración sea correcta según el tipo"""
+        if self.tipo == TipoPatron.DESCANSO_POST_TURNO:
+            required = ['turno_tipo', 'cantidad_consecutiva', 'dias_descanso_requeridos']
+            return all(k in self.configuracion for k in required)
+
+        elif self.tipo == TipoPatron.MAX_CONSECUTIVOS:
+            required = ['cantidad_maxima']
+            return all(k in self.configuracion for k in required)
+
+        elif self.tipo == TipoPatron.SECUENCIA_OBLIGATORIA:
+            return 'secuencia' in self.configuracion and len(self.configuracion['secuencia']) > 0
+
+        elif self.tipo == TipoPatron.BLOQUEO_TRANSICION:
+            required = ['turno_origen', 'turno_destino']
+            return all(k in self.configuracion for k in required)
+
+        elif self.tipo == TipoPatron.COBERTURA_MINIMA:
+            required = ['enfermeras_minimas']
+            return all(k in self.configuracion for k in required)
+
+        return True
+
+    def clean(self):
+        """Validación al guardar"""
+        if not self.validar_configuracion():
+            raise ValidationError(f"Configuración inválida para tipo {self.get_tipo_display()}")
+
+
 class ConfiguracionPlanificacion(models.Model):
     """Modelo para configuración de planificación"""
     workspace = models.ForeignKey(
@@ -122,7 +245,8 @@ class ConfiguracionPlanificacion(models.Model):
     enfermeras = models.ManyToManyField(Enfermera, verbose_name=_('Enfermeras'))
     turnos = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos'))
     # Turnos que cuentan para la regla "uno por día" (si está vacío se utilizarán todos los turnos configurados)
-    turnos_por_dia = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos por día'), related_name='config_turnos_por_dia', blank=True)
+    turnos_por_dia = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos por día'),
+                                            related_name='config_turnos_por_dia', blank=True)
 
     # Demanda
     demanda_por_turno = models.JSONField(
@@ -143,6 +267,22 @@ class ConfiguracionPlanificacion(models.Model):
         default=list,
         blank=True,
         null=True
+    )
+
+    # ✅ NUEVO: Campo JSONField para patrones dinámicos del formulario
+    patrones_turnos_json = models.JSONField(
+        _('Patrones de turnos (JSON)'),
+        default=list,
+        blank=True,
+        help_text="Patrones configurados dinámicamente desde el formulario"
+    )
+
+    # ✅ CONSERVADO: Relación ManyToMany con PatronTurnos (LEGACY)
+    patrones_turnos = models.ManyToManyField(
+        PatronTurnos,
+        blank=True,
+        related_name='configuraciones',
+        help_text="Patrones predefinidos en la base de datos (legacy)"
     )
 
     # Configuración del solver
@@ -166,13 +306,36 @@ class ConfiguracionPlanificacion(models.Model):
     class Meta:
         verbose_name = _('Configuración de Planificación')
         verbose_name_plural = _('Configuraciones de Planificación')
-        ordering = ['-fecha_creacion']
+        ordering = ['-fecha_inicio']
 
     def __str__(self):
         return self.nombre
 
     def get_absolute_url(self):
         return reverse('turnos:config_detalle', kwargs={'pk': self.pk})
+
+    def get_patrones_combinados(self):
+        """
+        ✅ Método helper para obtener TODOS los patrones (JSON + ManyToMany)
+        Útil para mantener compatibilidad con código existente
+        """
+        patrones = []
+
+        # 1. Patrones JSON del formulario
+        if self.patrones_turnos_json:
+            patrones.extend(self.patrones_turnos_json)
+
+        # 2. Patrones de la relación ManyToMany (legacy)
+        for patron_obj in self.patrones_turnos.filter(activo=True):
+            patrones.append({
+                'tipo': patron_obj.tipo,
+                'nombre': patron_obj.nombre,
+                'es_restriccion_dura': patron_obj.es_restriccion_dura,
+                'peso_penalizacion': patron_obj.peso_penalizacion,
+                'configuracion': patron_obj.configuracion
+            })
+
+        return patrones
 
 
 class Ejecucion(models.Model):

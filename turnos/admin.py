@@ -4,9 +4,10 @@ Admin configuration for the turnos app
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
+from django import forms
 from .models import (
     Workspace, Enfermera, TipoTurno, ConfiguracionPlanificacion,
-    Ejecucion, Planilla, AsignacionTurno
+    Ejecucion, Planilla, AsignacionTurno, PatronTurnos, TipoPatron
 )
 
 
@@ -45,13 +46,86 @@ class TipoTurnoAdmin(admin.ModelAdmin):
     color_badge.short_description = 'Vista previa'
 
 
+class PatronTurnosAdminForm(forms.ModelForm):
+    """Formulario con ayuda contextual según el tipo"""
+    
+    class Meta:
+        model = PatronTurnos
+        fields = '__all__'
+        widgets = {
+            'configuracion': forms.Textarea(attrs={
+                'rows': 10,
+                'placeholder': '''Ejemplos según tipo:
+
+DESCANSO_POST_TURNO:
+{
+  "turno_tipo": "NOCHE",
+  "cantidad_consecutiva": 2,
+  "dias_descanso_requeridos": 3
+}
+
+MAX_CONSECUTIVOS:
+{
+  "turno_tipo": "CUALQUIERA",
+  "cantidad_maxima": 5
+}
+
+SECUENCIA_OBLIGATORIA:
+{
+  "secuencia": ["MAÑANA", "TARDE", "NOCHE"],
+  "ciclica": true
+}
+
+BLOQUEO_TRANSICION:
+{
+  "turno_origen": "NOCHE",
+  "turno_destino": "MAÑANA",
+  "dias_minimos_entre": 1
+}
+
+COBERTURA_MINIMA:
+{
+  "turno_tipo": "NOCHE",
+  "enfermeras_minimas": 2,
+  "aplicar_dias": [5, 6, 0]
+}'''
+            })
+        }
+
+@admin.register(PatronTurnos)
+class PatronTurnosAdmin(admin.ModelAdmin):
+    form = PatronTurnosAdminForm
+    list_display = ['nombre', 'tipo', 'activo', 'es_restriccion_dura', 'peso_penalizacion', 'fecha_creacion']
+    list_filter = ['tipo', 'activo', 'es_restriccion_dura']
+    search_fields = ['nombre', 'descripcion']
+    readonly_fields = ['fecha_creacion', 'fecha_modificacion']
+    
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('nombre', 'descripcion', 'tipo', 'activo')
+        }),
+        ('Configuración de Restricción', {
+            'fields': ('es_restriccion_dura', 'peso_penalizacion', 'configuracion')
+        }),
+        ('Metadatos', {
+            'fields': ('fecha_creacion', 'fecha_modificacion', 'creado_por'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not obj.creado_por:
+            obj.creado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
 @admin.register(ConfiguracionPlanificacion)
 class ConfiguracionPlanificacionAdmin(admin.ModelAdmin):
     list_display = ['nombre', 'activa', 'num_dias', 'fecha_inicio', 'creado_por', 'fecha_creacion', 'ver_detalle']
     list_filter = ['activa', 'fecha_creacion', 'fecha_inicio']
     search_fields = ['nombre', 'descripcion']
     date_hierarchy = 'fecha_creacion'
-    filter_horizontal = ['enfermeras', 'turnos']
+    filter_horizontal = ['enfermeras', 'turnos', 'patrones_turnos']
     readonly_fields = ['fecha_creacion', 'fecha_modificacion']
 
     fieldsets = (
@@ -68,7 +142,7 @@ class ConfiguracionPlanificacionAdmin(admin.ModelAdmin):
             'fields': ('demanda_por_turno',)
         }),
         ('Restricciones', {
-            'fields': ('restricciones_duras', 'restricciones_blandas'),
+            'fields': ('restricciones_duras', 'restricciones_blandas', 'patrones_turnos'),
             'classes': ('collapse',)
         }),
         ('Configuración de Ejecución', {

@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load turnos_extras %}
 
-{% block title %}Nueva Configuración{% endblock %}
+{% block title %}{{ form.instance.pk|yesno:"Editar,Nueva" }} Configuración{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -137,6 +138,153 @@
     margin: 0;
     opacity: 0.9;
 }
+
+/* Estilos para el constructor visual */
+.demand-row {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s;
+}
+
+.demand-row:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.demand-label {
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+}
+
+.demand-inputs {
+    display: flex;
+    gap: 1rem;
+}
+
+.demand-input-group {
+    flex: 1;
+}
+
+.demand-input-group label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.restriction-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #667eea;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+}
+
+.restriction-card.soft {
+    border-left-color: #28a745;
+}
+
+.btn-remove-restriction {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    color: #dc3545;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.btn-remove-restriction:hover {
+    opacity: 1;
+}
+
+.param-input {
+    margin-top: 0.5rem;
+}
+
+/* NUEVOS ESTILOS PARA PATRONES */
+.patron-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #764ba2;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.patron-card:hover {
+    box-shadow: 0 2px 8px rgba(118, 75, 162, 0.15);
+}
+
+.patron-type-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.patron-config-inputs {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 0.75rem;
+}
+
+.patron-config-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.patron-config-row:last-child {
+    margin-bottom: 0;
+}
+
+.patron-input-group {
+    flex: 1;
+}
+
+.patron-input-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.patron-input-group input,
+.patron-input-group select {
+    width: 100%;
+}
+
+.no-patrones-msg {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+}
+
+.no-patrones-msg i {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 2rem;
+}
 </style>
 {% endblock %}
 
@@ -146,16 +294,44 @@
         <!-- Columna principal: Formulario -->
         <div class="col-lg-8">
             <div class="info-card">
-                <h5><i class="fas fa-magic me-2"></i>Crear Nueva Configuración de Planificación</h5>
+                <h5><i class="fas fa-magic me-2"></i>{{ form.instance.pk|yesno:"Editar,Crear" }} Configuración de Planificación</h5>
                 <p>Completa los campos para crear una configuración que se usará para generar planillas de turnos automáticamente.</p>
             </div>
+
+            <!-- ERRORES DEL FORMULARIO -->
+            {% if form.errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Errores en el formulario:</h5>
+                <ul class="mb-0">
+                    {% for field, errors in form.errors.items %}
+                        <li><strong>{{ field }}:</strong>
+                            <ul>
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
 
             <div class="card shadow-lg">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-cog me-2"></i>Configuración de Planificación</h4>
                 </div>
                 <div class="card-body p-4">
-                    <form method="post">
+                    <form method="post" id="configForm">
                         {% csrf_token %}
 
                         <!-- SECCIÓN 1: DATOS BÁSICOS -->
@@ -166,19 +342,6 @@
                         <div class="field-group">
                             <label class="form-label fw-bold">
                                 Nombre <span class="text-danger">*</span>
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Nombre de la Configuración</h6>
-                                        <p>Un nombre descriptivo para identificar esta configuración.</p>
-                                        <div class="tooltip-example">
-                                            <strong>Ejemplos:</strong><br>
-                                            • "Planificación Enero 2025"<br>
-                                            • "Horario Verano UCI"<br>
-                                            • "Turnos Noche Q1"
-                                        </div>
-                                    </div>
-                                </span>
                             </label>
                             {{ form.nombre }}
                             {% if form.nombre.errors %}
@@ -187,16 +350,7 @@
                         </div>
 
                         <div class="field-group">
-                            <label class="form-label fw-bold">
-                                Descripción
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Descripción Opcional</h6>
-                                        <p>Añade detalles sobre esta configuración: objetivo, periodo, características especiales, etc.</p>
-                                    </div>
-                                </span>
-                            </label>
+                            <label class="form-label fw-bold">Descripción</label>
                             {{ form.descripcion }}
                         </div>
 
@@ -204,20 +358,6 @@
                             <div class="col-md-6 field-group">
                                 <label class="form-label fw-bold">
                                     Número de Días <span class="text-danger">*</span>
-                                    <span class="help-tooltip">
-                                        <i class="fas fa-question-circle"></i>
-                                        <div class="tooltip-content">
-                                            <h6>Días a Planificar</h6>
-                                            <p>Entre 7 y 365 días. Recomendamos múltiplos de 7 (semanas completas).</p>
-                                            <div class="tooltip-example">
-                                                <strong>Común:</strong><br>
-                                                • 7 días = 1 semana<br>
-                                                • 14 días = 2 semanas<br>
-                                                • 28 días = 4 semanas<br>
-                                                • 30 días = 1 mes
-                                            </div>
-                                        </div>
-                                    </span>
                                 </label>
                                 {{ form.num_dias }}
                                 <div class="quick-presets">
@@ -230,13 +370,6 @@
                             <div class="col-md-6 field-group">
                                 <label class="form-label fw-bold">
                                     Fecha de Inicio <span class="text-danger">*</span>
-                                    <span class="help-tooltip">
-                                        <i class="fas fa-question-circle"></i>
-                                        <div class="tooltip-content">
-                                            <h6>Primer Día de la Planificación</h6>
-                                            <p>Fecha desde la cual comenzará la asignación de turnos.</p>
-                                        </div>
-                                    </span>
                                 </label>
                                 {{ form.fecha_inicio }}
                             </div>
@@ -250,13 +383,6 @@
                         <div class="field-group">
                             <label class="form-label fw-bold">
                                 Enfermeras <span class="text-danger">*</span>
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Selección de Personal</h6>
-                                        <p>Elige al menos 2 enfermeras activas. Solo aparecerán enfermeras marcadas como "activas" en el sistema.</p>
-                                    </div>
-                                </span>
                             </label>
                             {{ form.enfermeras }}
                             {% if form.enfermeras.errors %}
@@ -267,186 +393,151 @@
                         <div class="field-group">
                             <label class="form-label fw-bold">
                                 Tipos de Turno <span class="text-danger">*</span>
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Turnos a Asignar</h6>
-                                        <p>Selecciona los turnos que se usarán en esta planificación (Mañana, Tarde, Noche).</p>
-                                    </div>
-                                </span>
                             </label>
                             {{ form.turnos }}
                         </div>
 
-                        <!-- SECCIÓN 3: DEMANDA POR TURNO -->
+                        <!-- SECCIÓN 3: DEMANDA POR TURNO (CONSTRUCTOR VISUAL) -->
                         <h5 class="mb-3 text-primary mt-4">
                             <i class="fas fa-chart-bar me-2"></i>Demanda de Personal
                         </h5>
 
-                        <div class="field-group json-editor">
-                            <label class="form-label fw-bold">
-                                Demanda por Turno (JSON) <span class="text-danger">*</span>
-                                <span class="text-muted">(Opcional)</span>
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Configuración de Demanda</h6>
-                                        <p>Define cuántas enfermeras necesitas por turno.</p>
-                                        <div class="tooltip-example">
-                                            • min: mínimo requerido<br>
-                                            • optimo: ideal<br>
-                                            • max: máximo permitido
-                                        </div>
-                                    </div>
-                                </span>
-                            </label>
-                            <button type="button" class="btn btn-sm btn-outline-primary json-example-btn" onclick="cargarEjemploDemanda()">
-                                <i class="fas fa-lightbulb me-1"></i>Cargar Ejemplo
-                            </button>
-                            {{ form.demanda_por_turno }}
-                            <div class="example-box mt-2">
-                                <strong>Ejemplo típico:</strong>
-                                <pre class="mb-0"><code>{
-  "MANANA": {"min": 2, "optimo": 3, "max": 5},
-  "TARDE": {"min": 2, "optimo": 3, "max": 5},
-  "NOCHE": {"min": 1, "optimo": 2, "max": 3}
-}</code></pre>
+                        <div class="field-group">
+                            <div class="alert alert-info py-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Define cuántas enfermeras necesitas para cada turno seleccionado.
                             </div>
+
+                            <div id="demand-builder" class="mt-3">
+                                <div class="text-center text-muted py-3">
+                                    <i class="fas fa-arrow-up me-2"></i>Selecciona tipos de turno arriba para configurar la demanda.
+                                </div>
+                            </div>
+
+                            <!-- ✅ Campo oculto CORREGIDO -->
+                            <input type="hidden"
+                                   name="demanda_por_turno"
+                                   id="id_demanda_por_turno"
+                                   value="{{ form.demanda_por_turno.value|to_json }}">
                         </div>
 
-                        <!-- SECCIÓN 4: RESTRICCIONES DURAS -->
+                        <!-- SECCIÓN 4: RESTRICCIONES DURAS (CONSTRUCTOR VISUAL) -->
                         <h5 class="mb-3 text-primary mt-4">
                             <i class="fas fa-shield-alt me-2"></i>Restricciones Obligatorias (Duras)
                         </h5>
 
-                        <div class="field-group json-editor">
-                            <label class="form-label fw-bold">
-                                Restricciones Duras (JSON)
-                                <span class="text-muted">(Opcional)</span>
-
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Reglas Obligatorias</h6>
-                                        <p>Restricciones que DEBEN cumplirse siempre (legales, de seguridad, etc.)</p>
-                                        <div class="tooltip-example">
-                                            <strong>Ejemplos:</strong><br>
-                                            • un_turno_por_dia<br>
-                                            • cobertura_minima<br>
-                                            • descanso_minimo<br>
-                                            • turnos_consecutivos_max
-                                        </div>
-                                    </div>
-                                </span>
-                            </label>
-                            <button type="button" class="btn btn-sm btn-outline-primary json-example-btn" onclick="cargarEjemploRestricciones()">
-                                <i class="fas fa-lightbulb me-1"></i>Cargar Ejemplo
-                            </button>
-                            {{ form.restricciones_duras }}
-                            <div class="example-box mt-2">
-                                <strong>Ejemplo recomendado:</strong>
-                                <pre class="mb-0"><code>[
-  {"nombre": "un_turno_por_dia"},
-  {"nombre": "cobertura_minima", "parametros": {"min": 2}},
-  {"nombre": "descanso_minimo", "parametros": {"horas": 11}},
-  {"nombre": "turnos_consecutivos_max", "parametros": {"max": 5}}
-]</code></pre>
+                        <div class="field-group">
+                            <div class="d-flex gap-2 mb-3">
+                                <select id="hard-restriction-select" class="form-select">
+                                    <option value="">Selecciona una restricción...</option>
+                                </select>
+                                <button type="button" class="btn btn-primary text-nowrap" id="btn-add-hard">
+                                    <i class="fas fa-plus me-2"></i>Añadir
+                                </button>
                             </div>
+
+                            <div id="hard-restrictions-list" class="mt-3">
+                                <!-- Lista de restricciones añadidas -->
+                            </div>
+
+                            <!-- ✅ Campo oculto CORREGIDO -->
+                            <input type="hidden"
+                                   name="restricciones_duras"
+                                   id="id_restricciones_duras"
+                                   value="{{ form.restricciones_duras.value|to_json }}">
                         </div>
 
-                        <!-- SECCIÓN 5: RESTRICCIONES BLANDAS -->
+                        <!-- SECCIÓN 5: PATRONES DE TURNOS -->
+                        <h5 class="mb-3 text-primary mt-4">
+                            <i class="fas fa-puzzle-piece me-2"></i>Patrones de Turnos
+                        </h5>
+
+                        <div class="field-group">
+                            <div class="alert alert-info py-2">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                Define secuencias, rotaciones y reglas avanzadas de turnos (ej: 2 noches → 3 días libres).
+                            </div>
+
+                            <div class="d-flex gap-2 mb-3">
+                                <select id="patron-type-select" class="form-select">
+                                    <option value="">Selecciona un patrón...</option>
+                                    <option value="DESCANSO_POST_TURNO">📅 Descanso Post-Turno</option>
+                                    <option value="MAX_CONSECUTIVOS">📊 Máximo Consecutivos</option>
+                                    <option value="SECUENCIA_OBLIGATORIA">🔄 Secuencia Obligatoria</option>
+                                    <option value="BLOQUEO_TRANSICION">🚫 Bloqueo de Transición</option>
+                                    <option value="COBERTURA_MINIMA">👥 Cobertura Mínima</option>
+                                    <option value="DISTRIBUCION_EQUITATIVA">⚖️ Distribución Equitativa</option>
+                                </select>
+                                <button type="button" class="btn btn-primary text-nowrap" id="btn-add-patron">
+                                    <i class="fas fa-plus me-2"></i>Añadir Patrón
+                                </button>
+                            </div>
+
+                            <div id="patrones-list" class="mt-3">
+                                <div class="no-patrones-msg" id="no-patrones-msg">
+                                    <i class="fas fa-puzzle-piece"></i>
+                                    <p class="mb-0">No hay patrones configurados. Añade uno arriba.</p>
+                                </div>
+                            </div>
+
+                            <!-- ✅ Campo oculto CORREGIDO -->
+                            <input type="hidden"
+                                   name="patrones_turnos_json"
+                                   id="id_patrones_turnos_json"
+                                   value="{{ form.patrones_turnos_json.value|to_json }}">
+                        </div>
+
+                        <!-- SECCIÓN 6: RESTRICCIONES BLANDAS (CONSTRUCTOR VISUAL) -->
                         <h5 class="mb-3 text-primary mt-4">
                             <i class="fas fa-sliders-h me-2"></i>Preferencias (Restricciones Blandas)
                         </h5>
 
-                        <div class="field-group json-editor">
-                            <label class="form-label fw-bold">
-                                Restricciones Blandas (JSON)
-                                <span class="text-muted">(Opcional)</span>
-                                <span class="help-tooltip">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div class="tooltip-content">
-                                        <h6>Preferencias Opcionales</h6>
-                                        <p>Objetivos deseables pero no obligatorios. El sistema intentará cumplirlas según su peso.</p>
-                                        <div class="tooltip-example">
-                                            • Mayor peso = más importante<br>
-                                            • Peso típico: 1.0 a 20.0
-                                        </div>
-                                    </div>
-                                </span>
-                            </label>
-                            <button type="button" class="btn btn-sm btn-outline-primary json-example-btn" onclick="cargarEjemploPreferencias()">
-                                <i class="fas fa-lightbulb me-1"></i>Cargar Ejemplo
-                            </button>
-                            {{ form.restricciones_blandas }}
-                            <div class="example-box mt-2">
-                                <strong>Ejemplo común:</strong>
-                                <pre class="mb-0"><code>[
-  {"nombre": "equidad_turnos", "peso": 10.0},
-  {"nombre": "minimizar_noches", "peso": 5.0}
-]</code></pre>
+                        <div class="field-group">
+                            <div class="d-flex gap-2 mb-3">
+                                <select id="soft-restriction-select" class="form-select">
+                                    <option value="">Selecciona una preferencia...</option>
+                                </select>
+                                <button type="button" class="btn btn-success text-nowrap" id="btn-add-soft">
+                                    <i class="fas fa-plus me-2"></i>Añadir
+                                </button>
                             </div>
+
+                            <div id="soft-restrictions-list" class="mt-3">
+                                <!-- Lista de restricciones añadidas -->
+                            </div>
+
+                            <!-- ✅ Campo oculto CORREGIDO -->
+                            <input type="hidden"
+                                   name="restricciones_blandas"
+                                   id="id_restricciones_blandas"
+                                   value="{{ form.restricciones_blandas.value|to_json }}">
                         </div>
 
-                        <!-- SECCIÓN 6: CONFIGURACIÓN DEL SOLVER -->
+                        <!-- SECCIÓN 7: CONFIGURACIÓN DEL SOLVER -->
                         <h5 class="mb-3 text-primary mt-4">
                             <i class="fas fa-microchip me-2"></i>Configuración Avanzada
                         </h5>
 
                         <div class="row">
                             <div class="col-md-4 field-group">
-                                <label class="form-label fw-bold">
-                                    Trabajadores Paralelos
-                                    <span class="help-tooltip">
-                                        <i class="fas fa-question-circle"></i>
-                                        <div class="tooltip-content">
-                                            <h6>CPUs a Utilizar</h6>
-                                            <p>Más trabajadores = resolución más rápida. Recomendado: 4</p>
-                                        </div>
-                                    </span>
-                                </label>
+                                <label class="form-label fw-bold">Trabajadores Paralelos</label>
                                 {{ form.num_trabajadores }}
                             </div>
-
                             <div class="col-md-4 field-group">
-                                <label class="form-label fw-bold">
-                                    Tiempo Máximo (segundos)
-                                    <span class="help-tooltip">
-                                        <i class="fas fa-question-circle"></i>
-                                        <div class="tooltip-content">
-                                            <h6>Límite de Tiempo</h6>
-                                            <p>Tiempo máximo para buscar solución. Más tiempo = mejor solución potencial.</p>
-                                        </div>
-                                    </span>
-                                </label>
+                                <label class="form-label fw-bold">Tiempo Máximo (segundos)</label>
                                 {{ form.tiempo_maximo_segundos }}
                             </div>
-
                             <div class="col-md-4 field-group">
-                                <label class="form-label fw-bold">
-                                    Semilla Aleatoria
-                                    <span class="help-tooltip">
-                                        <i class="fas fa-question-circle"></i>
-                                        <div class="tooltip-content">
-                                            <h6>Reproducibilidad</h6>
-                                            <p>Opcional. Usa el mismo número para obtener resultados idénticos en ejecuciones repetidas.</p>
-                                        </div>
-                                    </span>
-                                </label>
+                                <label class="form-label fw-bold">Semilla Aleatoria</label>
                                 {{ form.seed }}
                             </div>
-                        </div>
-
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Importante:</strong> Los campos JSON deben tener formato válido. Usa las plantillas de ejemplo como referencia.
                         </div>
 
                         <div class="d-flex justify-content-between pt-3 border-top">
                             <a href="{% url 'turnos:config_lista' %}" class="btn btn-secondary btn-lg">
                                 <i class="fas fa-times me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary btn-lg">
+                            <button type="button" onclick="buildAndSubmit()" class="btn btn-primary btn-lg">
                                 <i class="fas fa-save me-2"></i>Guardar Configuración
                             </button>
                         </div>
@@ -462,36 +553,27 @@
                     <h5 class="mb-0"><i class="fas fa-book me-2"></i>Guía Rápida</h5>
                 </div>
                 <div class="card-body">
-                    <h6 class="text-primary">Restricciones Duras Disponibles:</h6>
-                    <ul class="small">
-                        <li><code>un_turno_por_dia</code> - Una enfermera solo trabaja un turno al día</li>
-                        <li><code>cobertura_minima</code> - Mínimo de enfermeras por turno</li>
-                        <li><code>cobertura_maxima</code> - Máximo de enfermeras por turno</li>
-                        <li><code>descanso_minimo</code> - Horas mínimas entre turnos</li>
-                        <li><code>turnos_consecutivos_max</code> - Máximo de días seguidos trabajando</li>
-                        <li><code>turnos_semanales_max</code> - Máximo de turnos por semana</li>
+                    <p class="small text-muted">Configura las reglas que el sistema debe seguir.</p>
+
+                    <h6 class="text-primary">Restricciones Duras:</h6>
+                    <ul class="small mb-3">
+                        <li>Son obligatorias. Si no se pueden cumplir, no habrá solución.</li>
                     </ul>
 
-                    <h6 class="text-primary mt-3">Restricciones Blandas Disponibles:</h6>
-                    <ul class="small">
-                        <li><code>equidad_turnos</code> - Distribuir turnos equitativamente</li>
-                        <li><code>preferencias_turno</code> - Respetar preferencias de enfermeras</li>
-                        <li><code>minimizar_noches</code> - Reducir turnos nocturnos</li>
+                    <h6 class="text-purple">Patrones de Turnos:</h6>
+                    <ul class="small mb-3">
+                        <li><strong>Descanso Post-Turno:</strong> Días libres tras turnos consecutivos (ej: 2N→3 libres)</li>
+                        <li><strong>Máximo Consecutivos:</strong> Límite de turnos seguidos</li>
+                        <li><strong>Secuencia:</strong> Orden obligatorio (M→T→N)</li>
+                        <li><strong>Bloqueo:</strong> Evitar transiciones (N→M)</li>
+                        <li><strong>Cobertura:</strong> Personal mínimo garantizado</li>
+                        <li><strong>Distribución:</strong> Reparto equitativo</li>
                     </ul>
-                </div>
-            </div>
 
-            <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Consejos</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="small mb-0">
-                        <li>Comienza con 14 días para pruebas</li>
-                        <li>Asegúrate de tener suficientes enfermeras para cubrir la demanda mínima</li>
-                        <li>El tiempo óptimo de ejecución es 60 segundos</li>
-                        <li>Usa pesos entre 1.0 y 20.0 en restricciones blandas</li>
-                        <li>Valida tu JSON antes de guardar</li>
+                    <h6 class="text-success">Restricciones Blandas:</h6>
+                    <ul class="small">
+                        <li>Son deseables. El sistema intentará cumplirlas lo mejor posible.</li>
+                        <li>Usa el "peso" para indicar importancia (mayor peso = más importante).</li>
                     </ul>
                 </div>
             </div>
@@ -502,55 +584,589 @@
 
 {% block extra_js %}
 <script>
-function cargarEjemploDemanda() {
-    const ejemplo = {
-        "MANANA": {"min": 2, "optimo": 3, "max": 5},
-        "TARDE": {"min": 2, "optimo": 3, "max": 5},
-        "NOCHE": {"min": 1, "optimo": 2, "max": 3}
-    };
-    document.getElementById('id_demanda_por_turno').value = JSON.stringify(ejemplo, null, 2);
-}
+// Definición de restricciones disponibles
+const HARD_RESTRICTIONS = [
+    { id: 'un_turno_por_dia', name: 'Un turno por día', params: [] },
+    { id: 'cobertura_minima', name: 'Cobertura Mínima', params: [{name: 'min', label: 'Mínimo personal', type: 'number', default: 1}] },
+    { id: 'descanso_minimo', name: 'Descanso Mínimo', params: [{name: 'horas', label: 'Horas mínimas', type: 'number', default: 12}] },
+    { id: 'turnos_consecutivos_max', name: 'Máx. Turnos Consecutivos', params: [{name: 'max', label: 'Máximo días', type: 'number', default: 5}] },
+    { id: 'turnos_semanales_max', name: 'Máx. Turnos Semanales', params: [{name: 'max', label: 'Máximo turnos', type: 'number', default: 5}] }
+];
 
-function cargarEjemploRestricciones() {
-    const ejemplo = [
-        {"nombre": "un_turno_por_dia"},
-        {"nombre": "cobertura_minima", "parametros": {"min": 2}},
-        {"nombre": "descanso_minimo", "parametros": {"horas": 11}},
-        {"nombre": "turnos_consecutivos_max", "parametros": {"max": 5}},
-        {"nombre": "turnos_semanales_max", "parametros": {"max": 5}}
-    ];
-    document.getElementById('id_restricciones_duras').value = JSON.stringify(ejemplo, null, 2);
-}
+const SOFT_RESTRICTIONS = [
+    { id: 'equidad_turnos', name: 'Equidad de Turnos', params: [] },
+    { id: 'preferencias_turno', name: 'Preferencias de Turno', params: [] },
+    { id: 'minimizar_noches', name: 'Minimizar Noches', params: [] }
+];
 
-function cargarEjemploPreferencias() {
-    const ejemplo = [
-        {"nombre": "equidad_turnos", "peso": 10.0},
-        {"nombre": "minimizar_noches", "peso": 5.0}
-    ];
-    document.getElementById('id_restricciones_blandas').value = JSON.stringify(ejemplo, null, 2);
-}
+// ✅ DEFINICIONES DE PATRONES
+const PATRON_TEMPLATES = {
+    'DESCANSO_POST_TURNO': {
+        name: 'Descanso Post-Turno',
+        icon: 'fa-bed',
+        description: 'Requiere días libres después de turnos consecutivos del mismo tipo',
+        fields: [
+            { name: 'turno_tipo', label: 'Tipo de Turno', type: 'select', options: ['MANANA', 'TARDE', 'NOCHE'], default: 'NOCHE' },
+            { name: 'cantidad_consecutiva', label: 'Turnos Consecutivos', type: 'number', default: 2, min: 1 },
+            { name: 'dias_descanso_requeridos', label: 'Días de Descanso', type: 'number', default: 3, min: 1 }
+        ]
+    },
+    'MAX_CONSECUTIVOS': {
+        name: 'Máximo Consecutivos',
+        icon: 'fa-chart-line',
+        description: 'Limita la cantidad de turnos consecutivos (del mismo tipo o de cualquiera)',
+        fields: [
+            { name: 'turno_tipo', label: 'Tipo (o CUALQUIERA)', type: 'select', options: ['CUALQUIERA', 'MANANA', 'TARDE', 'NOCHE'], default: 'CUALQUIERA' },
+            { name: 'cantidad_maxima', label: 'Máximo Consecutivos', type: 'number', default: 5, min: 1 }
+        ]
+    },
+    'SECUENCIA_OBLIGATORIA': {
+        name: 'Secuencia Obligatoria',
+        icon: 'fa-sort-amount-down',
+        description: 'Fuerza un orden específico de turnos (ej: Mañana → Tarde → Noche)',
+        fields: [
+            { name: 'secuencia', label: 'Secuencia (separado por comas)', type: 'text', default: 'MANANA,TARDE,NOCHE', placeholder: 'MANANA,TARDE,NOCHE' },
+            { name: 'ciclica', label: 'Es Cíclica', type: 'checkbox', default: true }
+        ]
+    },
+    'BLOQUEO_TRANSICION': {
+        name: 'Bloqueo de Transición',
+        icon: 'fa-ban',
+        description: 'Evita transiciones directas entre ciertos turnos (ej: Noche → Mañana)',
+        fields: [
+            { name: 'turno_origen', label: 'Turno Origen', type: 'select', options: ['MANANA', 'TARDE', 'NOCHE'], default: 'NOCHE' },
+            { name: 'turno_destino', label: 'Turno Destino', type: 'select', options: ['MANANA', 'TARDE', 'NOCHE'], default: 'MANANA' },
+            { name: 'dias_minimos_entre', label: 'Días Mínimos Entre', type: 'number', default: 1, min: 1 }
+        ]
+    },
+    'COBERTURA_MINIMA': {
+        name: 'Cobertura Mínima',
+        icon: 'fa-users',
+        description: 'Garantiza un número mínimo de enfermeras por turno o día',
+        fields: [
+            { name: 'turno_tipo', label: 'Turno (vacío=todos)', type: 'select', options: ['', 'MANANA', 'TARDE', 'NOCHE'], default: '' },
+            { name: 'enfermeras_minimas', label: 'Enfermeras Mínimas', type: 'number', default: 2, min: 1 },
+            { name: 'aplicar_dias', label: 'Días (0=Lun, 6=Dom)', type: 'text', default: '', placeholder: 'Ej: 0,5,6 (Lun,Sab,Dom)' }
+        ]
+    },
+    'DISTRIBUCION_EQUITATIVA': {
+        name: 'Distribución Equitativa',
+        icon: 'fa-balance-scale',
+        description: 'Reparte los turnos equitativamente entre todo el personal',
+        fields: [
+            { name: 'turno_tipo', label: 'Turno (vacío=todos)', type: 'select', options: ['', 'MANANA', 'TARDE', 'NOCHE'], default: 'NOCHE' },
+            { name: 'tolerancia', label: 'Tolerancia (dif. máx)', type: 'number', default: 2, min: 1 }
+        ]
+    }
+};
 
-// Validación de JSON en tiempo real
 document.addEventListener('DOMContentLoaded', function() {
-    const jsonFields = ['id_demanda_por_turno', 'id_restricciones_duras', 'id_restricciones_blandas'];
+    console.log('🚀 Iniciando aplicación...');
+    initDemandBuilder();
+    initRestrictionBuilders();
+    initPatronBuilder();
+    loadExistingData();
+    console.log('✅ Aplicación inicializada');
+});
 
-    jsonFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.addEventListener('blur', function() {
-                try {
-                    if (this.value.trim()) {
-                        JSON.parse(this.value);
-                        this.classList.remove('is-invalid');
-                        this.classList.add('is-valid');
-                    }
-                } catch (e) {
-                    this.classList.remove('is-valid');
-                    this.classList.add('is-invalid');
-                }
+// ========================================
+// CONSTRUCTOR DE PATRONES
+// ========================================
+
+function initPatronBuilder() {
+    console.log('📦 Iniciando constructor de patrones...');
+    const btnAdd = document.getElementById('btn-add-patron');
+    const select = document.getElementById('patron-type-select');
+
+    btnAdd.addEventListener('click', () => {
+        const type = select.value;
+        console.log('➕ Añadiendo patrón:', type);
+
+        if (!type) {
+            alert('Por favor selecciona un tipo de patrón');
+            return;
+        }
+
+        addPatronCard(type);
+        select.value = '';
+
+        document.getElementById('no-patrones-msg').style.display = 'none';
+    });
+}
+
+function addPatronCard(type, existingData = null) {
+    const template = PATRON_TEMPLATES[type];
+    if (!template) {
+        console.error('❌ Tipo de patrón no encontrado:', type);
+        return;
+    }
+
+    console.log('📝 Creando tarjeta de patrón:', type, existingData);
+
+    const container = document.getElementById('patrones-list');
+    const card = document.createElement('div');
+    card.className = 'patron-card';
+    card.dataset.type = type;
+
+    let headerHtml = `
+        <button type="button" class="btn-remove-restriction" onclick="removePatronCard(this)">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">
+                <i class="fas ${template.icon} me-2 text-primary"></i>${template.name}
+            </h6>
+            <span class="patron-type-badge">${type.replace(/_/g, ' ')}</span>
+        </div>
+        <p class="small text-muted mb-3">${template.description}</p>
+    `;
+
+    headerHtml += `
+        <div class="mb-3 pb-3 border-bottom">
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="small fw-bold text-muted">Tipo de Restricción</label>
+                    <select class="form-control form-control-sm patron-es-dura">
+                        <option value="true" ${!existingData || existingData.es_restriccion_dura !== false ? 'selected' : ''}>Dura (Obligatoria)</option>
+                        <option value="false" ${existingData && existingData.es_restriccion_dura === false ? 'selected' : ''}>Blanda (Preferible)</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="small fw-bold text-muted">Peso (si es blanda)</label>
+                    <input type="number" class="form-control form-control-sm patron-peso"
+                           value="${existingData ? existingData.peso_penalizacion : 100}" min="1" max="1000">
+                </div>
+            </div>
+        </div>
+    `;
+
+    let configHtml = '<div class="patron-config-inputs">';
+
+    template.fields.forEach(field => {
+        let value = existingData && existingData.configuracion && existingData.configuracion[field.name] !== undefined
+                    ? existingData.configuracion[field.name]
+                    : field.default;
+
+        configHtml += '<div class="patron-config-row">';
+        configHtml += '<div class="patron-input-group">';
+        configHtml += `<label>${field.label}</label>`;
+
+        if (field.type === 'select') {
+            configHtml += `<select class="form-control form-control-sm patron-field" data-name="${field.name}">`;
+            field.options.forEach(opt => {
+                const selected = opt === value ? 'selected' : '';
+                configHtml += `<option value="${opt}" ${selected}>${opt || '(Todos)'}</option>`;
+            });
+            configHtml += '</select>';
+        } else if (field.type === 'checkbox') {
+            const checked = value ? 'checked' : '';
+            configHtml += `<div class="form-check"><input type="checkbox" class="form-check-input patron-field" data-name="${field.name}" ${checked}></div>`;
+        } else if (field.type === 'number') {
+            configHtml += `<input type="number" class="form-control form-control-sm patron-field"
+                                  data-name="${field.name}" value="${value}" min="${field.min || 0}"
+                                  placeholder="${field.placeholder || ''}">`;
+        } else {
+            configHtml += `<input type="text" class="form-control form-control-sm patron-field"
+                                  data-name="${field.name}" value="${value}"
+                                  placeholder="${field.placeholder || ''}">`;
+        }
+
+        configHtml += '</div>';
+        configHtml += '</div>';
+    });
+
+    configHtml += '</div>';
+
+    card.innerHTML = headerHtml + configHtml;
+    container.appendChild(card);
+}
+
+function removePatronCard(btn) {
+    console.log('🗑️ Eliminando patrón');
+    btn.closest('.patron-card').remove();
+
+    const remaining = document.querySelectorAll('.patron-card').length;
+    if (remaining === 0) {
+        document.getElementById('no-patrones-msg').style.display = 'block';
+    }
+}
+
+// ========================================
+// CONSTRUCTOR DE DEMANDA
+// ========================================
+
+function initDemandBuilder() {
+    const turnosCheckboxes = document.querySelectorAll('input[name="turnos"]');
+    const container = document.getElementById('demand-builder');
+
+    function updateDemandRows() {
+        const selectedTurnos = Array.from(turnosCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => ({
+                id: cb.value,
+                label: cb.parentElement.textContent.trim()
+            }));
+
+        if (selectedTurnos.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-arrow-up me-2"></i>Selecciona tipos de turno arriba para configurar la demanda.</div>';
+            return;
+        }
+
+        const currentValues = {};
+        container.querySelectorAll('.demand-row').forEach(row => {
+            const turnoId = row.dataset.turnoId;
+            currentValues[turnoId] = {
+                min: row.querySelector('.demand-min').value,
+                opt: row.querySelector('.demand-opt').value,
+                max: row.querySelector('.demand-max').value
+            };
+        });
+
+        container.innerHTML = '';
+        selectedTurnos.forEach(turno => {
+            const vals = currentValues[turno.id] || {min: 1, opt: 2, max: 3};
+
+            let displayName = turno.label.split('(')[0].trim();
+
+            const row = document.createElement('div');
+            row.className = 'demand-row';
+            row.dataset.turnoId = turno.id;
+            row.dataset.turnoLabel = turno.label;
+
+            row.innerHTML = `
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <div class="demand-label">
+                            <i class="fas fa-clock me-2 text-primary"></i>${displayName}
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="demand-inputs">
+                            <div class="demand-input-group">
+                                <label>Mínimo</label>
+                                <input type="number" class="form-control form-control-sm demand-min" value="${vals.min}" min="0">
+                            </div>
+                            <div class="demand-input-group">
+                                <label>Óptimo</label>
+                                <input type="number" class="form-control form-control-sm demand-opt" value="${vals.opt}" min="0">
+                            </div>
+                            <div class="demand-input-group">
+                                <label>Máximo</label>
+                                <input type="number" class="form-control form-control-sm demand-max" value="${vals.max}" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    turnosCheckboxes.forEach(cb => cb.addEventListener('change', updateDemandRows));
+    if(document.querySelectorAll('input[name="turnos"]:checked').length > 0) {
+        updateDemandRows();
+    }
+}
+
+// ========================================
+// CONSTRUCTOR DE RESTRICCIONES
+// ========================================
+
+function initRestrictionBuilders() {
+    const hardSelect = document.getElementById('hard-restriction-select');
+    HARD_RESTRICTIONS.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.name;
+        hardSelect.appendChild(opt);
+    });
+
+    const softSelect = document.getElementById('soft-restriction-select');
+    SOFT_RESTRICTIONS.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.name;
+        softSelect.appendChild(opt);
+    });
+
+    document.getElementById('btn-add-hard').addEventListener('click', () => {
+        const id = hardSelect.value;
+        if(!id) return;
+        const def = HARD_RESTRICTIONS.find(r => r.id === id);
+        addRestrictionCard('hard-restrictions-list', def);
+        hardSelect.value = '';
+    });
+
+    document.getElementById('btn-add-soft').addEventListener('click', () => {
+        const id = softSelect.value;
+        if(!id) return;
+        const def = SOFT_RESTRICTIONS.find(r => r.id === id);
+        addRestrictionCard('soft-restrictions-list', def, true);
+        softSelect.value = '';
+    });
+}
+
+function addRestrictionCard(containerId, def, isSoft = false, values = null) {
+    const container = document.getElementById(containerId);
+    const card = document.createElement('div');
+    card.className = `restriction-card ${isSoft ? 'soft' : ''}`;
+    card.dataset.id = def.id;
+
+    let paramsHtml = '';
+
+    if (isSoft) {
+        const pesoVal = values ? values.peso : 10;
+        paramsHtml += `
+            <div class="row mb-2">
+                <div class="col-md-4">
+                    <label class="small text-muted">Peso (Importancia)</label>
+                    <input type="number" class="form-control form-control-sm param-weight" value="${pesoVal}" min="1" max="100">
+                </div>
+            </div>
+        `;
+    }
+
+    if (def.params && def.params.length > 0) {
+        paramsHtml += '<div class="row">';
+        def.params.forEach(p => {
+            const val = (values && values.parametros && values.parametros[p.name]) ? values.parametros[p.name] : p.default;
+            paramsHtml += `
+                <div class="col-md-6">
+                    <label class="small text-muted">${p.label}</label>
+                    <input type="${p.type}" class="form-control form-control-sm param-value"
+                           data-name="${p.name}" value="${val}">
+                </div>
+            `;
+        });
+        paramsHtml += '</div>';
+    }
+
+    card.innerHTML = `
+        <button type="button" class="btn-remove-restriction" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+        <h6 class="mb-2 ${isSoft ? 'text-success' : 'text-primary'}">
+            <i class="fas ${isSoft ? 'fa-balance-scale' : 'fa-shield-alt'} me-2"></i>${def.name}
+        </h6>
+        ${paramsHtml}
+    `;
+
+    container.appendChild(card);
+}
+
+// ========================================
+// CARGAR DATOS EXISTENTES
+// ========================================
+
+function loadExistingData() {
+    console.log('📂 Cargando datos existentes...');
+
+    // Cargar Demanda
+    try {
+        const demandaField = document.getElementById('id_demanda_por_turno');
+        if (demandaField && demandaField.value) {
+            const demanda = JSON.parse(demandaField.value);
+            console.log('📊 Demanda cargada:', demanda);
+            setTimeout(() => {
+                const container = document.getElementById('demand-builder');
+                Object.keys(demanda).forEach(key => {
+                    const rows = container.querySelectorAll('.demand-row');
+                    rows.forEach(row => {
+                        if (row.dataset.turnoLabel.includes(key)) {
+                            const vals = demanda[key];
+                            if(vals.min) row.querySelector('.demand-min').value = vals.min;
+                            if(vals.optimo) row.querySelector('.demand-opt').value = vals.optimo;
+                            if(vals.max) row.querySelector('.demand-max').value = vals.max;
+                        }
+                    });
+                });
+            }, 500);
+        }
+    } catch(e) { console.error("❌ Error cargando demanda", e); }
+
+    // Cargar Restricciones Duras
+    try {
+        const hardField = document.getElementById('id_restricciones_duras');
+        if (hardField && hardField.value) {
+            const hard = JSON.parse(hardField.value);
+            console.log('🛡️ Restricciones duras cargadas:', hard);
+            hard.forEach(r => {
+                const def = HARD_RESTRICTIONS.find(d => d.id === r.nombre);
+                if (def) addRestrictionCard('hard-restrictions-list', def, false, r);
             });
         }
-    });
-});
+    } catch(e) { console.error("❌ Error cargando restricciones duras", e); }
+
+    // Cargar Restricciones Blandas
+    try {
+        const softField = document.getElementById('id_restricciones_blandas');
+        if (softField && softField.value) {
+            const soft = JSON.parse(softField.value);
+            console.log('⚖️ Restricciones blandas cargadas:', soft);
+            soft.forEach(r => {
+                const def = SOFT_RESTRICTIONS.find(d => d.id === r.nombre);
+                if (def) addRestrictionCard('soft-restrictions-list', def, true, r);
+            });
+        }
+    } catch(e) { console.error("❌ Error cargando restricciones blandas", e); }
+
+    // Cargar Patrones
+    try {
+        const patronesField = document.getElementById('id_patrones_turnos_json');
+
+        if (!patronesField) {
+            console.warn('⚠️ Campo id_patrones_turnos_json no encontrado');
+            return;
+        }
+
+        const patronesRaw = patronesField.value;
+        console.log('🧩 Campo patrones_turnos_json:', patronesRaw);
+
+        if (patronesRaw) {
+            const patrones = JSON.parse(patronesRaw);
+            console.log('🧩 Patrones parseados:', patrones);
+
+            if (Array.isArray(patrones) && patrones.length > 0) {
+                document.getElementById('no-patrones-msg').style.display = 'none';
+                patrones.forEach(p => {
+                    console.log('➕ Añadiendo patrón existente:', p);
+                    addPatronCard(p.tipo, p);
+                });
+            }
+        }
+    } catch(e) { console.error("❌ Error cargando patrones", e); }
+}
+
+// ========================================
+// CONSTRUIR Y ENVIAR FORMULARIO
+// ========================================
+
+function buildAndSubmit() {
+    console.log('🚀 Construyendo y enviando formulario...');
+
+    try {
+        // 1. Construir JSON de Demanda
+        const demanda = {};
+        document.querySelectorAll('.demand-row').forEach(row => {
+            let turnoKey = "TURNO";
+            const label = row.dataset.turnoLabel.toUpperCase();
+            if (label.includes("MAÑANA") || label.includes("MANANA")) turnoKey = "MANANA";
+            else if (label.includes("TARDE")) turnoKey = "TARDE";
+            else if (label.includes("NOCHE")) turnoKey = "NOCHE";
+            else turnoKey = label.split(' ')[0];
+
+            demanda[turnoKey] = {
+                min: parseInt(row.querySelector('.demand-min').value) || 0,
+                optimo: parseInt(row.querySelector('.demand-opt').value) || 0,
+                max: parseInt(row.querySelector('.demand-max').value) || 0
+            };
+        });
+
+        if (Object.keys(demanda).length === 0) {
+            alert('⚠️ ERROR: Debes configurar al menos un turno con demanda');
+            return false;
+        }
+
+        document.getElementById('id_demanda_por_turno').value = JSON.stringify(demanda);
+        console.log('📊 Demanda:', demanda);
+
+        // 2. Construir JSON Restricciones Duras
+        const hard = [];
+        document.querySelectorAll('#hard-restrictions-list .restriction-card').forEach(card => {
+            const item = { nombre: card.dataset.id };
+            const params = {};
+            card.querySelectorAll('.param-value').forEach(input => {
+                let val = input.value;
+                if (input.type === 'number') val = parseInt(val);
+                params[input.dataset.name] = val;
+            });
+            if (Object.keys(params).length > 0) item.parametros = params;
+            hard.push(item);
+        });
+        document.getElementById('id_restricciones_duras').value = JSON.stringify(hard);
+        console.log('🛡️ Restricciones Duras:', hard);
+
+        // 3. Construir JSON Restricciones Blandas
+        const soft = [];
+        document.querySelectorAll('#soft-restrictions-list .restriction-card').forEach(card => {
+            const item = {
+                nombre: card.dataset.id,
+                peso: parseFloat(card.querySelector('.param-weight').value) || 10.0
+            };
+            const params = {};
+            card.querySelectorAll('.param-value').forEach(input => {
+                let val = input.value;
+                if (input.type === 'number') val = parseInt(val);
+                params[input.dataset.name] = val;
+            });
+            if (Object.keys(params).length > 0) item.parametros = params;
+            soft.push(item);
+        });
+        document.getElementById('id_restricciones_blandas').value = JSON.stringify(soft);
+        console.log('⚖️ Restricciones Blandas:', soft);
+
+        // 4. Construir JSON de Patrones
+        const patrones = [];
+        document.querySelectorAll('#patrones-list .patron-card').forEach(card => {
+            const tipo = card.dataset.type;
+            const esDura = card.querySelector('.patron-es-dura').value === 'true';
+            const peso = parseInt(card.querySelector('.patron-peso').value) || 100;
+
+            const configuracion = {};
+            card.querySelectorAll('.patron-field').forEach(input => {
+                const name = input.dataset.name;
+                let value;
+
+                if (input.type === 'checkbox') {
+                    value = input.checked;
+                } else if (input.type === 'number') {
+                    value = parseInt(input.value) || 0;
+                } else if (input.type === 'text' && name === 'secuencia') {
+                    value = input.value ? input.value.split(',').map(s => s.trim()).filter(s => s) : [];
+                } else if (input.type === 'text' && name === 'aplicar_dias') {
+                    const dias = input.value ? input.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+                    value = dias.length > 0 ? dias : null;
+                } else {
+                    value = input.value || '';
+                }
+
+                configuracion[name] = value;
+            });
+
+            patrones.push({
+                tipo: tipo,
+                es_restriccion_dura: esDura,
+                peso_penalizacion: peso,
+                configuracion: configuracion
+            });
+        });
+
+        const patronesField = document.getElementById('id_patrones_turnos_json');
+        if (!patronesField) {
+            console.error('❌ No se encontró el campo id_patrones_turnos_json');
+            alert('ERROR: Campo patrones_turnos_json no encontrado en el formulario');
+            return false;
+        }
+
+        patronesField.value = JSON.stringify(patrones);
+        console.log('🧩 Patrones:', patrones);
+
+        console.log('═══════════════════════════════════');
+        console.log('📦 RESUMEN DATOS A ENVIAR:');
+        console.log('Demanda:', JSON.stringify(demanda, null, 2));
+        console.log('Restricciones Duras:', JSON.stringify(hard, null, 2));
+        console.log('Restricciones Blandas:', JSON.stringify(soft, null, 2));
+        console.log('Patrones:', JSON.stringify(patrones, null, 2));
+        console.log('═══════════════════════════════════');
+
+        console.log('✅ Enviando formulario...');
+        document.getElementById('configForm').submit();
+
+    } catch (error) {
+        console.error('❌ ERROR AL CONSTRUIR FORMULARIO:', error);
+        alert('ERROR: ' + error.message + '\n\n⚠️ Abre la consola del navegador (F12) para ver más detalles');
+        return false;
+    }
+}
 </script>
 {% endblock %}

@@ -102,6 +102,17 @@ def format_number(value, decimals=0):
 
 
 @register.filter
+def replace_underscores(value):
+    """
+    Reemplaza guiones bajos por espacios
+    Uso: {{ "un_turno_por_dia"|replace_underscores }} → un turno por dia
+    """
+    if value:
+        return str(value).replace('_', ' ')
+    return value
+
+
+@register.filter
 def format_percentage(value, decimals=1):
     """
     Formatea un número como porcentaje
@@ -222,6 +233,17 @@ def time_ago(value):
 # ============================================
 # FILTROS DE CADENAS
 # ============================================
+
+@register.filter
+def replace(value, arg):
+    """
+    Reemplaza un substring en una cadena.
+    Uso: {{ "hola_mundo"|replace:"_, " }}
+    """
+    if isinstance(arg, str):
+        old, new = arg.split(',')
+        return value.replace(old, new)
+    return value
 
 @register.filter
 def truncate_chars_middle(value, length):
@@ -797,3 +819,36 @@ def multiply(value, arg):
         return float(value) * float(arg)
     except (ValueError, TypeError):
         return 0
+
+
+# ============================================
+# FILTRO PARA PATRONES DE TURNOS (JSON)
+# ============================================
+
+@register.filter(name='to_json')
+def to_json(value):
+    """
+    Convierte un valor Python a JSON válido para JavaScript.
+    Maneja listas, dicts, strings y None.
+    Uso: {{ form.patrones_turnos_json.value|to_json }}
+    """
+    if value is None or value == '':
+        return '[]'
+
+    # Si ya es un string, intentar parsearlo para validar
+    if isinstance(value, str):
+        try:
+            # Validar que sea JSON válido
+            parsed = json.loads(value)
+            # Devolver el string tal cual (ya es JSON válido)
+            return value
+        except json.JSONDecodeError:
+            # Si no es JSON válido, devolver lista vacía
+            return '[]'
+
+    # Si es lista o dict, convertir a JSON
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+
+    # Fallback
+    return '[]'
