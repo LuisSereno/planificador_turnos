@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from turnos.models import Configuracion
+from turnos.models import ConfiguracionPlanificacion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,12 +15,12 @@ class Command(BaseCommand):
         logger.info(f"Buscando configuración con ID: {config_id}")
         
         try:
-            config = Configuracion.objects.get(pk=config_id)
+            config = ConfiguracionPlanificacion.objects.get(pk=config_id)
             logger.info(f"Configuración encontrada: {config.nombre}")
             
             from turnos.generador import GeneradorTurnos
             generador = GeneradorTurnos(config)
-            resultado = generador.resolver()
+            resultado = generador.generar()
             
             if resultado.get('success'):
                 self.stdout.write(self.style.SUCCESS(f"Planificación completada para config ID {config_id}"))
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.ERROR(f"Error en planificación: {resultado.get('mensaje', '')}"))
                 
-        except Configuracion.DoesNotExist:
+        except ConfiguracionPlanificacion.DoesNotExist:
             self.stdout.write(self.style.ERROR(f"No se encontró configuración con ID {config_id}"))
         except Exception as e:
             logger.exception("Error durante la planificación")

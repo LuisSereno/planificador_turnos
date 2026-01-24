@@ -89,12 +89,14 @@ def ejecutar_planificacion_async(self, configuracion_id):
         generador = GeneradorTurnos(config)
 
         logger.info("Resolviendo planificación...")
-        resultado = generador.resolver()
+        resultado = generador.generar()
 
         logger.info(f"Resolución completada: {resultado.get('status')}")
         
         if not resultado.get('success'):
-            logger.error(f"Error en la resolución: {json.dumps(resultado, indent=2)}")
+            # Comprimir JSON para logs
+            error_json = json.dumps(resultado, separators=(',', ':'), ensure_ascii=False)
+            logger.error(f"Error en la resolución: {error_json}")
 
         # ══════════════════════════════════════════════════════════════
         # 5. PROCESAR RESULTADO Y GUARDAR
@@ -174,6 +176,17 @@ def ejecutar_planificacion_async(self, configuracion_id):
         duracion = ejecucion.duracion if ejecucion.duracion else 0
 
         logger.info(f"═══ Ejecución {ejecucion.id} completada en {duracion:.2f}s ═══")
+
+        # Log compressed result for AI analysis
+        result_log = {
+            'success': resultado.get('success', False),
+            'ejecucion_id': ejecucion.id,
+            'estado': ejecucion.estado,
+            'es_optima': ejecucion.es_optima,
+            'num_asignaciones': resultado.get('num_asignaciones', 0),
+            'validacion': resultado.get('validacion', {}),
+        }
+        logger.info(f"Resultado ejecución {ejecucion.id}: {json.dumps(result_log, separators=(',', ':'), ensure_ascii=False)}")
 
         return {
             'success': resultado.get('success', False),
@@ -293,7 +306,9 @@ def generar_reporte_estadisticas(mes, anio):
         ).count()
     }
 
-    logger.info(f"Reporte {mes}/{anio}: {json.dumps(stats, indent=2)}")
+    # Comprimir JSON para logs
+    stats_json = json.dumps(stats, separators=(',', ':'), ensure_ascii=False)
+    logger.info(f"Reporte {mes}/{anio}: {stats_json}")
 
     return stats
 

@@ -143,7 +143,7 @@ class ConfiguracionDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         # Log the full configuration details
-        logger.info(f"Configuración completa: {self.object.__dict__}")
+        logger.info(f"Configuración completa: {json.dumps(self.object.__dict__, default=str, separators=(',', ':'), ensure_ascii=False)}")
 
         # Ejecuciones recientes de esta configuración
         context['ejecuciones_recientes'] = self.object.ejecuciones.order_by('-fecha_inicio')[:5]
@@ -162,7 +162,7 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
         logger.info(
             f"Creating new configuration by user {self.request.user.username} ({self.request.user.id})"
         )
-        logger.debug(f"Form data: {form.cleaned_data}")
+        logger.debug(f"Form data: {json.dumps(form.cleaned_data, default=str, separators=(',', ':'), ensure_ascii=False)}")
 
         form.instance.creado_por = self.request.user
         try:
@@ -255,7 +255,7 @@ class ConfiguracionUpdateView(LoginRequiredMixin, OwnerRequiredMixin, FormMessag
             f"Updating configuration ID {self.object.id} by user {self.request.user.username} "
             f"({self.request.user.id})"
         )
-        logger.debug(f"Form changes: {form.changed_data}")
+        logger.debug(f"Form changes: {json.dumps(form.changed_data, default=str, separators=(',', ':'), ensure_ascii=False)}")
 
         try:
             response = super().form_valid(form)
@@ -377,14 +377,14 @@ class ConfiguracionWizardViewStepByStep(LoginRequiredMixin, SessionWizardView):
             "completing configuration wizard"
         )
         form_data = self.get_all_cleaned_data()
-        logger.debug(f"Form data processed: {form_data}")
+        logger.debug(f"Form data processed: {json.dumps(form_data, default=str, separators=(',', ':'), ensure_ascii=False)}")
 
         try:
             # Log each form step data
             for i, form in enumerate(form_list):
                 logger.debug(
                     f"Step {i+1} form data: "
-                    f"{form.cleaned_data if hasattr(form, 'cleaned_data') else 'No cleaned data'}"
+                    f"{json.dumps(form.cleaned_data, default=str, separators=(',', ':'), ensure_ascii=False) if hasattr(form, 'cleaned_data') else 'No cleaned data'}"
                 )
 
             # Los campos JSON ya han sido validados y procesados por los formularios
@@ -1959,7 +1959,7 @@ class ConfiguracionRestriccionesView(LoginRequiredMixin, TemplateView):
 
                         elif preset == 'custom' and 'json_data' in form.cleaned_data:
                             data = form.cleaned_data['json_data']
-                            logger.debug(f"Cargando restricciones desde JSON: {data}")
+                            logger.debug(f"Cargando restricciones desde JSON: {json.dumps(data, separators=(',', ':'), ensure_ascii=False)}")
                             if 'restricciones_duras' in data:
                                 config.restricciones_duras = data['restricciones_duras']
                                 logger.info(f"Restricciones duras actualizadas desde JSON para config {config_id}.")
