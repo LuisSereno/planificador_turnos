@@ -48,6 +48,8 @@ class AplicadorPatronesPersonalizados:
                     self._aplicar_patron_distribucion_equitativa(config, es_dura, peso, nombre)
                 elif tipo == 'ROTACION_TURNOS':
                     self._aplicar_patron_rotacion_turnos(config, es_dura, peso, nombre)
+                elif tipo == 'MAX_CONSECUTIVOS':
+                    self._aplicar_patron_max_consecutivos(config, es_dura, peso, nombre)
                 else:
                     logger.warning(f"  ⚠️ Tipo de patrón desconocido: {tipo}")
 
@@ -232,3 +234,37 @@ class AplicadorPatronesPersonalizados:
 
         logger.info(
             f"    ✓ Aplicado: Rotación de {len(indices_turnos)} turnos cada {ventana_dias} días ({restricciones_aplicadas} restricciones)")
+
+    def _aplicar_patron_max_consecutivos(self, config, es_dura, peso, nombre):
+        """Patrón: Máximo N turnos consecutivos de un tipo."""
+        turno_tipo = config.get('turno_tipo')
+        max_consecutivos = config.get('max_consecutivos', 2)
+
+        if not turno_tipo:
+            logger.warning(f"  ⚠️ Patrón {nombre}: falta turno_tipo")
+            return
+
+        idx_turno = self.turnos_map.get(turno_tipo)
+        if idx_turno is None:
+            logger.warning(f"  ⚠️ Patrón {nombre}: turno '{turno_tipo}' no encontrado")
+            return
+
+        restricciones_aplicadas = 0
+        ventana = max_consecutivos + 1
+
+        for e in range(self.num_enfermeras):
+            for d in range(self.num_dias - ventana + 1):
+                turnos_en_ventana = [self.shifts[e, d + offset, idx_turno] for offset in range(ventana)]
+
+                if es_dura:
+                    self.model.Add(sum(turnos_en_ventana) <= max_consecutivos)
+                else:
+                    violacion = self.model.NewBoolVar(f'violacion_{nombre}_e{e}_d{d}')
+                    self.model.Add(sum(turnos_en_ventana) > max_consecutivos).OnlyEnforceIf(violacion)
+                    self.model.Add(sum(turnos_en_ventana) <= max_consecutivos).OnlyEnforceIf(violacion.Not())
+                    self.patrones_penalties.append((violacion, peso, f'{nombre}_e{e}_d{d}'))
+
+                restricciones_aplicadas += 1
+
+        logger.info(
+            f"    ✓ Aplicado: Máximo {max_consecutivos} turnos consecutivos de {turno_tipo} ({restricciones_aplicadas} restricciones)")

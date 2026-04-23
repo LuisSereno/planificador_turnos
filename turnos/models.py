@@ -351,6 +351,7 @@ class Ejecucion(models.Model):
         ('PENDIENTE', _('Pendiente')),
         ('PROCESANDO', _('Procesando')),
         ('COMPLETADA', _('Completada')),
+        ('INVIABLE', _('Inviable')),
         ('ERROR', _('Error')),
     ]
 
@@ -457,6 +458,18 @@ class AsignacionTurno(models.Model):
     )
     es_dia_libre = models.BooleanField(_('Es día libre'), default=False)
     observaciones = models.TextField(_('Observaciones'), blank=True)
+    
+    # Nuevo campo para tipo explícito de celda
+    TIPO_CELDA_CHOICES = [
+        ('TURNO', 'Turno normal'),
+        ('LIBRE', 'Día libre'),
+        ('VACACIONES', 'Vacaciones'),
+        ('PERMISO', 'Permiso'),
+        ('BAJA', 'Baja médica'),
+        ('FORMACION', 'Formación'),
+        ('ASIGNACION_FIJA', 'Asignación fija'),
+    ]
+    tipo_celda = models.CharField(_('Tipo de celda'), max_length=20, choices=TIPO_CELDA_CHOICES, default='TURNO')
 
     class Meta:
         verbose_name = _('Asignación de Turno')
@@ -465,6 +478,208 @@ class AsignacionTurno(models.Model):
         unique_together = ['planilla', 'enfermera', 'fecha']
 
     def __str__(self):
-        if self.es_dia_libre:
+        if self.es_dia_libre or self.tipo_celda == 'LIBRE':
             return f"{self.enfermera.nombre} - {self.fecha} - Libre"
         return f"{self.enfermera.nombre} - {self.fecha} - {self.turno}"
+
+
+# ============================================================================
+# NUEVOS MODELOS DE DOMINIO PARA PLANIFICACIÓN AVANZADA
+# ============================================================================
+
+class ContratoEnfermera(models.Model):
+    """Define el régimen horario de una enfermera"""
+    enfermera = models.OneToOneField(
+        Enfermera, 
+        on_delete=models.CASCADE, 
+        related_name='contrato'
+    )
+    horas_semana_objetivo = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=40.0,
+        verbose_name=_('Horas semana objetivo')
+    )
+    horas_anuales_objetivo = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2, 
+        default=1800.0,
+        verbose_name=_('Horas anuales objetivo')
+    )
+    porcentaje_jornada = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=100.0,
+        help_text="100 = jornada completa, 50 = media jornada",
+        verbose_name=_('Porcentaje jornada')
+    )
+    fecha_inicio_vigencia = models.DateField(_('Fecha inicio vigencia'))
+    fecha_fin_vigencia = models.DateField(_('Fecha fin vigencia'), null=True, blank=True)
+    
+    class Meta:
+        verbose_name = _('Contrato de Enfermera')
+        verbose_name_plural = _('Contratos de Enfermera')
+    
+    def __str__(self):
+        return f"Contrato de {self.enfermera.nombre} ({self.porcentaje_jornada}%)"
+
+
+class RotacionBase(models.Model):
+    """Ciclo explícito de turnos que se repite"""
+    nombre = models.CharField(_('Nombre'), max_length=200)
+    descripcion = models.TextField(_('Descripción'), blank=True)
+    ciclo_dias = models.IntegerField(
+        help_text="Duración del ciclo en días",
+        verbose_name=_('Ciclo días')
+    )
+    workspace = models.ForeignKey(
+        Workspace, 
+        on_delete=models.CASCADE, 
+        related_name='rotaciones',
+        null=True,
+        blank=True
+    )
+    
+    class Meta:
+        verbose_name = _('Rotación Base')
+        verbose_name_plural = _('Rotaciones Base')
+    
+    def __str__(self):
+        return f"{self.nombre} ({self.ciclo_dias} días)"
+
+
+class CeldaRotacion(models.Model):
+    """Una celda dentro de un ciclo de rotación"""
+    rotacion = models.ForeignKey(
+        RotacionBase, 
+        on_delete=models.CASCADE, 
+        related_name='celdas'
+    )
+    orden = models.IntegerField(
+        help_text="Posición dentro del ciclo (0-based)",
+        verbose_name=_('Orden')
+    )
+    turno = models.ForeignKey(
+        TipoTurno, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        verbose_name=_('Turno')
+    )
+    # Si turno es null, representa día libre
+    es_libre = models.BooleanField(_('Es libre'), default=False)
+    
+    class Meta:
+        ordering = ['orden']
+        unique_together = ['rotacion', 'orden']
+        verbose_name = _('Celda de Rotación')
+        verbose_name_plural = _('Celdas de Rotación')
+    
+    def __str__(self):
+        turno_str = self.turno.nombre if self.turno else 'LIBRE'
+        return f"{self.rotacion.nombre} - Día {self.orden}: {turno_str}"
+
+
+class AsignacionRotacionEnfermera(models.Model):
+    """Asigna una rotación a una enfermera con desfase"""
+    enfermera = models.ForeignKey(
+        Enfermera, 
+        on_delete=models.CASCADE, 
+        related_name='asignaciones_rotacion'
+    )
+    rotacion = models.ForeignKey(
+        RotacionBase, 
+        on_delete=models.CASCADE
+    )
+    desfase = models.IntegerField(
+        default=0, 
+        help_text="Desplazamiento en días dentro del ciclo",
+        verbose_name=_('Desfase')
+    )
+    fecha_inicio = models.DateField(_('Fecha inicio'))
+    fecha_fin = models.DateField(_('Fecha fin'), null=True, blank=True)
+    
+    class Meta:
+        verbose_name = _('Asignación de Rotación')
+        verbose_name_plural = _('Asignaciones de Rotación')
+    
+    def __str__(self):
+        return f"{self.enfermera.nombre} → {self.rotacion.nombre} (desfase: {self.desfase})"
+
+
+class Incidencia(models.Model):
+    """Eventos que modifican la planificación normal"""
+    TIPO_CHOICES = [
+        ('VACACIONES', 'Vacaciones'),
+        ('PERMISO', 'Permiso'),
+        ('BAJA', 'Baja médica'),
+        ('FORMACION', 'Formación'),
+        ('LIBRANZA_BLOQUEADA', 'Libranza bloqueada'),
+        ('ASIGNACION_FIJA', 'Asignación fija'),
+    ]
+    
+    enfermera = models.ForeignKey(
+        Enfermera, 
+        on_delete=models.CASCADE, 
+        related_name='incidencias'
+    )
+    tipo = models.CharField(_('Tipo'), max_length=30, choices=TIPO_CHOICES)
+    fecha_inicio = models.DateField(_('Fecha inicio'))
+    fecha_fin = models.DateField(_('Fecha fin'))
+    turno_fijo = models.ForeignKey(
+        TipoTurno, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Para ASIGNACION_FIJA, qué turno asignar",
+        verbose_name=_('Turno fijo')
+    )
+    observaciones = models.TextField(_('Observaciones'), blank=True)
+    
+    class Meta:
+        verbose_name = _('Incidencia')
+        verbose_name_plural = _('Incidencias')
+        ordering = ['fecha_inicio']
+    
+    def __str__(self):
+        return f"{self.enfermera.nombre} - {self.get_tipo_display()} ({self.fecha_inicio} a {self.fecha_fin})"
+
+
+class BalanceHistoricoEnfermera(models.Model):
+    """Acumulados históricos de una enfermera para planificación contextual"""
+    enfermera = models.OneToOneField(
+        Enfermera, 
+        on_delete=models.CASCADE, 
+        related_name='balance_historico'
+    )
+    periodo_referencia = models.CharField(
+        max_length=20, 
+        help_text="Año o rango: '2025', '2025-H1'",
+        verbose_name=_('Periodo referencia')
+    )
+    horas_acumuladas_previas = models.DecimalField(
+        max_digits=7, 
+        decimal_places=2, 
+        default=0,
+        verbose_name=_('Horas acumuladas previas')
+    )
+    noches_acumuladas = models.IntegerField(default=0, verbose_name=_('Noches acumuladas'))
+    fines_semana_acumulados = models.IntegerField(default=0, verbose_name=_('Fines de semana acumulados'))
+    festivos_acumulados = models.IntegerField(default=0, verbose_name=_('Festivos acumulados'))
+    ultimo_turno_fecha = models.DateField(_('Último turno fecha'), null=True, blank=True)
+    ultimo_turno_tipo = models.ForeignKey(
+        TipoTurno, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_('Último turno tipo')
+    )
+    fecha_actualizacion = models.DateTimeField(_('Fecha actualización'), auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Balance Histórico')
+        verbose_name_plural = _('Balances Históricos')
+        unique_together = ['enfermera', 'periodo_referencia']
+    
+    def __str__(self):
+        return f"Balance {self.enfermera.nombre} - {self.periodo_referencia}"

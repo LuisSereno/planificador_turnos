@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Módulo para aplicar restricciones blandas al modelo de optimización."""
 import logging
+from .dominio.normalizacion import normalizar_nombre
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,8 @@ class AplicadorRestriccionesBlandas:
         penalties = []
         id_map = {r.get('id'): r for r in self.rb}
 
-        if 'RB001' in id_map or any(r.get('nombre') == 'equidadturnos' for r in self.rb):
-            peso = next((r.get('peso', 10) for r in self.rb if r.get('nombre') == 'equidadturnos'), 10)
+        if 'RB001' in id_map or any(normalizar_nombre(r.get('nombre', '')) == 'EQUIDAD_TURNOS' for r in self.rb):
+            peso = next((r.get('peso', 10) for r in self.rb if normalizar_nombre(r.get('nombre', '')) == 'EQUIDAD_TURNOS'), 10)
 
             contadores_por_enfermera = []
             for e in range(self.num_enfermeras):
@@ -79,9 +80,9 @@ class AplicadorRestriccionesBlandas:
         idx_N = self.turnos_map.get('NOCHE')
         id_map = {r.get('id'): r for r in self.rb}
 
-        if 'RB002' in id_map or any(r.get('nombre') == 'minimizarnoches' for r in self.rb):
+        if 'RB002' in id_map or any(normalizar_nombre(r.get('nombre', '')) == 'MINIMIZAR_NOCHES' for r in self.rb):
             if idx_N is not None:
-                peso = next((r.get('peso', 6) for r in self.rb if r.get('nombre') == 'minimizarnoches'), 6)
+                peso = next((r.get('peso', 6) for r in self.rb if normalizar_nombre(r.get('nombre', '')) == 'MINIMIZAR_NOCHES'), 6)
 
                 total_noches = self.model.NewIntVar(0, self.num_enfermeras * self.num_dias, 'total_noches')
                 self.model.Add(total_noches == sum(

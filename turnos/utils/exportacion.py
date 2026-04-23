@@ -119,11 +119,11 @@ def _traducir_modelo_a_diccionario_HORIZONTAL(ejecucion):
     for asignacion in asignaciones:
         fechas_del_periodo.add(asignacion.fecha)
 
-        if asignacion.turno:
-            if not asignacion.es_dia_libre:
-                datos_horizontales[asignacion.enfermera.id][asignacion.fecha] = asignacion.turno.nombre
-            else:
-                datos_horizontales[asignacion.enfermera.id][asignacion.fecha] = 'LIBRE'
+        # Corregido: LIBRE cuando es_dia_libre O cuando turno es null
+        if asignacion.es_dia_libre or not asignacion.turno:
+            datos_horizontales[asignacion.enfermera.id][asignacion.fecha] = 'LIBRE'
+        else:
+            datos_horizontales[asignacion.enfermera.id][asignacion.fecha] = asignacion.turno.nombre
 
     return dict(datos_horizontales), sorted(list(fechas_del_periodo))
 

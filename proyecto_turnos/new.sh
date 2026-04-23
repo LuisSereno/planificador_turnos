@@ -1,0 +1,1 @@
+celery -A proyecto_turnos worker -l info

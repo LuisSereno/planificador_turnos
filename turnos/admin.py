@@ -7,7 +7,9 @@ from django.urls import reverse
 from django import forms
 from .models import (
     Workspace, Enfermera, TipoTurno, ConfiguracionPlanificacion,
-    Ejecucion, Planilla, AsignacionTurno, PatronTurnos, TipoPatron
+    Ejecucion, Planilla, AsignacionTurno, PatronTurnos, TipoPatron,
+    ContratoEnfermera, RotacionBase, CeldaRotacion, AsignacionRotacionEnfermera,
+    Incidencia, BalanceHistoricoEnfermera,
 )
 
 
@@ -280,3 +282,158 @@ class EnfermeraAdmin(admin.ModelAdmin):
 admin.site.site_header = "Sistema de Planificación de Turnos"
 admin.site.site_title = "Administración de Turnos"
 admin.site.index_title = "Panel de Administración"
+
+
+# ============================================================================
+# ADMIN PARA NUEVOS MODELOS DE DOMINIO
+# ============================================================================
+
+
+class CeldaRotacionInline(admin.TabularInline):
+    """Inline para editar celdas de rotación dentro de RotacionBase"""
+    model = CeldaRotacion
+    extra = 1
+    ordering = ['orden']
+
+
+@admin.register(RotacionBase)
+class RotacionBaseAdmin(admin.ModelAdmin):
+    """Administración de rotaciones base"""
+    list_display = ['nombre', 'ciclo_dias', 'workspace', 'descripcion_corta']
+    list_filter = ['workspace']
+    search_fields = ['nombre', 'descripcion']
+    inlines = [CeldaRotacionInline]
+    
+    fieldsets = (
+        ('Información de Rotación', {
+            'fields': ('nombre', 'descripcion', 'workspace')
+        }),
+        ('Configuración del Ciclo', {
+            'fields': ('ciclo_dias',)
+        }),
+    )
+    
+    def descripcion_corta(self, obj):
+        if obj.descripcion:
+            return obj.descripcion[:50] + '...' if len(obj.descripcion) > 50 else obj.descripcion
+        return '-'
+    descripcion_corta.short_description = 'Descripción'
+
+
+@admin.register(AsignacionRotacionEnfermera)
+class AsignacionRotacionEnfermeraAdmin(admin.ModelAdmin):
+    """Administración de asignaciones de rotación a enfermeras"""
+    list_display = ['enfermera', 'rotacion', 'desfase', 'fecha_inicio', 'fecha_fin', 'activa']
+    list_filter = ['rotacion', 'fecha_inicio']
+    search_fields = ['enfermera__nombre', 'rotacion__nombre']
+    date_hierarchy = 'fecha_inicio'
+    
+    fieldsets = (
+        ('Asignación', {
+            'fields': ('enfermera', 'rotacion', 'desfase')
+        }),
+        ('Vigencia', {
+            'fields': ('fecha_inicio', 'fecha_fin')
+        }),
+    )
+    
+    def activa(self, obj):
+        from django.utils import timezone
+        if not obj.fecha_fin:
+            return True
+        return obj.fecha_fin >= timezone.now().date()
+    activa.boolean = True
+    activa.short_description = 'Activa'
+
+
+@admin.register(ContratoEnfermera)
+class ContratoEnfermeraAdmin(admin.ModelAdmin):
+    """Administración de contratos de enfermeras"""
+    list_display = ['enfermera', 'horas_semana_objetivo', 'horas_anuales_objetivo', 'porcentaje_jornada', 'vigente']
+    list_filter = ['porcentaje_jornada', 'fecha_inicio_vigencia']
+    search_fields = ['enfermera__nombre', 'enfermera__email']
+    
+    fieldsets = (
+        ('Enfermera', {
+            'fields': ('enfermera',)
+        }),
+        ('Horas Objetivo', {
+            'fields': ('horas_semana_objetivo', 'horas_anuales_objetivo', 'porcentaje_jornada')
+        }),
+        ('Vigencia', {
+            'fields': ('fecha_inicio_vigencia', 'fecha_fin_vigencia')
+        }),
+    )
+    
+    def vigente(self, obj):
+        from django.utils import timezone
+        if not obj.fecha_fin_vigencia:
+            return True
+        return obj.fecha_fin_vigencia >= timezone.now().date()
+    vigente.boolean = True
+    vigente.short_description = 'Vigente'
+
+
+@admin.register(Incidencia)
+class IncidenciaAdmin(admin.ModelAdmin):
+    """Administración de incidencias"""
+    list_display = ['enfermera', 'tipo', 'fecha_inicio', 'fecha_fin', 'duracion_dias', 'tiene_turno_fijo']
+    list_filter = ['tipo', 'fecha_inicio']
+    search_fields = ['enfermera__nombre', 'observaciones']
+    date_hierarchy = 'fecha_inicio'
+    
+    fieldsets = (
+        ('Incidencia', {
+            'fields': ('enfermera', 'tipo', 'observaciones')
+        }),
+        ('Período', {
+            'fields': ('fecha_inicio', 'fecha_fin')
+        }),
+        ('Asignación Fija', {
+            'fields': ('turno_fijo',),
+            'classes': ('collapse',),
+            'description': 'Solo para tipo ASIGNACION_FIJA'
+        }),
+    )
+    
+    def duracion_dias(self, obj):
+        return (obj.fecha_fin - obj.fecha_inicio).days + 1
+    duracion_dias.short_description = 'Duración (días)'
+    
+    def tiene_turno_fijo(self, obj):
+        return '✓' if obj.turno_fijo else '-'
+    tiene_turno_fijo.short_description = 'Turno Fijo'
+
+
+@admin.register(BalanceHistoricoEnfermera)
+class BalanceHistoricoEnfermeraAdmin(admin.ModelAdmin):
+    """Administración de balances históricos"""
+    list_display = [
+        'enfermera', 
+        'periodo_referencia', 
+        'horas_acumuladas_previas',
+        'noches_acumuladas',
+        'fines_semana_acumulados',
+        'festivos_acumulados',
+        'fecha_actualizacion',
+    ]
+    list_filter = ['periodo_referencia', 'fecha_actualizacion']
+    search_fields = ['enfermera__nombre']
+    
+    fieldsets = (
+        ('Enfermera y Período', {
+            'fields': ('enfermera', 'periodo_referencia')
+        }),
+        ('Horas Acumuladas', {
+            'fields': ('horas_acumuladas_previas',)
+        }),
+        ('Distribución de Turnos', {
+            'fields': ('noches_acumuladas', 'fines_semana_acumulados', 'festivos_acumulados')
+        }),
+        ('Último Turno', {
+            'fields': ('ultimo_turno_fecha', 'ultimo_turno_tipo'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    readonly_fields = ['fecha_actualizacion']

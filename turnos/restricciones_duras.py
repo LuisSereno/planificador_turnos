@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Módulo para aplicar restricciones duras al modelo de optimización."""
 import logging
+from datetime import timedelta, datetime
+from .dominio.normalizacion import normalizar_nombre
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class AplicadorRestriccionesDuras:
         """RD006: Descanso mínimo de 12 horas entre turnos."""
         restricciones = 0
 
+        # 1. Prohibir más de un turno por día (ya existente)
         for e in range(self.num_enfermeras):
             for d in range(self.num_dias):
                 for t1 in range(len(self.turnos)):
@@ -51,21 +54,33 @@ class AplicadorRestriccionesDuras:
                         self.model.Add(self.shifts[e, d, t1] + self.shifts[e, d, t2] <= 1)
                         restricciones += 1
 
-        idx_noche = self.turnos_map.get('NOCHE')
-        idx_manana = self.turnos_map.get('MANANA')
-        idx_tarde = self.turnos_map.get('TARDE')
-
-        if idx_noche is not None and idx_manana is not None:
-            for e in range(self.num_enfermeras):
-                for d in range(self.num_dias - 1):
-                    self.model.Add(self.shifts[e, d, idx_noche] + self.shifts[e, d + 1, idx_manana] <= 1)
-                    restricciones += 1
-
-        if idx_tarde is not None and idx_manana is not None:
-            for e in range(self.num_enfermeras):
-                for d in range(self.num_dias - 1):
-                    self.model.Add(self.shifts[e, d, idx_tarde] + self.shifts[e, d + 1, idx_manana] <= 1)
-                    restricciones += 1
+        # 2. Prohibir secuencias que violen el descanso de 12h entre días consecutivos
+        # Iteramos sobre todos los pares de turnos posibles
+        for t1_idx, t1 in enumerate(self.turnos):
+            for t2_idx, t2 in enumerate(self.turnos):
+                # Calculamos el fin del turno 1 y el inicio del turno 2
+                # Asumimos que t1 es en el día D y t2 es en el día D+1
+                
+                # Fin de t1: si termina al día siguiente (hora_fin < hora_inicio), sumamos 24h
+                fin_t1 = t1.hora_fin.hour + t1.hora_fin.minute / 60.0
+                inicio_t1 = t1.hora_inicio.hour + t1.hora_inicio.minute / 60.0
+                
+                if fin_t1 <= inicio_t1:
+                    fin_t1 += 24  # Termina al día siguiente
+                
+                # Inicio de t2 (en el día siguiente, así que sumamos 24h a su hora base)
+                inicio_t2 = t2.hora_inicio.hour + t2.hora_inicio.minute / 60.0 + 24
+                
+                # Diferencia en horas
+                horas_descanso = inicio_t2 - fin_t1
+                
+                # Si el descanso es menor a 12 horas, prohibimos la secuencia
+                if horas_descanso < 12:
+                    logger.info(f"  - Prohibiendo secuencia {t1.nombre} (Día D) -> {t2.nombre} (Día D+1): Solo {horas_descanso:.1f}h descanso")
+                    for e in range(self.num_enfermeras):
+                        for d in range(self.num_dias - 1):
+                            self.model.Add(self.shifts[e, d, t1_idx] + self.shifts[e, d + 1, t2_idx] <= 1)
+                            restricciones += 1
 
         logger.info(f"✓ RD006 Descanso 12h - {restricciones} restricciones aplicadas")
 
@@ -124,7 +139,7 @@ class AplicadorRestriccionesDuras:
 
     def aplicar_max_turnos_consecutivos(self):
         """Aplica límite de turnos consecutivos."""
-        restriccion_max_consec = next((r for r in self.rd if r.get('nombre') == 'turnosconsecutivosmax'), None)
+        restriccion_max_consec = next((r for r in self.rd if normalizar_nombre(r.get('nombre', '')) == 'TURNO_CONSECUTIVOS_MAX'), None)
         if restriccion_max_consec:
             max_consecutivos = restriccion_max_consec.get('parametros', {}).get('max', 5)
             ventana = max_consecutivos + 1

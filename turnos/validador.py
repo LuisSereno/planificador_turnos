@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from collections import defaultdict
+from .dominio.normalizacion import normalizar_nombre
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ class ValidadorRestricciones:
             rd = list(rd.values())
 
         for r in rd:
-            if isinstance(r, dict) and r.get('nombre') == 'turnosconsecutivosmax':
+            if isinstance(r, dict) and normalizar_nombre(r.get('nombre', '')) == 'TURNO_CONSECUTIVOS_MAX':
                 restriccion_max_consec = r
                 break
 

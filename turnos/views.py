@@ -169,7 +169,7 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
             response = super().form_valid(form)
 
             # Procesar patrones JSON
-            patrones_json = form.cleaned_data.get('patrones_turnos', '')
+            patrones_json = form.cleaned_data.get('patrones_turnos_json', '')
             if patrones_json:
                 self._procesar_patrones(self.object, patrones_json)
 

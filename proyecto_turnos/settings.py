@@ -61,7 +61,7 @@ WSGI_APPLICATION = 'proyecto_turnos.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': r'C:\Users\luiss\OneDrive\Documents\planificador_turnos\db.sqlite3',  # Ruta ABSOLUTA
+        'NAME': BASE_DIR / 'db.sqlite3',
         'OPTIONS': {
             'timeout': 20,  # Timeout para evitar locks
         }
@@ -125,8 +125,8 @@ SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')
 MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'False') == 'True'
 
 # Celery Configuration (al final del archivo)
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 
 # SerializaciÃ³n (Celery 5.x)
 CELERY_ACCEPT_CONTENT = ['json']

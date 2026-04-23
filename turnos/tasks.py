@@ -8,6 +8,8 @@ from django.utils import timezone
 from django.db import transaction
 import logging
 import json
+from datetime import date, timedelta
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -328,4 +330,293 @@ def test_db_connection():
       for id, nombre in ids:
           logger.info(f"  - ID {id}: {nombre}")
 
-  return {'total': total, 'db_path': settings.DATABASES['default']['NAME']}
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def ejecutar_planificacion_motor_async(self, configuracion_id):
+    """
+    Ejecuta la planificación usando el NUEVO MOTOR de planificación.
+    
+    Este es el reemplazo del generador antiguo, usando el pipeline de 5 fases:
+    1. Rotación base determinista
+    2. Aplicación de incidencias
+    3. Análisis de cobertura
+    4. Reparación CP-SAT
+    5. Validación final
+    
+    Args:
+        configuracion_id: ID de ConfiguracionPlanificacion
+        
+    Returns:
+        dict: Resultado con success, ejecucion_id y datos
+    """
+    from turnos.models import (
+        ConfiguracionPlanificacion, 
+        Ejecucion, 
+        Planilla, 
+        AsignacionTurno,
+        Enfermera,
+        TipoTurno,
+        RotacionBase,
+        AsignacionRotacionEnfermera,
+        Incidencia,
+    )
+    from turnos.dominio.dtos import (
+        RotacionCiclo,
+        TurnoInfo,
+        Incidencia as DTOIncidencia,
+        TipoIncidencia,
+    )
+    from turnos.motor.pipeline import PipelinePlanificacion
+    
+    ejecucion = None
+    
+    try:
+        logger.info(f"═══ [NUEVO MOTOR] Iniciando planificación para config ID: {configuracion_id} ═══")
+        
+        # 1. Obtener configuración
+        try:
+            config = ConfiguracionPlanificacion.objects.select_related('creado_por').get(pk=configuracion_id)
+        except ConfiguracionPlanificacion.DoesNotExist:
+            logger.error(f"Configuración {configuracion_id} no existe")
+            return {
+                'success': False,
+                'error': f'Configuración {configuracion_id} no encontrada'
+            }
+        
+        # 2. Crear ejecución
+        with transaction.atomic():
+            ejecucion = Ejecucion.objects.create(
+                configuracion=config,
+                estado='PROCESANDO'
+            )
+            logger.info(f"✓ Ejecución {ejecucion.id} creada")
+        
+        # 3. Preparar datos para el motor
+        # Fechas del período
+        fechas = [
+            config.fecha_inicio + timedelta(days=i) 
+            for i in range(config.num_dias)
+        ]
+        
+        # Enfermeras del workspace
+        enfermeras = {
+            e.id: e.nombre 
+            for e in Enfermera.objects.filter(workspace=config.workspace, activa=True)
+        }
+        
+        # Turnos
+        turnos_info = {
+            t.id: TurnoInfo(
+                id=t.id,
+                nombre=t.nombre,
+                hora_inicio=t.hora_inicio,
+                hora_fin=t.hora_fin,
+                duracion_horas=t.duracion_horas,
+                es_nocturno=t.es_nocturno,
+            )
+            for t in TipoTurno.objects.filter(workspace=config.workspace)
+        }
+        
+        # Rotaciones (usar rotaciones configuradas o crear una por defecto)
+        asignaciones_rotacion = {}
+        desfases = {}
+        
+        rotaciones_db = AsignacionRotacionEnfermera.objects.filter(
+            enfermera_id__in=enfermeras.keys()
+        ).select_related('rotacion')
+        
+        for asignacion in rotaciones_db:
+            # Convertir rotación DB a DTO
+            celdas = [
+                celda.turno if not celda.es_libre else None
+                for celda in asignacion.rotacion.celdas.order_by('orden')
+            ]
+            
+            rotacion_dto = RotacionCiclo(
+                nombre=asignacion.rotacion.nombre,
+                ciclo_dias=asignacion.rotacion.ciclo_dias,
+                celdas=[
+                    TurnoInfo(
+                        id=t.id,
+                        nombre=t.nombre,
+                        hora_inicio=t.hora_inicio,
+                        hora_fin=t.hora_fin,
+                        duracion_horas=t.duracion_horas,
+                        es_nocturno=t.es_nocturno,
+                    ) if t else None
+                    for t in celdas if t is not None or True  # Incluir None para libres
+                ],
+            )
+            
+            asignaciones_rotacion[asignacion.enfermera_id] = rotacion_dto
+            desfases[asignacion.enfermera_id] = asignacion.desfase
+        
+        # Si no hay rotaciones configuradas, crear una por defecto
+        if not asignaciones_rotacion:
+            logger.warning("No hay rotaciones configuradas, usando rotación por defecto 2M-2T-2N-2L")
+            
+            # Crear rotación default con primeros 4 turnos
+            turnos_lista = list(turnos_info.values())[:4]
+            ciclo_default = []
+            for t in turnos_lista:
+                ciclo_default.extend([t, t])  # 2 días de cada turno
+            ciclo_default.extend([None, None])  # 2 días libres
+            
+            rotacion_default = RotacionCiclo(
+                nombre='Rotación Default 2M-2T-2N-2L',
+                ciclo_dias=8,
+                celdas=ciclo_default,
+            )
+            
+            for enf_id in enfermeras:
+                asignaciones_rotacion[enf_id] = rotacion_default
+                desfases[enf_id] = 0
+        
+        # Incidencias
+        incidencias_db = Incidencia.objects.filter(
+            enfermera_id__in=enfermeras.keys()
+        )
+        
+        incidencias_list = []
+        for inc_db in incidencias_db:
+            tipo_map = {
+                'VACACIONES': TipoIncidencia.VACACIONES,
+                'PERMISO': TipoIncidencia.PERMISO,
+                'BAJA': TipoIncidencia.BAJA,
+                'FORMACION': TipoIncidencia.FORMACION,
+                'LIBRANZA_BLOQUEADA': TipoIncidencia.LIBRANZA_BLOQUEADA,
+                'ASIGNACION_FIJA': TipoIncidencia.ASIGNACION_FIJA,
+            }
+            
+            incidencias_list.append(DTOIncidencia(
+                enfermera_id=inc_db.enfermera_id,
+                tipo=tipo_map.get(inc_db.tipo, TipoIncidencia.PERMISO),
+                fecha_inicio=inc_db.fecha_inicio,
+                fecha_fin=inc_db.fecha_fin,
+                turno_fijo_id=inc_db.turno_fijo_id,
+                observaciones=inc_db.observaciones,
+            ))
+        
+        # Configuración de restricciones
+        configuracion_restricciones = {}
+        if config.restricciones_duras:
+            for r in config.restricciones_duras:
+                if isinstance(r, dict):
+                    configuracion_restricciones[r.get('nombre', '')] = r.get('valor', {})
+        
+        # 4. Ejecutar pipeline
+        logger.info("Ejecutando pipeline de planificación...")
+        
+        pipeline = PipelinePlanificacion(
+            fechas=fechas,
+            enfermeras=enfermeras,
+            asignaciones_rotacion=asignaciones_rotacion,
+            desfases=desfases,
+            turnos_info=turnos_info,
+            incidencias_list=incidencias_list if incidencias_list else None,
+            horas_objetivo_enfermeras=None,  # TODO: Obtener de contratos
+            restricciones_duras=config.restricciones_duras or [],
+            objetivos=config.restricciones_blandas or [],
+        )
+        
+        resultado = pipeline.ejecutar()
+        
+        # 5. Procesar resultado
+        with transaction.atomic():
+            ejecucion.estado = 'COMPLETADA' if resultado.exito else 'INVIABLE'
+            ejecucion.fecha_fin = timezone.now()
+            ejecucion.es_optima = not resultado.violaciones
+            ejecucion.resultado = {
+                'violaciones': resultado.violaciones,
+                'warnings': resultado.warnings,
+                'balances': {
+                    str(k): {
+                        'horas_asignadas': v.horas_asignadas,
+                        'noches_asignadas': v.noches_asignadas,
+                        'fines_semana_asignados': v.fines_semana_asignados,
+                    }
+                    for k, v in resultado.balances.items()
+                },
+            }
+            ejecucion.save()
+            
+            # Crear planilla si fue exitoso
+            if resultado.exito:
+                fecha_inicio = config.fecha_inicio
+                fecha_fin = fecha_inicio + timedelta(days=config.num_dias - 1)
+                
+                planilla = Planilla.objects.create(
+                    nombre=f"Planificación {config.nombre} - {fecha_inicio.strftime('%d/%m/%Y')}",
+                    descripcion=f"Generada con NUEVO MOTOR el {timezone.now().strftime('%d/%m/%Y %H:%M')}",
+                    ejecucion=ejecucion,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    num_dias=config.num_dias,
+                )
+                
+                # Crear asignaciones desde la matriz
+                asignaciones_bulk = []
+                for enf_id, celdas_enfermera in resultado.matriz.celdas.items():
+                    enfermera = Enfermera.objects.get(pk=enf_id)
+                    
+                    for fecha, celda in celdas_enfermera.items():
+                        turno = None
+                        es_libre = celda.es_libre or celda.tipo_celda == 'LIBRE'
+                        
+                        if celda.turno_id:
+                            turno = TipoTurno.objects.get(pk=celda.turno_id)
+                        
+                        asignaciones_bulk.append(
+                            AsignacionTurno(
+                                planilla=planilla,
+                                enfermera=enfermera,
+                                fecha=fecha,
+                                turno=turno,
+                                es_dia_libre=es_libre,
+                                tipo_celda=celda.tipo_celda.value if hasattr(celda.tipo_celda, 'value') else celda.tipo_celda,
+                            )
+                        )
+                
+                AsignacionTurno.objects.bulk_create(asignaciones_bulk)
+                logger.info(f"✓ Planilla {planilla.id} creada con {len(asignaciones_bulk)} asignaciones")
+        
+        logger.info(f"═══ [NUEVO MOTOR] Ejecución {ejecucion.id} completada ═══")
+        
+        return {
+            'success': resultado.exito,
+            'ejecucion_id': ejecucion.id,
+            'planilla_id': ejecucion.planilla_generada.id if hasattr(ejecucion, 'planilla_generada') else None,
+            'estado': ejecucion.estado,
+            'violaciones': len(resultado.violaciones),
+            'warnings': len(resultado.warnings),
+        }
+        
+    except Exception as e:
+        logger.error(f"[NUEVO MOTOR] Error en planificación: {e}", exc_info=True)
+        
+        if ejecucion:
+            ejecucion.estado = 'ERROR'
+            ejecucion.fecha_fin = timezone.now()
+            ejecucion.resultado = {'error': str(e)}
+            ejecucion.save()
+        
+        self.retry(exc=e)
+
+
+def debug_database_task():
+    """Task para debug de base de datos"""
+    from turnos.models import ConfiguracionPlanificacion
+    from django.conf import settings
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"DB Path: {settings.DATABASES['default']['NAME']}")
+    total = ConfiguracionPlanificacion.objects.count()
+    logger.info(f"Total configs: {total}")
+
+    if total > 0:
+        ids = list(ConfiguracionPlanificacion.objects.values_list('id', 'nombre'))
+        for id, nombre in ids:
+            logger.info(f"  - ID {id}: {nombre}")
+
+    return {'total': total, 'db_path': settings.DATABASES['default']['NAME']}

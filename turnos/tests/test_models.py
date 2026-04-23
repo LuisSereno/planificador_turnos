@@ -7,13 +7,13 @@ from turnos.models import Enfermera, TipoTurno
 class TestEnfermera:
     def test_crear_enfermera(self):
         enfermera = Enfermera.objects.create(
-            nombre='MarÃ­a GarcÃ­a',
+            nombre='María García',
             email='maria@hospital.com',
             dni='12345678A',
             activa=True
         )
-        assert enfermera.nombre == 'MarÃ­a GarcÃ­a'
-        assert str(enfermera) == 'MarÃ­a GarcÃ­a'
+        assert enfermera.nombre == 'María García'
+        assert str(enfermera) == 'María García'
 
 
 @pytest.mark.django_db
