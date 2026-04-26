@@ -397,13 +397,20 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             for i in range(config.num_dias)
         ]
         
-        # Enfermeras del workspace
+        # Enfermeras SELECCIONADAS en la configuración (no todo el workspace)
         enfermeras = {
             e.id: e.nombre 
-            for e in Enfermera.objects.filter(workspace=config.workspace, activa=True)
+            for e in config.enfermeras.filter(activa=True)
         }
         
-        # Turnos
+        if not enfermeras:
+            logger.error(f"Configuración {configuracion_id} no tiene enfermeras asignadas")
+            return {
+                'success': False,
+                'error': 'No hay enfermeras seleccionadas en la configuración'
+            }
+        
+        # Turnos SELECCIONADOS en la configuración (no todo el workspace)
         turnos_info = {
             t.id: TurnoInfo(
                 id=t.id,
@@ -413,8 +420,15 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 duracion_horas=t.duracion_horas,
                 es_nocturno=t.es_nocturno,
             )
-            for t in TipoTurno.objects.filter(workspace=config.workspace)
+            for t in config.turnos.all()
         }
+        
+        if not turnos_info:
+            logger.error(f"Configuración {configuracion_id} no tiene turnos asignados")
+            return {
+                'success': False,
+                'error': 'No hay turnos seleccionados en la configuración'
+            }
         
         # Rotaciones (usar rotaciones configuradas o crear una por defecto)
         asignaciones_rotacion = {}

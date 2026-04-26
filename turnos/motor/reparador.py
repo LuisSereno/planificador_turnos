@@ -95,13 +95,14 @@ class ReparadorCPSAT:
         Crea variables CP-SAT solo para celdas modificables.
         Incluye opción explícita de LIBRE para que una celda libre
         pueda seguir siendo libre o convertirse en un turno.
+        
+        turnos_disponibles se construye a partir de TODOS los turnos
+        en turnos_info (configuración completa), no solo los presentes
+        en la matriz base. Esto permite al solver usar cualquier turno
+        válido para corregir cobertura.
         """
-        # Collect all unique turno IDs from the matrix
-        all_turno_ids = set()
-        for enfermera_id, celdas in self.matriz.celdas.items():
-            for fecha, celda in celdas.items():
-                if celda.turno:
-                    all_turno_ids.add(celda.turno.id)
+        # Usar TODOS los turnos de la configuración (turnos_info)
+        all_turno_ids = set(self.turnos_info.keys())
         
         # Incluir LIBRE como opción válida en el solver
         self.matriz.turnos_disponibles = list(all_turno_ids) + [self.LIBRE_SENTINEL]
@@ -144,7 +145,11 @@ class ReparadorCPSAT:
         self._restringir_noches_consecutivas()
     
     def _restringir_turnos_consecutivos(self):
-        """Limita el número de turnos consecutivos sin descanso."""
+        """Limita el número de turnos consecutivos sin descanso.
+        
+        Solo cuenta turnos REALES (no LIBRE). En cualquier ventana de
+        max_consec+1 días, debe haber al menos 1 día LIBRE.
+        """
         # Buscar configuración - soportar ambos campos: 'nombre' y 'tipo'
         max_consec = 6  # Default
         for r in self.restricciones_duras:
@@ -153,24 +158,32 @@ class ReparadorCPSAT:
                 max_consec = int(r.get('valor', 6))
                 break
         
+        # Identificar turnos reales (excluir LIBRE_SENTINEL)
+        turnos_reales = [
+            t_id for t_id in self.matriz.turnos_disponibles
+            if t_id != self.LIBRE_SENTINEL
+        ]
+        
+        if not turnos_reales:
+            return
+        
         fechas_ordenadas = sorted(self.matriz.fechas)
         
         for enfermera_id in self.matriz.enfermeras:
             for i in range(len(fechas_ordenadas) - max_consec + 1):
                 ventana = fechas_ordenadas[i:i + max_consec + 1]
                 
-                # En cualquier ventana de max_consec+1 días, debe haber al menos 1 libre
-                vars_turno = []
+                # Contar solo turnos REALES trabajados en la ventana
+                vars_trabajo = []
                 for fecha in ventana:
-                    for turno_id in self.matriz.turnos_disponibles:
+                    for turno_id in turnos_reales:
                         key = (enfermera_id, fecha, turno_id)
                         if key in self.solver_vars:
-                            vars_turno.append(self.solver_vars[key])
+                            vars_trabajo.append(self.solver_vars[key])
                 
-                if vars_turno:
-                    # Al menos una celda debe ser LIBRE (turno_id especial)
-                    # Simplificación: limitamos a max_consec turnos asignados
-                    self.model.Add(sum(vars_turno) <= max_consec)
+                if vars_trabajo:
+                    # Máximo max_consec días de trabajo en ventana de max_consec+1
+                    self.model.Add(sum(vars_trabajo) <= max_consec)
     
     def _restringir_descanso_entre_turnos(self):
         """Garantiza descanso mínimo entre turnos (12h entre noche y mañana)."""
@@ -214,20 +227,41 @@ class ReparadorCPSAT:
                         )
     
     def _restringir_cobertura_minima(self):
-        """Garantiza cobertura mínima por turno y fecha."""
-        # Usar cobertura_minima pasada como parámetro (no del análisis)
+        """Garantiza cobertura mínima por turno y fecha.
+        
+        Cuenta tanto celdas bloqueadas (ya asignadas por rotación/incidencias)
+        como celdas modificables (variables del solver). Solo exige al solver
+        la diferencia que falta para alcanzar el mínimo.
+        """
         cobertura_min = self.cobertura_minima
         
         for fecha in self.matriz.fechas:
             for turno_id, minimo in cobertura_min.items():
-                vars_cobertura = []
+                # 1. Contar celdas BLOQUEADAS ya asignadas a este turno
+                bloqueadas_count = 0
+                for enfermera_id in self.matriz.enfermeras:
+                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
+                    if celda and not celda.es_modificable:
+                        if celda.turno and celda.turno.id == turno_id:
+                            bloqueadas_count += 1
+                
+                # 2. Contar celdas MODIFICABLES que el solver puede asignar
+                vars_modificables = []
                 for enfermera_id in self.matriz.enfermeras:
                     key = (enfermera_id, fecha, turno_id)
                     if key in self.solver_vars:
-                        vars_cobertura.append(self.solver_vars[key])
+                        vars_modificables.append(self.solver_vars[key])
                 
-                if vars_cobertura:
-                    self.model.Add(sum(vars_cobertura) >= minimo)
+                # 3. El solver debe cubrir lo que falta (mínimo 0)
+                restante = max(0, minimo - bloqueadas_count)
+                if restante > 0 and vars_modificables:
+                    self.model.Add(sum(vars_modificables) >= restante)
+                elif restante > 0 and not vars_modificables:
+                    logger.warning(
+                        f"Cobertura imposible: fecha {fecha}, turno {turno_id}, "
+                        f"necesita {minimo}, bloqueadas={bloqueadas_count}, "
+                        f"sin celdas modificables disponibles"
+                    )
     
     def _restringir_noches_consecutivas(self):
         """Limita noches consecutivas."""
@@ -428,6 +462,8 @@ class ReparadorCPSAT:
         """
         Penaliza el desequilibrio en fines de semana trabajados.
         Minimiza la diferencia máxima de fines de semana entre enfermeras.
+        
+        Solo cuenta turnos REALES (excluye LIBRE_SENTINEL).
         """
         penalizaciones = []
         
@@ -440,7 +476,14 @@ class ReparadorCPSAT:
         if not findes:
             return penalizaciones
         
-        turno_ids = list(self.matriz.turnos_disponibles)
+        # Solo turnos REALES (excluir LIBRE_SENTINEL)
+        turno_ids = [
+            t_id for t_id in self.matriz.turnos_disponibles
+            if t_id != self.LIBRE_SENTINEL
+        ]
+        
+        if not turno_ids:
+            return penalizaciones
         
         # Para cada enfermera, contar findes trabajados
         vars_finde_por_enf = {}
