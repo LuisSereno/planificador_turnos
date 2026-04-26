@@ -131,10 +131,18 @@ class AnalizadorCobertura:
         return dict(cobertura)
     
     def _detectar_conflictos(self, cobertura: Dict) -> List[str]:
-        """Detecta conflictos de cobertura mínima"""
+        """Detecta conflictos de cobertura mínima.
+        
+        Itera sobre TODAS las fechas en la matriz, no solo las que tienen
+        asignaciones. Si una fecha no está en cobertura, significa que
+        tiene 0 enfermeras en todos los turnos.
+        """
         conflictos = []
         
-        for fecha, turnos_count in cobertura.items():
+        # Iterar sobre todas las fechas en la matriz
+        for fecha in self.matriz.fechas:
+            turnos_count = cobertura.get(fecha, {})
+            
             for turno_id, minimo in self.cobertura_minima.items():
                 enfermeras_asignadas = turnos_count.get(turno_id, 0)
                 

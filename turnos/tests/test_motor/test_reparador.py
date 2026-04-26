@@ -192,5 +192,5 @@ class TestReparadorCPSAT:
         
         # Verificar que turnos_disponibles se pobló
         assert len(matriz.turnos_disponibles) > 0
-        # Debería tener los IDs 1, 2, 3 (M, T, N)
-        assert set(matriz.turnos_disponibles) == {1, 2, 3}
+        # Debería tener los IDs 1, 2, 3 (M, T, N) más el LIBRE_SENTINEL
+        assert set(matriz.turnos_disponibles) == {1, 2, 3, reparador.LIBRE_SENTINEL}

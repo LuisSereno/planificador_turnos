@@ -126,6 +126,7 @@ class PipelinePlanificacion:
                     restricciones_duras=self.restricciones_duras,
                     objetivos=self.restricciones_blandas,
                     cobertura_minima=self.cobertura_minima,
+                    horas_objetivo=self.horas_objetivo,
                 )
                 matriz_final = reparador.reparar()
                 estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'
@@ -154,7 +155,9 @@ class PipelinePlanificacion:
             
             # Extraer valores de restricciones duras reales (no defaults hardcodeados)
             for r in self.restricciones_duras:
-                nombre_normalizado = normalizar_nombre(r.get('nombre', ''))
+                # Soportar ambos campos: 'nombre' y 'tipo'
+                nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+                nombre_normalizado = normalizar_nombre(nombre_raw)
                 if nombre_normalizado == 'TURNO_CONSECUTIVOS_MAX':
                     configuracion_validador['TURNO_CONSECUTIVOS_MAX'] = int(r.get('valor', 6))
                 elif nombre_normalizado == 'NOCHES_CONSECUTIVAS_MAX':

@@ -40,6 +40,7 @@ class ReparadorCPSAT:
         restricciones_duras: List[dict] = None,
         objetivos: List[dict] = None,
         cobertura_minima: Dict[int, int] = None,
+        horas_objetivo: Dict[int, float] = None,
     ):
         self.matriz = matriz_bloqueada
         self.analisis = analisis_cobertura
@@ -47,9 +48,13 @@ class ReparadorCPSAT:
         self.restricciones_duras = restricciones_duras or []
         self.objetivos = objetivos or []
         self.cobertura_minima = cobertura_minima or {}
+        self.horas_objetivo = horas_objetivo or {}  # enfermera_id -> horas_mes_objetivo
         self.model = cp_model.CpModel()
         self.solver_vars = {}  # (enfermera_id, fecha_idx, turno_id) -> BoolVar
         self.solver_status = 'NO_EJECUTADO'
+        
+        # Sentinel para celdas LIBRE en el solver
+        self.LIBRE_SENTINEL = '__LIBRE__'
         
     def reparar(self) -> MatrizPlanificacion:
         """
@@ -88,6 +93,8 @@ class ReparadorCPSAT:
     def _crear_variables(self):
         """
         Crea variables CP-SAT solo para celdas modificables.
+        Incluye opción explícita de LIBRE para que una celda libre
+        pueda seguir siendo libre o convertirse en un turno.
         """
         # Collect all unique turno IDs from the matrix
         all_turno_ids = set()
@@ -96,21 +103,23 @@ class ReparadorCPSAT:
                 if celda.turno:
                     all_turno_ids.add(celda.turno.id)
         
-        self.matriz.turnos_disponibles = list(all_turno_ids)
+        # Incluir LIBRE como opción válida en el solver
+        self.matriz.turnos_disponibles = list(all_turno_ids) + [self.LIBRE_SENTINEL]
         
         for enfermera_id, celdas in self.matriz.celdas.items():
             for fecha, celda in celdas.items():
                 if not celda.es_modificable:
                     continue  # Saltar celdas bloqueadas
                 
-                # Variable: ¿se asigna turno t a esta celda?
+                # Variable: ¿se asigna turno t (o LIBRE) a esta celda?
                 for turno_id in self.matriz.turnos_disponibles:
                     var = self.model.NewBoolVar(
                         f"x_e{enfermera_id}_d{fecha}_t{turno_id}"
                     )
                     self.solver_vars[(enfermera_id, fecha, turno_id)] = var
                 
-                # Restricción: exactamente un turno por celda modificable
+                # Restricción: exactamente una opción por celda modificable
+                # (puede ser un turno real o LIBRE)
                 self.model.Add(
                     sum(self.solver_vars[(enfermera_id, fecha, t)] 
                         for t in self.matriz.turnos_disponibles) == 1
@@ -136,10 +145,11 @@ class ReparadorCPSAT:
     
     def _restringir_turnos_consecutivos(self):
         """Limita el número de turnos consecutivos sin descanso."""
-        # Buscar configuración
+        # Buscar configuración - soportar ambos campos: 'nombre' y 'tipo'
         max_consec = 6  # Default
         for r in self.restricciones_duras:
-            if normalizar_nombre(r.get('nombre', '')) == 'TURNO_CONSECUTIVOS_MAX':
+            nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+            if normalizar_nombre(nombre_raw) == 'TURNO_CONSECUTIVOS_MAX':
                 max_consec = int(r.get('valor', 6))
                 break
         
@@ -221,9 +231,11 @@ class ReparadorCPSAT:
     
     def _restringir_noches_consecutivas(self):
         """Limita noches consecutivas."""
+        # Soportar ambos campos: 'nombre' y 'tipo'
         max_noches = 4  # Default
         for r in self.restricciones_duras:
-            if normalizar_nombre(r.get('nombre', '')) == 'NOCHES_CONSECUTIVAS_MAX':
+            nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+            if normalizar_nombre(nombre_raw) == 'NOCHES_CONSECUTIVAS_MAX':
                 max_noches = int(r.get('valor', 4))
                 break
         
@@ -311,20 +323,25 @@ class ReparadorCPSAT:
     def _penalizar_balance_horas(self) -> list:
         """
         Penaliza la desviación de horas mensuales objetivo.
-        Usa variables de desviación con objetivo de minimizar diferencias.
+        Usa horas_objetivo reales desde contratos (pasadas desde pipeline).
         """
         penalizaciones = []
         
-        # Obtener horas objetivo desde objetivos o usar default
-        horas_objetivo_por_enfermera = {}
-        for r in self.objetivos:
-            nombre = r.get('tipo', r.get('nombre', ''))
-            if 'HORA' in nombre.upper() or 'EQUIDAD' in nombre.upper():
-                for enf_id in self.matriz.enfermeras:
-                    horas_objetivo_por_enfermera[enf_id] = int(r.get('horas_objetivo', r.get('valor', 160)))
+        # Usar horas_objetivo reales si están disponibles
+        horas_objetivo_por_enfermera = dict(self.horas_objetivo)
         
+        # Fallback: intentar deducir desde objetivos/config si no hay horas_objetivo
         if not horas_objetivo_por_enfermera:
-            # Default: 160h/mes para todos si no hay configuración
+            for r in self.objetivos:
+                # Soportar ambos campos: 'nombre' y 'tipo'
+                nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+                if 'HORA' in nombre_raw.upper() or 'EQUIDAD' in nombre_raw.upper():
+                    for enf_id in self.matriz.enfermeras:
+                        horas_objetivo_por_enfermera[enf_id] = int(r.get('horas_objetivo', r.get('valor', 160)))
+        
+        # Fallback final: 160h/mes para todos si no hay configuración
+        if not horas_objetivo_por_enfermera:
+            logger.warning("No hay horas_objetivo disponibles, usando 160h por defecto")
             for enf_id in self.matriz.enfermeras:
                 horas_objetivo_por_enfermera[enf_id] = 160
         
@@ -338,6 +355,9 @@ class ReparadorCPSAT:
             
             for fecha in self.matriz.fechas:
                 for turno_id in self.matriz.turnos_disponibles:
+                    # Saltar LIBRE sentinel (no suma horas)
+                    if turno_id == self.LIBRE_SENTINEL:
+                        continue
                     key = (enfermera_id, fecha, turno_id)
                     if key in self.solver_vars:
                         duracion = self.turnos_info.get(turno_id, None)
@@ -456,6 +476,7 @@ class ReparadorCPSAT:
     def _extraer_solucion(self, solver: cp_model.CpSolver) -> MatrizPlanificacion:
         """
         Extrae la solución del solver y actualiza la matriz.
+        Maneja explícitamente el LIBRE_SENTINEL para celdas que permanecen libres.
         """
         matriz_resultado = self.matriz.clone()
         
@@ -466,12 +487,16 @@ class ReparadorCPSAT:
             if solver.Value(var) == 1:
                 celda = matriz_resultado.obtener_celda(enfermera_id, fecha)
                 if celda and celda.es_modificable:
-                    # Update the turno object
-                    if turno_id in turno_lookup:
+                    if turno_id == self.LIBRE_SENTINEL:
+                        # Celda permanece libre
+                        celda.turno = None
+                        celda.tipo_celda = TipoCelda.LIBRE
+                    elif turno_id in turno_lookup:
+                        # Asignar turno real
                         celda.turno = turno_lookup[turno_id]
                         celda.tipo_celda = TipoCelda.TURNO
                     else:
-                        # If turno_id not found, mark as free
+                        # Fallback: turno no encontrado, marcar como libre
                         celda.turno = None
                         celda.tipo_celda = TipoCelda.LIBRE
         
