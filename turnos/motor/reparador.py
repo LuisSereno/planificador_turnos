@@ -97,7 +97,7 @@ class ReparadorCPSAT:
         self.matriz.turnos_disponibles = list(all_turno_ids)
         
         for enfermera_id, celdas in self.matriz.celdas.items():
-            for fecha, celdas_enf in celdas.items():
+            for fecha, celda in celdas.items():
                 if not celda.es_modificable:
                     continue  # Saltar celdas bloqueadas
                 

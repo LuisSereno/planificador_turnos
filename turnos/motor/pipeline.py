@@ -44,6 +44,9 @@ class PipelinePlanificacion:
         cobertura_minima: Optional[Dict[int, int]] = None,
         configuracion_solver: Optional[Dict] = None,
         turnos_info: Optional[Dict[int, 'TurnoInfo']] = None,
+        restricciones_duras: List[dict] = None,
+        restricciones_blandas: List[dict] = None,
+        balances_historicos: Optional[Dict[int, dict]] = None,
     ):
         self.fechas = fechas
         self.enfermeras = enfermeras
@@ -54,6 +57,9 @@ class PipelinePlanificacion:
         self.cobertura_minima = cobertura_minima or {}
         self.configuracion_solver = configuracion_solver or {}
         self.turnos_info = turnos_info or {}
+        self.restricciones_duras = restricciones_duras or []
+        self.restricciones_blandas = restricciones_blandas or []
+        self.balances_historicos = balances_historicos or {}
         
     def ejecutar(self) -> ResultadoPlanificacion:
         """
@@ -97,6 +103,7 @@ class PipelinePlanificacion:
                 matriz=matriz_bloqueada,
                 horas_objetivo_enfermeras=self.horas_objetivo,
                 cobertura_minima_turnos=self.cobertura_minima,
+                balances_historicos=self.balances_historicos,
             ).analizar()
             
             if analisis['tiene_conflictos']:
@@ -115,8 +122,8 @@ class PipelinePlanificacion:
                     matriz_bloqueada=matriz_bloqueada,
                     analisis_cobertura=analisis,
                     turnos_info=self.turnos_info,
-                    restricciones_duras=[],
-                    objetivos=[],
+                    restricciones_duras=self.restricciones_duras,
+                    objetivos=self.restricciones_blandas,
                 )
                 matriz_final = reparador.reparar()
                 estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'

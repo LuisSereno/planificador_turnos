@@ -79,11 +79,11 @@ def _traducir_modelo_a_diccionario_VERTICAL(ejecucion):
     """Convierte las asignaciones a formato VERTICAL"""
     logger.info(f"🔵 INICIO _traducir_modelo_a_diccionario_VERTICAL para ejecución {ejecucion.id}")
 
-    if not hasattr(ejecucion, 'planilla') or not ejecucion.planilla:
+    if not hasattr(ejecucion, 'planilla_generada') or not ejecucion.planilla_generada:
         logger.warning(f"⚠️  No se encontró planilla para ejecución {ejecucion.id}")
         return {}
 
-    asignaciones = ejecucion.planilla.asignaciones.select_related('turno', 'enfermera').all()
+    asignaciones = ejecucion.planilla_generada.asignaciones.select_related('turno', 'enfermera').all()
     logger.info(f"📊 Total de asignaciones encontradas: {asignaciones.count()}")
 
     planilla_dict = defaultdict(lambda: defaultdict(list))
@@ -108,10 +108,10 @@ def _traducir_modelo_a_diccionario_HORIZONTAL(ejecucion):
     """Convierte las asignaciones a formato HORIZONTAL"""
     logger.info(f"🟢 INICIO _traducir_modelo_a_diccionario_HORIZONTAL para ejecución {ejecucion.id}")
 
-    if not hasattr(ejecucion, 'planilla') or not ejecucion.planilla:
+    if not hasattr(ejecucion, 'planilla_generada') or not ejecucion.planilla_generada:
         return {}, []
 
-    asignaciones = ejecucion.planilla.asignaciones.select_related('turno', 'enfermera').all()
+    asignaciones = ejecucion.planilla_generada.asignaciones.select_related('turno', 'enfermera').all()
 
     datos_horizontales = defaultdict(dict)
     fechas_del_periodo = set()

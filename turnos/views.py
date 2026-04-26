@@ -523,8 +523,8 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
         context['validacion_resultado'] = validacion_resultado
 
         # Si tiene planilla, calcular datos para visualización
-        if ejecucion.planilla:
-            planilla = ejecucion.planilla
+        if ejecucion.planilla_generada:
+            planilla = ejecucion.planilla_generada
 
             # Obtener todas las asignaciones
             asignaciones = planilla.asignaciones.select_related('enfermera', 'turno').order_by('fecha',
@@ -1530,7 +1530,7 @@ class ExportarEjecucionExcelView(LoginRequiredMixin, View):
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla:
+        if not ejecucion.planilla_generada:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
@@ -1544,7 +1544,7 @@ class ExportarEjecucionExcelView(LoginRequiredMixin, View):
         ws.merge_cells('A1:E1')
 
         ws[
-            'A2'] = f"Período: {ejecucion.planilla.fecha_inicio.strftime('%d/%m/%Y')} - {ejecucion.planilla.fecha_fin.strftime('%d/%m/%Y')}"
+            'A2'] = f"Período: {ejecucion.planilla_generada.fecha_inicio.strftime('%d/%m/%Y')} - {ejecucion.planilla_generada.fecha_fin.strftime('%d/%m/%Y')}"
         ws.merge_cells('A2:E2')
 
         # Headers
@@ -1559,7 +1559,7 @@ class ExportarEjecucionExcelView(LoginRequiredMixin, View):
             cell.alignment = Alignment(horizontal='center')
 
         # Datos
-        asignaciones = ejecucion.planilla.asignaciones.select_related(
+        asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
             'enfermera', 'turno'
         ).order_by('fecha', 'enfermera')
 
@@ -1607,15 +1607,15 @@ class ExportarEjecucionPDFView(LoginRequiredMixin, View):
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla:
+        if not ejecucion.planilla_generada:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
         # Renderizar HTML
         html_string = render_to_string('turnos/pdf/planilla.html', {
             'ejecucion': ejecucion,
-            'planilla': ejecucion.planilla,
-            'asignaciones': ejecucion.planilla.asignaciones.select_related('enfermera', 'turno').order_by('fecha',
+            'planilla': ejecucion.planilla_generada,
+            'asignaciones': ejecucion.planilla_generada.asignaciones.select_related('enfermera', 'turno').order_by('fecha',
                                                                                                           'enfermera')
         })
 
@@ -1637,7 +1637,7 @@ class ExportarEjecucionCSVView(LoginRequiredMixin, View):
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla:
+        if not ejecucion.planilla_generada:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
@@ -1647,7 +1647,7 @@ class ExportarEjecucionCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(['Enfermera', 'Fecha', 'Turno', 'Horario', 'Es Día Libre'])
 
-        asignaciones = ejecucion.planilla.asignaciones.select_related(
+        asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
             'enfermera', 'turno'
         ).order_by('fecha', 'enfermera')
 
@@ -1676,7 +1676,7 @@ class ExportarEjecucionJSONView(LoginRequiredMixin, View):
     def get(self, request, pk):
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla:
+        if not ejecucion.planilla_generada:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
@@ -1688,14 +1688,14 @@ class ExportarEjecucionJSONView(LoginRequiredMixin, View):
             'es_optima': ejecucion.es_optima,
             'penalizacion_total': ejecucion.penalizacion_total,
             'planilla': {
-                'nombre': ejecucion.planilla.nombre,
-                'fecha_inicio': ejecucion.planilla.fecha_inicio.isoformat(),
-                'fecha_fin': ejecucion.planilla.fecha_fin.isoformat(),
+                'nombre': ejecucion.planilla_generada.nombre,
+                'fecha_inicio': ejecucion.planilla_generada.fecha_inicio.isoformat(),
+                'fecha_fin': ejecucion.planilla_generada.fecha_fin.isoformat(),
                 'asignaciones': []
             }
         }
 
-        asignaciones = ejecucion.planilla.asignaciones.select_related(
+        asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
             'enfermera', 'turno'
         ).order_by('fecha', 'enfermera')
 
@@ -1722,7 +1722,7 @@ class ExportarEjecucionICalView(LoginRequiredMixin, View):
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla:
+        if not ejecucion.planilla_generada:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
@@ -1731,7 +1731,7 @@ class ExportarEjecucionICalView(LoginRequiredMixin, View):
         cal.add('version', '2.0')
         cal.add('X-WR-CALNAME', ejecucion.configuracion.nombre)
 
-        asignaciones = ejecucion.planilla.asignaciones.select_related(
+        asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
             'enfermera', 'turno'
         ).order_by('fecha')
 

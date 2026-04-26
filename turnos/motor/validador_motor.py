@@ -66,14 +66,15 @@ class ValidadorMotor:
         
         # 5. Generar resultado
         resultado = ResultadoPlanificacion(
+            exitosa=len(self.violaciones) == 0,
             matriz=self.matriz,
-            exito=len(self.violaciones) == 0,
+            balances=balances,
+            metricas={},
             violaciones=self.violaciones,
             warnings=self.warnings,
-            balances=balances,
         )
         
-        if resultado.exito:
+        if resultado.exitosa:
             logger.info("✅ Validación exitosa: planilla cumple todas las restricciones")
         else:
             logger.warning(

@@ -78,6 +78,12 @@ class CeldaPlanificacion:
         return self.fecha.weekday() >= 5  # Sábado=5, Domingo=6
     
     @property
+    def es_festivo(self) -> bool:
+        """Determina si la fecha es festivo (por ahora siempre False, se puede ampliar)"""
+        # TODO: Integrar con calendario de festivos nacionales/locales
+        return False
+    
+    @property
     def turno_base_id(self):
         """Obtiene el ID del turno base si pertenece a la rotación"""
         return self.turno.id if self.turno and self.pertenece_rotacion_base else None

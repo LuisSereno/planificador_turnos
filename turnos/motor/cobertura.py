@@ -32,10 +32,12 @@ class AnalizadorCobertura:
         matriz: MatrizPlanificacion,
         horas_objetivo_enfermeras: Dict[int, float],  # enfermera_id -> horas_mes_objetivo
         cobertura_minima_turnos: Dict[int, int] = None,  # turno_id -> mínimo enfermeras
+        balances_historicos: Dict[int, dict] = None,  # enfermera_id -> historical data
     ):
         self.matriz = matriz
         self.horas_objetivo = horas_objetivo_enfermeras
         self.cobertura_minima = cobertura_minima_turnos or {}
+        self.balances_historicos = balances_historicos or {}
         
     def analizar(self) -> Dict:
         """
@@ -91,6 +93,13 @@ class AnalizadorCobertura:
             horas_objetivo = self.horas_objetivo.get(enfermera_id, 0.0)
             desviacion = horas_asignadas - horas_objetivo
             
+            # Incorporar acumulados históricos
+            hist = self.balances_historicos.get(enfermera_id, {})
+            horas_acumuladas_previas = hist.get('horas_acumuladas_previas', 0.0)
+            noches_acumuladas = hist.get('noches_acumuladas', 0)
+            fines_semana_acumulados = hist.get('fines_semana_acumulados', 0)
+            festivos_acumulados = hist.get('festivos_acumulados', 0)
+            
             balances[enfermera_id] = BalanceEnfermera(
                 enfermera_id=enfermera_id,
                 enfermera_nombre=enfermera_nombre,
@@ -100,6 +109,10 @@ class AnalizadorCobertura:
                 turnos_asignados=turnos_asignados,
                 noches_asignadas=noches_asignadas,
                 fines_semana_asignados=fines_semana_asignados,
+                horas_acumuladas_previas=horas_acumuladas_previas,
+                noches_acumuladas=noches_acumuladas,
+                fines_semana_acumulados=fines_semana_acumulados,
+                festivos_acumulados=festivos_acumulados,
             )
         
         return balances

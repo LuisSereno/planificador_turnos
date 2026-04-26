@@ -192,7 +192,7 @@ def ejecutar_planificacion_async(self, configuracion_id):
         return {
             'success': resultado.get('success', False),
             'ejecucion_id': ejecucion.id,
-            'planilla_id': ejecucion.planilla.id if ejecucion.planilla else None,
+            'planilla_id': ejecucion.planilla_generada.id if ejecucion.planilla_generada else None,
             'estado': ejecucion.estado,
             'es_optima': ejecucion.es_optima,
             'num_asignaciones': resultado.get('num_asignaciones', 0),
@@ -516,10 +516,12 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 if isinstance(r, dict):
                     configuracion_restricciones[r.get('nombre', '')] = r.get('valor', {})
         
-        # Build horas_objetivo from contracts
+        # Build horas_objetivo from contracts and get historical balances
         from turnos.models import ContratoEnfermera, BalanceHistoricoEnfermera
         
         horas_objetivo = {}
+        balances_historicos = {}
+        
         for enf_id in enfermeras.keys():
             try:
                 contrato = ContratoEnfermera.objects.get(enfermera_id=enf_id)
@@ -529,6 +531,23 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             except ContratoEnfermera.DoesNotExist:
                 # Default to 40 hours/week
                 horas_objetivo[enf_id] = 40.0 * (config.num_dias / 7.0)
+            
+            # Get historical balance if exists
+            try:
+                balance_hist = BalanceHistoricoEnfermera.objects.get(
+                    enfermera_id=enf_id,
+                    periodo_referencia=str(config.fecha_inicio.year)
+                )
+                balances_historicos[enf_id] = {
+                    'horas_acumuladas_previas': float(balance_hist.horas_acumuladas_previas),
+                    'noches_acumuladas': balance_hist.noches_acumuladas,
+                    'fines_semana_acumulados': balance_hist.fines_semana_acumulados,
+                    'festivos_acumulados': balance_hist.festivos_acumulados,
+                    'ultimo_turno_fecha': balance_hist.ultimo_turno_fecha.isoformat() if balance_hist.ultimo_turno_fecha else None,
+                    'ultimo_turno_tipo_id': balance_hist.ultimo_turno_tipo_id if balance_hist.ultimo_turno_tipo else None,
+                }
+            except BalanceHistoricoEnfermera.DoesNotExist:
+                balances_historicos[enf_id] = {}
         
         # Coverage minimum from demand
         cobertura_minima = {}
@@ -550,13 +569,16 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             horas_objetivo=horas_objetivo,
             cobertura_minima=cobertura_minima,
             turnos_info=turnos_info,
+            restricciones_duras=config.restricciones_duras or [],
+            restricciones_blandas=config.restricciones_blandas or [],
+            balances_historicos=balances_historicos,
         )
         
         resultado = pipeline.ejecutar()
         
         # 5. Procesar resultado
         with transaction.atomic():
-            ejecucion.estado = 'COMPLETADA' if resultado.exito else 'INVIABLE'
+            ejecucion.estado = 'COMPLETADA' if resultado.exitosa else 'INVIABLE'
             ejecucion.fecha_fin = timezone.now()
             ejecucion.es_optima = not resultado.violaciones
             ejecucion.resultado = {
@@ -574,7 +596,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             ejecucion.save()
             
             # Crear planilla si fue exitoso
-            if resultado.exito:
+            if resultado.exitosa:
                 fecha_inicio = config.fecha_inicio
                 fecha_fin = fecha_inicio + timedelta(days=config.num_dias - 1)
                 
@@ -612,13 +634,29 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 
                 AsignacionTurno.objects.bulk_create(asignaciones_bulk)
                 logger.info(f"✓ Planilla {planilla.id} creada con {len(asignaciones_bulk)} asignaciones")
+                
+                # Persistir balances históricos actualizados
+                for enf_id, balance in resultado.balances.items():
+                    balance_hist, created = BalanceHistoricoEnfermera.objects.update_or_create(
+                        enfermera_id=enf_id,
+                        periodo_referencia=str(config.fecha_inicio.year),
+                        defaults={
+                            'horas_acumuladas_previas': balance.horas_totales_con_historico,
+                            'noches_acumuladas': balance.noches_asignadas + balance.noches_acumuladas,
+                            'fines_semana_acumulados': balance.fines_semana_asignados + balance.fines_semana_acumulados,
+                            'festivos_acumulados': balance.festivos_asignados + balance.festivos_acumulados,
+                            'ultimo_turno_fecha': config.fecha_inicio + timedelta(days=config.num_dias - 1),
+                        }
+                    )
+                    action = "Creado" if created else "Actualizado"
+                    logger.info(f"✓ {action} balance histórico para enfermera {enf_id}")
         
         logger.info(f"═══ [NUEVO MOTOR] Ejecución {ejecucion.id} completada ═══")
         
         return {
-            'success': resultado.exito,
+            'success': resultado.exitosa,
             'ejecucion_id': ejecucion.id,
-            'planilla_id': planilla.id if resultado.exito else None,
+            'planilla_id': planilla.id if resultado.exitosa else None,
             'estado': ejecucion.estado,
             'violaciones': len(resultado.violaciones),
             'warnings': len(resultado.warnings),
