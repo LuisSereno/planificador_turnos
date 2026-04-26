@@ -145,12 +145,27 @@ class PipelinePlanificacion:
             # FASE 5: Validación final con ValidadorMotor
             logger.info("FASE 5: Validando resultado final...")
             
-            # Preparar configuración para el validador
+            from ..dominio.normalizacion import normalizar_nombre
+            
+            # Preparar configuración para el validador desde restricciones DURAS reales
             configuracion_validador = {
                 'COBERTURA_MINIMA': self.cobertura_minima,
-                'TURNO_CONSECUTIVOS_MAX': 6,  # Default values
-                'NOCHES_CONSECUTIVAS_MAX': 3,
             }
+            
+            # Extraer valores de restricciones duras reales (no defaults hardcodeados)
+            for r in self.restricciones_duras:
+                nombre_normalizado = normalizar_nombre(r.get('nombre', ''))
+                if nombre_normalizado == 'TURNO_CONSECUTIVOS_MAX':
+                    configuracion_validador['TURNO_CONSECUTIVOS_MAX'] = int(r.get('valor', 6))
+                elif nombre_normalizado == 'NOCHES_CONSECUTIVAS_MAX':
+                    configuracion_validador['NOCHES_CONSECUTIVAS_MAX'] = int(r.get('valor', 3))
+                elif nombre_normalizado == 'COBERTURA_MINIMA':
+                    # Ya está en self.cobertura_minima
+                    pass
+            
+            # Defaults solo si no se encontraron en restricciones reales
+            configuracion_validador.setdefault('TURNO_CONSECUTIVOS_MAX', 6)
+            configuracion_validador.setdefault('NOCHES_CONSECUTIVAS_MAX', 3)
             
             validador = ValidadorMotor(
                 matriz=matriz_final,

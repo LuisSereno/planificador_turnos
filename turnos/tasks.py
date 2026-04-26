@@ -616,7 +616,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                     
                     for fecha, celda in celdas_enfermera.items():
                         turno = None
-                        es_libre = celda.es_libre or celda.tipo_celda == 'LIBRE'
+                        es_libre = celda.es_libre
                         
                         if celda.turno_id:
                             turno = TipoTurno.objects.get(pk=celda.turno_id)

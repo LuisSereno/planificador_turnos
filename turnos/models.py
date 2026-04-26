@@ -376,16 +376,6 @@ class Ejecucion(models.Model):
     resultado = models.JSONField(_('Resultado'), default=dict, blank=True)
     mensajes = models.JSONField(_('Mensajes'), default=dict, blank=True)
 
-    planilla = models.ForeignKey(
-        'Planilla',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='ejecucion_generada',
-        verbose_name=_('Planilla'),
-        help_text=_('Deprecated: Use Planilla.ejecucion instead')
-    )
-
     class Meta:
         verbose_name = _('Ejecución')
         verbose_name_plural = _('Ejecuciones')
@@ -654,10 +644,10 @@ class Incidencia(models.Model):
 
 class BalanceHistoricoEnfermera(models.Model):
     """Acumulados históricos de una enfermera para planificación contextual"""
-    enfermera = models.OneToOneField(
+    enfermera = models.ForeignKey(
         Enfermera, 
         on_delete=models.CASCADE, 
-        related_name='balance_historico'
+        related_name='balances_historicos'
     )
     periodo_referencia = models.CharField(
         max_length=20, 

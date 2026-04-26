@@ -255,24 +255,38 @@ class ReparadorCPSAT:
     
     def _aplicar_objetivos(self):
         """
-        Configura objetivos lexicográficos del solver.
+        Configura objetivo lexicográfico combinado para el solver.
+        Construye una única función objetivo ponderada con:
+        1. Minimizar desviación de rotación base (prioridad alta)
+        2. Balance horario mensual
+        3. Equilibrio de noches
+        4. Equilibrio de fines de semana
         """
-        # Objetivo 1: Minimizar desviación de rotación base
-        self._objetivo_minimizar_desviacion_base()
+        penalizaciones = []
         
-        # Objetivo 2: Minimizar desviación de horas mensuales
-        self._objetivo_balance_horas()
+        # Objetivo 1: Minimizar desviación de rotación base (peso 100)
+        penalizaciones_base = self._penalizar_desviacion_base()
+        penalizaciones.extend([100 * p for p in penalizaciones_base])
         
-        # Objetivo 3: Equilibrar noches
-        self._objetivo_equilibrar_noches()
+        # Objetivo 2: Balance de horas mensuales (peso 10)
+        penalizaciones_horas = self._penalizar_balance_horas()
+        penalizaciones.extend([10 * p for p in penalizaciones_horas])
         
-        # Objetivo 4: Equilibrar fines de semana
-        self._objetivo_equilibrar_findes()
+        # Objetivo 3: Equilibrar noches (peso 5)
+        penalizaciones_noches = self._penalizar_equilibrio_noches()
+        penalizaciones.extend([5 * p for p in penalizaciones_noches])
+        
+        # Objetivo 4: Equilibrar fines de semana (peso 3)
+        penalizaciones_findes = self._penalizar_equilibrio_findes()
+        penalizaciones.extend([3 * p for p in penalizaciones_findes])
+        
+        if penalizaciones:
+            self.model.Minimize(sum(penalizaciones))
     
-    def _objetivo_minimizar_desviacion_base(self):
+    def _penalizar_desviacion_base(self) -> list:
         """
         Penaliza celdas que se desvían de la rotación base.
-        Este es el objetivo PRIORITARIO.
+        Objetivo PRIORITARIO.
         """
         penalizaciones = []
         
@@ -292,38 +306,152 @@ class ReparadorCPSAT:
                         if key in self.solver_vars:
                             penalizaciones.append(self.solver_vars[key])
         
-        if penalizaciones:
-            self.model.Minimize(sum(penalizaciones))
+        return penalizaciones
     
-    def _objetivo_balance_horas(self):
+    def _penalizar_balance_horas(self) -> list:
         """
-        Minimiza la desviación de horas mensuales objetivo.
-        Implementado como soft constraint con variables de desviación.
+        Penaliza la desviación de horas mensuales objetivo.
+        Usa variables de desviación con objetivo de minimizar diferencias.
         """
-        # This would require complex linearization in CP-SAT
-        # For now, we rely on the base rotation already being balanced
-        # and let the coverage analyzer detect issues post-solver
-        # A full implementation would add deviation variables and minimize them
-        pass
+        penalizaciones = []
+        
+        # Obtener horas objetivo desde objetivos o usar default
+        horas_objetivo_por_enfermera = {}
+        for r in self.objetivos:
+            nombre = r.get('tipo', r.get('nombre', ''))
+            if 'HORA' in nombre.upper() or 'EQUIDAD' in nombre.upper():
+                for enf_id in self.matriz.enfermeras:
+                    horas_objetivo_por_enfermera[enf_id] = int(r.get('horas_objetivo', r.get('valor', 160)))
+        
+        if not horas_objetivo_por_enfermera:
+            # Default: 160h/mes para todos si no hay configuración
+            for enf_id in self.matriz.enfermeras:
+                horas_objetivo_por_enfermera[enf_id] = 160
+        
+        # Para cada enfermera, calcular horas totales y minimizar desviación
+        for enfermera_id in self.matriz.enfermeras:
+            if enfermera_id not in horas_objetivo_por_enfermera:
+                continue
+            
+            objetivo = horas_objetivo_por_enfermera[enfermera_id]
+            vars_horas = []
+            
+            for fecha in self.matriz.fechas:
+                for turno_id in self.matriz.turnos_disponibles:
+                    key = (enfermera_id, fecha, turno_id)
+                    if key in self.solver_vars:
+                        duracion = self.turnos_info.get(turno_id, None)
+                        if duracion:
+                            factor = int(duracion.duracion_horas * 10)  # Entero para CP-SAT
+                            vars_horas.append(factor * self.solver_vars[key])
+            
+            if vars_horas:
+                # Variable de desviación (entera positiva)
+                desviacion = self.model.NewIntVar(0, 10000, f'desv_h_{enfermera_id}')
+                self.model.Add(
+                    sum(vars_horas) - objetivo * 10 <= desviacion
+                )
+                self.model.Add(
+                    objetivo * 10 - sum(vars_horas) <= desviacion
+                )
+                penalizaciones.append(desviacion)
+        
+        return penalizaciones
     
-    def _objetivo_equilibrar_noches(self):
+    def _penalizar_equilibrio_noches(self) -> list:
         """
-        Equilibra el número de noches entre enfermeras.
-        Implementado como soft constraint para minimizar varianza.
+        Penaliza el desequilibrio en noches asignadas entre enfermeras.
+        Minimiza la diferencia máxima de noches.
         """
-        # Similar to hours balance - would require deviation variables
-        # For now, the base rotation should already distribute nights fairly
-        # The coverage analyzer will report any imbalances
-        pass
+        penalizaciones = []
+        
+        # Identificar turnos nocturnos
+        turnos_nocturnos = [
+            t_id for t_id, t_info in self.turnos_info.items()
+            if t_info.es_nocturno
+        ]
+        
+        if not turnos_nocturnos:
+            return penalizaciones
+        
+        # Para cada enfermera, contar noches
+        vars_noches_por_enf = {}
+        for enfermera_id in self.matriz.enfermeras:
+            vars_noche = []
+            for fecha in self.matriz.fechas:
+                for turno_id in turnos_nocturnos:
+                    key = (enfermera_id, fecha, turno_id)
+                    if key in self.solver_vars:
+                        vars_noche.append(self.solver_vars[key])
+            
+            if vars_noche:
+                noche_var = self.model.NewIntVar(0, len(self.matriz.fechas), f'noches_{enfermera_id}')
+                self.model.Add(sum(vars_noche) == noche_var)
+                vars_noches_por_enf[enfermera_id] = noche_var
+        
+        if vars_noches_por_enf:
+            # Minimizar diferencia máxima
+            max_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'max_noches')
+            min_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'min_noches')
+            
+            for v in vars_noches_por_enf.values():
+                self.model.Add(max_noches >= v)
+                self.model.Add(min_noches <= v)
+            
+            diff_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'diff_noches')
+            self.model.Add(diff_noches == max_noches - min_noches)
+            penalizaciones.append(diff_noches)
+        
+        return penalizaciones
     
-    def _objetivo_equilibrar_findes(self):
+    def _penalizar_equilibrio_findes(self) -> list:
         """
-        Equilibra fines de semana trabajados.
-        Implementado como soft constraint para minimizar varianza.
+        Penaliza el desequilibrio en fines de semana trabajados.
+        Minimiza la diferencia máxima de fines de semana entre enfermeras.
         """
-        # Similar - metric tracked post-solver
-        # Weekend distribution should be handled by base rotation design
-        pass
+        penalizaciones = []
+        
+        # Identificar fines de semana en el período
+        findes = []
+        for i, fecha in enumerate(sorted(self.matriz.fechas)):
+            if fecha.weekday() >= 5:  # Sábado=5, Domingo=6
+                findes.append(i)
+        
+        if not findes:
+            return penalizaciones
+        
+        turno_ids = list(self.matriz.turnos_disponibles)
+        
+        # Para cada enfermera, contar findes trabajados
+        vars_finde_por_enf = {}
+        for enfermera_id in self.matriz.enfermeras:
+            vars_finde = []
+            for fecha_idx, fecha in enumerate(sorted(self.matriz.fechas)):
+                if fecha.weekday() >= 5:
+                    for turno_id in turno_ids:
+                        key = (enfermera_id, fecha, turno_id)
+                        if key in self.solver_vars:
+                            vars_finde.append(self.solver_vars[key])
+            
+            if vars_finde:
+                finde_var = self.model.NewIntVar(0, len(findes), f'findes_{enfermera_id}')
+                self.model.Add(sum(vars_finde) == finde_var)
+                vars_finde_por_enf[enfermera_id] = finde_var
+        
+        if vars_finde_por_enf:
+            # Minimizar diferencia máxima
+            max_finde = self.model.NewIntVar(0, len(findes), 'max_finde')
+            min_finde = self.model.NewIntVar(0, len(findes), 'min_finde')
+            
+            for v in vars_finde_por_enf.values():
+                self.model.Add(max_finde >= v)
+                self.model.Add(min_finde <= v)
+            
+            diff_finde = self.model.NewIntVar(0, len(findes), 'diff_finde')
+            self.model.Add(diff_finde == max_finde - min_finde)
+            penalizaciones.append(diff_finde)
+        
+        return penalizaciones
     
     def _extraer_solucion(self, solver: cp_model.CpSolver) -> MatrizPlanificacion:
         """
