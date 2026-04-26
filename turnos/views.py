@@ -42,7 +42,7 @@ from .mixins import (
 )
 from .models import ConfiguracionPlanificacion, Ejecucion
 from .models import (
-    Enfermera, TipoTurno, Planilla, AsignacionTurno
+    Enfermera, TipoTurno, Planilla, AsignacionTurno, PatronTurnos
 )
 
 logger = logging.getLogger(__name__)
@@ -318,6 +318,8 @@ class ConfiguracionDuplicarView(LoginRequiredMixin, View):
         config_original = get_object_or_404(ConfiguracionPlanificacion, pk=pk)
 
         # Crear copia
+        # PRIORIDAD: patrones_turnos_json es la fuente activa principal
+        # legacy: patrones_turnos (ManyToMany)
         config_nueva = ConfiguracionPlanificacion.objects.create(
             nombre=f"{config_original.nombre} (Copia)",
             descripcion=config_original.descripcion,
@@ -327,16 +329,17 @@ class ConfiguracionDuplicarView(LoginRequiredMixin, View):
             demanda_por_turno=config_original.demanda_por_turno,
             restricciones_duras=config_original.restricciones_duras,
             restricciones_blandas=config_original.restricciones_blandas,
+            patrones_turnos_json=config_original.patrones_turnos_json,  # ✅ Copiar JSON activo
             num_trabajadores=config_original.num_trabajadores,
             tiempo_maximo_segundos=config_original.tiempo_maximo_segundos,
             seed=config_original.seed,
             creado_por=request.user
         )
 
-        # Copiar relaciones ManyToMany
+        # Copiar relaciones ManyToMany (LEGACY)
         config_nueva.enfermeras.set(config_original.enfermeras.all())
         config_nueva.turnos.set(config_original.turnos.all())
-        config_nueva.patrones_turnos.set(config_original.patrones_turnos.all())
+        config_nueva.patrones_turnos.set(config_original.patrones_turnos.all())  # Legacy
 
         messages.success(request, 'Configuración duplicada con éxito.')
         return redirect('turnos:config_detalle', pk=config_nueva.pk)

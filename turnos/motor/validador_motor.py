@@ -157,8 +157,11 @@ class ValidadorMotor:
                     contador_noches = 0
     
     def _validar_cobertura_minima(self):
-        """Valida cobertura mínima por turno"""
+        """Valida cobertura mínima por turno, incluyendo ausencia total"""
         cobertura_minima = self.configuracion.get('COBERTURA_MINIMA', {})
+        
+        if not cobertura_minima:
+            return
         
         # Agrupar por fecha y turno
         cobertura = defaultdict(lambda: defaultdict(int))
@@ -167,15 +170,23 @@ class ValidadorMotor:
                 if celda.turno_id and not celda.es_libre:
                     cobertura[fecha][celda.turno_id] += 1
         
-        # Verificar mínimos
-        for fecha, turnos_count in cobertura.items():
+        # Obtener todas las fechas de la matriz
+        todas_fechas = set()
+        for celdas_enfermera in self.matriz.celdas.values():
+            todas_fechas.update(celdas_enfermera.keys())
+        
+        # Verificar mínimos para TODAS las fechas y turnos requeridos
+        for fecha in todas_fechas:
             for turno_id, minimo in cobertura_minima.items():
-                if turno_id in turnos_count and turnos_count[turno_id] < minimo:
+                # Si el turno no aparece en la fecha, cobertura es 0
+                cobertura_real = cobertura[fecha].get(turno_id, 0)
+                
+                if cobertura_real < minimo:
                     self.violaciones.append({
                         'tipo': 'COBERTURA_MINIMA',
                         'turno_id': turno_id,
                         'fecha': fecha.isoformat(),
-                        'descripcion': f'Turno {turno_id} en {fecha} tiene {turnos_count[turno_id]} enfermeras (mínimo: {minimo})',
+                        'descripcion': f'Turno {turno_id} en {fecha} tiene {cobertura_real} enfermeras (mínimo: {minimo})',
                     })
     
     def _validar_calidad_solucion(self):
@@ -237,8 +248,8 @@ class ValidadorMotor:
         
         for enf_id, celdas_enfermera in self.matriz.celdas.items():
             for fecha, celda in celdas_enfermera.items():
-                # Verificar que tipo_celda es válido
-                if celda.tipo_celda not in [tc.value for tc in TipoCelda]:
+                # Verificar que tipo_celda es válido (comparación con enum, no string)
+                if celda.tipo_celda not in list(TipoCelda):
                     self.violaciones.append({
                         'tipo': 'TIPO_CELDA_INVALIDO',
                         'enfermera_id': enf_id,
@@ -246,8 +257,8 @@ class ValidadorMotor:
                         'descripcion': f'Tipo de celda inválido: {celda.tipo_celda}',
                     })
                 
-                # Verificar que TURNOS tienen turno_id
-                if celda.tipo_celda == TipoCelda.TURNO.value and not celda.turno_id:
+                # Verificar que TURNOS tienen turno_id (comparación con enum)
+                if celda.tipo_celda == TipoCelda.TURNO and not celda.turno_id:
                     self.violaciones.append({
                         'tipo': 'TURNO_SIN_ID',
                         'enfermera_id': enf_id,
@@ -278,8 +289,12 @@ class ValidadorMotor:
                     if celda.es_festivo:
                         festivos += 1
             
+            # Obtener nombre de enfermera desde la matriz
+            enfermera_nombre = self.matriz.enfermeras.get(enf_id, f'Enfermera {enf_id}')
+            
             balances[enf_id] = BalanceEnfermera(
                 enfermera_id=enf_id,
+                enfermera_nombre=enfermera_nombre,
                 horas_asignadas=horas,
                 turnos_asignados=sum(1 for c in celdas_enfermera.values() if c.turno_id),
                 noches_asignadas=noches,

@@ -92,6 +92,21 @@ def matriz_con_conflictos(enfermeras, fechas_abril_2026, turnos_basicos, rotacio
 
 
 @pytest.fixture
+def matriz_basica(enfermeras, fechas_abril_2026, rotacion_2m_2t_2n_2l):
+    """Matriz básica sin conflictos para tests de validador"""
+    asignaciones = {enf_id: rotacion_2m_2t_2n_2l for enf_id in enfermeras.keys()}
+    desfases = {1: 0, 2: 2, 3: 4}
+    
+    builder = RotacionBaseBuilder(
+        fechas=fechas_abril_2026,
+        enfermeras=enfermeras,
+        asignaciones_rotacion=asignaciones,
+        desfases=desfases,
+    )
+    return builder.construir()
+
+
+@pytest.fixture
 def restricciones_duras():
     """Restricciones duras de ejemplo"""
     return [
@@ -358,3 +373,165 @@ class TestSemanticConsistency:
         assert hasattr(celda, 'turno_base_id')
         assert hasattr(celda, 'turno_id')
         assert celda.turno_id == 3
+
+
+class TestValidadorIntegracion:
+    """Tests para ValidadorMotor integrado en pipeline"""
+    
+    def test_validador_enum_string_comparison(self, matriz_basica, turnos_basicos):
+        """Validador debe usar comparaciones con enum, no strings"""
+        configuracion = {
+            'COBERTURA_MINIMA': {},
+            'TURNO_CONSECUTIVOS_MAX': 6,
+            'NOCHES_CONSECUTIVAS_MAX': 3,
+        }
+        
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion=configuracion,
+        )
+        
+        # Ejecutar validación - no debe fallar por comparaciones enum/string
+        resultado = validador.validar()
+        
+        assert resultado is not None
+        assert hasattr(resultado, 'violaciones')
+        
+    def test_validador_cobertura_ausencia_total(self, matriz_basica, turnos_basicos):
+        """Validador debe detectar ausencia total de cobertura"""
+        configuracion = {
+            'COBERTURA_MINIMA': {1: 2},  # Turno M necesita 2 enfermeras
+            'TURNO_CONSECUTIVOS_MAX': 6,
+            'NOCHES_CONSECUTIVAS_MAX': 3,
+        }
+        
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion=configuracion,
+        )
+        
+        resultado = validador.validar()
+        
+        # Debería haber violaciones de cobertura mínima
+        cobertura_violations = [
+            v for v in resultado.violaciones 
+            if v.get('tipo') == 'COBERTURA_MINIMA'
+        ]
+        
+        # Al menos debería detectar que no hay cobertura suficiente
+        assert len(cobertura_violations) > 0 or not resultado.exitosa
+    
+    def test_balance_enfermera_con_nombre(self, matriz_basica, turnos_basicos):
+        """BalanceEnfermera debe incluir enfermera_nombre"""
+        configuracion = {
+            'COBERTURA_MINIMA': {},
+            'TURNO_CONSECUTIVOS_MAX': 6,
+            'NOCHES_CONSECUTIVAS_MAX': 3,
+        }
+        
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion=configuracion,
+        )
+        
+        resultado = validador.validar()
+        
+        # Verificar que todos los balances tienen enfermera_nombre
+        for enf_id, balance in resultado.balances.items():
+            assert hasattr(balance, 'enfermera_nombre')
+            assert balance.enfermera_nombre != ''
+            assert isinstance(balance.enfermera_nombre, str)
+
+
+class TestReparadorConfiguracion:
+    """Tests para configuracion del reparador"""
+    
+    def test_reparador_recibe_cobertura_minima(self, matriz_basica, turnos_basicos):
+        """Reparador debe recibir cobertura_minima como parámetro"""
+        # Crear análisis mock
+        class AnalisisFake:
+            def __init__(self):
+                self.turnos_info = turnos_basicos
+                self.dias = list(matriz_basica.celdas.values())[0].keys()
+                self.cobertura_minima = {1: 2}
+        
+        analisis = AnalisisFake()
+        
+        # Crear reparador con cobertura_minima explícita
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz_basica,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+            restricciones_duras=[],
+            objetivos=[],
+            cobertura_minima={1: 2, 2: 1},
+        )
+        
+        # Verificar que se almacenó correctamente
+        assert reparador.cobertura_minima == {1: 2, 2: 1}
+        assert hasattr(reparador, 'cobertura_minima')
+
+
+class TestPipelineIntegracionCompleta:
+    """Tests para integración completa del pipeline"""
+    
+    def test_pipeline_usa_validador_motor(self, fechas_abril_2026, enfermeras, 
+                                          rotacion_2m_2t_2n_2l, turnos_basicos):
+        """Pipeline debe usar ValidadorMotor en fase 5, no construir resultado directo"""
+        asignaciones = {enf_id: rotacion_2m_2t_2n_2l for enf_id in enfermeras.keys()}
+        desfases = {1: 0, 2: 2, 3: 4}
+        
+        pipeline = PipelinePlanificacion(
+            fechas=fechas_abril_2026,
+            enfermeras=enfermeras,
+            asignaciones_rotacion=asignaciones,
+            desfases=desfases,
+            incidencias=[],
+            horas_objetivo={enf_id: 40.0 for enf_id in enfermeras.keys()},
+            cobertura_minima={1: 1},
+            turnos_info=turnos_basicos,
+            restricciones_duras=[],
+            restricciones_blandas=[],
+            balances_historicos={},
+        )
+        
+        resultado = pipeline.ejecutar()
+        
+        # El resultado debe venir del validador (puede tener violaciones)
+        assert resultado is not None
+        assert hasattr(resultado, 'exitosa')
+        assert hasattr(resultado, 'violaciones')
+        assert hasattr(resultado, 'balances')
+        
+        # Verificar que los balances tienen enfermera_nombre
+        for enf_id, balance in resultado.balances.items():
+            assert hasattr(balance, 'enfermera_nombre')
+    
+    def test_pipeline_pasa_cobertura_a_reparador(self, fechas_abril_2026, enfermeras,
+                                                  rotacion_2m_2t_2n_2l, turnos_basicos):
+        """Pipeline debe pasar cobertura_minima al reparador"""
+        asignaciones = {enf_id: rotacion_2m_2t_2n_2l for enf_id in enfermeras.keys()}
+        desfases = {1: 0}
+        
+        cobertura_minima = {1: 2, 2: 1}
+        
+        pipeline = PipelinePlanificacion(
+            fechas=fechas_abril_2026,
+            enfermeras=enfermeras,
+            asignaciones_rotacion=asignaciones,
+            desfases=desfases,
+            incidencias=[],
+            horas_objetivo={enf_id: 40.0 for enf_id in enfermeras.keys()},
+            cobertura_minima=cobertura_minima,
+            turnos_info=turnos_basicos,
+        )
+        
+        # Ejecutar pipeline
+        resultado = pipeline.ejecutar()
+        
+        # Verificar que se ejecutó sin errores
+        assert resultado is not None
+        assert hasattr(resultado, 'exitosa')

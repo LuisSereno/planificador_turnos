@@ -17,6 +17,7 @@ from .rotacion_base import RotacionBaseBuilder
 from .incidencias import AplicadorIncidencias
 from .cobertura import AnalizadorCobertura
 from .reparador import ReparadorCPSAT
+from .validador_motor import ValidadorMotor
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class PipelinePlanificacion:
                     turnos_info=self.turnos_info,
                     restricciones_duras=self.restricciones_duras,
                     objetivos=self.restricciones_blandas,
+                    cobertura_minima=self.cobertura_minima,
                 )
                 matriz_final = reparador.reparar()
                 estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'
@@ -140,22 +142,24 @@ class PipelinePlanificacion:
             else:
                 logger.info("FASE 4: No se requiere reparación")
             
-            # FASE 5: Validación final
+            # FASE 5: Validación final con ValidadorMotor
             logger.info("FASE 5: Validando resultado final...")
-            resultado = ResultadoPlanificacion(
-                exitosa=True,
+            
+            # Preparar configuración para el validador
+            configuracion_validador = {
+                'COBERTURA_MINIMA': self.cobertura_minima,
+                'TURNO_CONSECUTIVOS_MAX': 6,  # Default values
+                'NOCHES_CONSECUTIVAS_MAX': 3,
+            }
+            
+            validador = ValidadorMotor(
                 matriz=matriz_final,
-                balances=analisis['balances'],
-                metricas={
-                    'total_celdas': matriz_final.total_celdas(),
-                    'celdas_bloqueadas': celdas_bloqueadas,
-                    'celdas_modificables': matriz_final.total_celdas() - celdas_bloqueadas,
-                    'conflictos_cobertura': len(analisis['conflictos']),
-                },
-                estado_solver=estado_solver,
-                celdas_modificadas=celdas_modificadas,
-                celdas_totales=matriz_final.total_celdas(),
+                turnos_info=self.turnos_info,
+                configuracion=configuracion_validador,
             )
+            
+            # El resultado final sale del validador, NO se construye directamente
+            resultado = validador.validar()
             
             logger.info("=" * 80)
             logger.info("PIPELINE COMPLETADO EXITOSAMENTE")

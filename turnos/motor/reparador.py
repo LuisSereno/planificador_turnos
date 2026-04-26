@@ -39,12 +39,14 @@ class ReparadorCPSAT:
         turnos_info: Dict[int, TurnoInfo],
         restricciones_duras: List[dict] = None,
         objetivos: List[dict] = None,
+        cobertura_minima: Dict[int, int] = None,
     ):
         self.matriz = matriz_bloqueada
         self.analisis = analisis_cobertura
         self.turnos_info = turnos_info
         self.restricciones_duras = restricciones_duras or []
         self.objetivos = objetivos or []
+        self.cobertura_minima = cobertura_minima or {}
         self.model = cp_model.CpModel()
         self.solver_vars = {}  # (enfermera_id, fecha_idx, turno_id) -> BoolVar
         self.solver_status = 'NO_EJECUTADO'
@@ -203,7 +205,8 @@ class ReparadorCPSAT:
     
     def _restringir_cobertura_minima(self):
         """Garantiza cobertura mínima por turno y fecha."""
-        cobertura_min = self.analisis.cobertura_minima_requerida if hasattr(self.analisis, 'cobertura_minima_requerida') else {}
+        # Usar cobertura_minima pasada como parámetro (no del análisis)
+        cobertura_min = self.cobertura_minima
         
         for fecha in self.matriz.fechas:
             for turno_id, minimo in cobertura_min.items():
