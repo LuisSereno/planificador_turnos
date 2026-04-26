@@ -480,7 +480,7 @@ class EjecucionListView(LoginRequiredMixin, SearchMixin, FilterMixin, Pagination
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = queryset.select_related('configuracion', 'planilla')
+        queryset = queryset.select_related('configuracion', 'planilla_generada')
 
         # Filtros
         estado = self.request.GET.get('estado')

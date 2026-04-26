@@ -535,3 +535,219 @@ class TestPipelineIntegracionCompleta:
         # Verificar que se ejecutó sin errores
         assert resultado is not None
         assert hasattr(resultado, 'exitosa')
+
+
+@pytest.mark.django_db
+class TestBalanceHistoricoPersistencia:
+    """Test D: Balance histórico - persistencia end-to-end"""
+
+    def test_balance_historico_update_or_create(self):
+        """Verificar que update_or_create funciona para balances históricos"""
+        from turnos.models import Enfermera, BalanceHistoricoEnfermera
+        from datetime import date
+
+        enf = Enfermera.objects.create(
+            nombre='Test Enfermera',
+            email='test@example.com',
+            activa=True,
+        )
+
+        balance, created = BalanceHistoricoEnfermera.objects.update_or_create(
+            enfermera_id=enf.id,
+            periodo_referencia='2026',
+            defaults={
+                'horas_acumuladas_previas': 150.0,
+                'noches_acumuladas': 10,
+                'fines_semana_acumulados': 5,
+                'festivos_acumulados': 2,
+            }
+        )
+        assert created is True
+        assert balance.enfermera_id == enf.id
+        assert balance.periodo_referencia == '2026'
+        assert float(balance.horas_acumuladas_previas) == 150.0
+
+        balance2, created2 = BalanceHistoricoEnfermera.objects.update_or_create(
+            enfermera_id=enf.id,
+            periodo_referencia='2026',
+            defaults={
+                'horas_acumuladas_previas': 200.0,
+                'noches_acumuladas': 15,
+                'fines_semana_acumulados': 7,
+                'festivos_acumulados': 3,
+            }
+        )
+        assert created2 is False
+        assert float(balance2.horas_acumuladas_previas) == 200.0
+        assert balance2.id == balance.id
+
+        balance3, created3 = BalanceHistoricoEnfermera.objects.update_or_create(
+            enfermera_id=enf.id,
+            periodo_referencia='2025',
+            defaults={
+                'horas_acumuladas_previas': 100.0,
+                'noches_acumuladas': 5,
+                'fines_semana_acumulados': 3,
+                'festivos_acumulados': 1,
+            }
+        )
+        assert created3 is True
+        assert balance3.id != balance.id
+
+    def test_balance_sin_historico_no_rompe(self):
+        """Enfermera sin histórico debe manejar DoesNotExist"""
+        from turnos.models import Enfermera, BalanceHistoricoEnfermera
+
+        enf = Enfermera.objects.create(
+            nombre='Sin Histórico',
+            email='sinhistorico@example.com',
+            activa=True,
+        )
+
+        with pytest.raises(BalanceHistoricoEnfermera.DoesNotExist):
+            BalanceHistoricoEnfermera.objects.get(
+                enfermera_id=enf.id,
+                periodo_referencia='2026'
+            )
+
+        balance, created = BalanceHistoricoEnfermera.objects.update_or_create(
+            enfermera_id=enf.id,
+            periodo_referencia='2026',
+            defaults={'horas_acumuladas_previas': 0}
+        )
+        assert created is True
+        assert float(balance.horas_acumuladas_previas) == 0.0
+
+
+@pytest.mark.django_db
+class TestConfigDuplicacion:
+    """Test E: Configuración duplicada copia patrones_turnos_json"""
+
+    def test_duplicacion_copia_json_activo(self):
+        """Duplicar configuración debe copiar patrones_turnos_json"""
+        from turnos.models import ConfiguracionPlanificacion, Enfermera
+        from datetime import date
+
+        enf = Enfermera.objects.create(
+            nombre='Test Enf', email='enf@test.com', activa=True
+        )
+
+        original = ConfiguracionPlanificacion.objects.create(
+            nombre='Config Original',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 1),
+            demanda_por_turno={'MANANA': 2, 'TARDE': 2, 'NOCHE': 1},
+            restricciones_duras=[
+                {'nombre': 'TURNO_CONSECUTIVOS_MAX', 'valor': 6},
+            ],
+            restricciones_blandas=[],
+            patrones_turnos_json=[
+                {'tipo': 'SECUENCIA_OBLIGATORIA', 'configuracion': {'param': 'value'}},
+            ],
+        )
+        original.enfermeras.add(enf)
+
+        copia = ConfiguracionPlanificacion.objects.create(
+            nombre=f"{original.nombre} (Copia)",
+            descripcion=original.descripcion,
+            activa=original.activa,
+            num_dias=original.num_dias,
+            fecha_inicio=date(2026, 5, 1),
+            demanda_por_turno=original.demanda_por_turno,
+            restricciones_duras=original.restricciones_duras,
+            restricciones_blandas=original.restricciones_blandas,
+            patrones_turnos_json=original.patrones_turnos_json,
+        )
+
+        assert copia.patrones_turnos_json == original.patrones_turnos_json
+        assert len(copia.patrones_turnos_json) == 1
+        assert copia.patrones_turnos_json[0]['tipo'] == 'SECUENCIA_OBLIGATORIA'
+        assert copia.restricciones_duras == original.restricciones_duras
+        assert copia.demanda_por_turno == original.demanda_por_turno
+
+    def test_duplicacion_sin_json_no_rompe(self):
+        """Duplicar configuración sin patrones_json no debe romper"""
+        from turnos.models import ConfiguracionPlanificacion
+        from datetime import date
+
+        original = ConfiguracionPlanificacion.objects.create(
+            nombre='Config Sin JSON',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 1),
+        )
+
+        copia = ConfiguracionPlanificacion.objects.create(
+            nombre=f"{original.nombre} (Copia)",
+            num_dias=original.num_dias,
+            fecha_inicio=date(2026, 5, 1),
+            patrones_turnos_json=original.patrones_turnos_json,
+        )
+
+        assert copia.patrones_turnos_json == []
+        assert copia.nombre == 'Config Sin JSON (Copia)'
+
+
+@pytest.mark.django_db
+class TestRelacionCanonicaPlanilla:
+    """Test F: Persistencia y lectura de planilla con relación canónica"""
+
+    def test_planilla_ejecucion_canonica(self):
+        """Planilla.ejecucion y ejecucion.planilla_generada deben funcionar"""
+        from turnos.models import (
+            ConfiguracionPlanificacion, Ejecucion, Planilla,
+        )
+        from datetime import date
+
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre='Test Config',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 1),
+        )
+
+        ejecucion = Ejecucion.objects.create(
+            configuracion=config,
+            estado='COMPLETADA',
+        )
+
+        planilla = Planilla.objects.create(
+            nombre='Planilla Test',
+            ejecucion=ejecucion,
+            fecha_inicio=date(2026, 4, 1),
+            fecha_fin=date(2026, 4, 30),
+            num_dias=30,
+        )
+
+        assert planilla.ejecucion.id == ejecucion.id
+        assert planilla.ejecucion.configuracion.id == config.id
+        assert ejecucion.planilla_generada.id == planilla.id
+        assert ejecucion.planilla_generada.nombre == 'Planilla Test'
+        assert not hasattr(ejecucion, 'planilla')
+
+    def test_ejecucion_sin_planilla(self):
+        """Ejecución sin planilla no debe romper"""
+        from turnos.models import ConfiguracionPlanificacion, Ejecucion
+        from datetime import date
+
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre='Test Config',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 1),
+        )
+
+        ejecucion = Ejecucion.objects.create(
+            configuracion=config,
+            estado='PENDIENTE',
+        )
+
+        assert not hasattr(ejecucion, 'planilla_generada')
+
+        from turnos.models import Planilla
+        planilla = Planilla.objects.create(
+            nombre='Planilla Posterior',
+            ejecucion=ejecucion,
+            fecha_inicio=date(2026, 4, 1),
+            fecha_fin=date(2026, 4, 30),
+            num_dias=30,
+        )
+
+        assert ejecucion.planilla_generada.id == planilla.id
