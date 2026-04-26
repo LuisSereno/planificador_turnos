@@ -1,23 +1,17 @@
-﻿from django.db import transaction
-
-from .models import Workspace
-from django.db import transaction
-
-from .models import Workspace
-from .utils import generar_json_planilla, generar_ical_planilla
-from .utils.exportacion import exportar_enfermeras_excel, generar_csv_planilla, generar_pdf_planilla, \
-    generar_excel_planilla
-
+﻿# -*- coding: utf-8 -*-
 """
 Views for turnos app
 """
 import logging
+from datetime import date, time, datetime, timedelta
+from collections import defaultdict
+import json
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import Avg, F, ExpressionWrapper, DurationField
-from django.http import HttpResponse, FileResponse
-from django.http import JsonResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -27,7 +21,12 @@ from django.views.generic import (
     TemplateView, View
 )
 from formtools.wizard.views import SessionWizardView
+from django.core.serializers.json import DjangoJSONEncoder
 
+from .models import Workspace
+from .utils import generar_json_planilla, generar_ical_planilla
+from .utils.exportacion import exportar_enfermeras_excel, generar_csv_planilla, generar_pdf_planilla, \
+    generar_excel_planilla
 from .forms import (
     EnfermeraForm, TipoTurnoForm, ConfiguracionPlanificacionForm,
     EjecucionRapidaForm,
@@ -45,11 +44,6 @@ from .models import ConfiguracionPlanificacion, Ejecucion
 from .models import (
     Enfermera, TipoTurno, Planilla, AsignacionTurno
 )
-from collections import defaultdict
-import json
-from django.core.serializers.json import DjangoJSONEncoder
-
-from datetime import date, time, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -662,7 +656,7 @@ class EjecucionDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-from .tasks import ejecutar_planificacion_async
+from .tasks import ejecutar_planificacion_motor_async  # NUEVO MOTOR - legacy task deprecated
 
 
 # En turnos/views.py - Encontrar EjecutarPlanificacionView y reemplazarla:
@@ -741,7 +735,7 @@ class EjecutarPlanificacionView(LoginRequiredMixin, DetailView):
                 config_id_int = int(config_id)
                 logger.info(f"Dispatching Celery task for config ID {config_id_int}")
 
-                task = ejecutar_planificacion_async.delay(config_id_int)
+                task = ejecutar_planificacion_motor_async.delay(config_id_int)
 
                 logger.info(
                     f"Celery task dispatched - Task ID: {task.id}, "

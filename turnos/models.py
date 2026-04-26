@@ -98,6 +98,11 @@ class TipoTurno(models.Model):
         duracion = (fin - inicio).total_seconds() / 3600
         return round(duracion, 2)
 
+    @property
+    def es_nocturno(self):
+        """Determina si el turno es nocturno basado en el nombre"""
+        return self.nombre == 'NOCHE'
+
 
 class TipoPatron(models.TextChoices):
     """Tipos de patrones de turnos soportados"""
@@ -317,15 +322,16 @@ class ConfiguracionPlanificacion(models.Model):
     def get_patrones_combinados(self):
         """
         ✅ Método helper para obtener TODOS los patrones (JSON + ManyToMany)
-        Útil para mantener compatibilidad con código existente
+        PRIORIDAD: patrones_turnos_json es la fuente activa principal
+        patrones_turnos (ManyToMany) es legacy y solo para compatibilidad
         """
         patrones = []
 
-        # 1. Patrones JSON del formulario
+        # 1. Patrones JSON del formulario (FUENTE ACTIVA PRINCIPAL)
         if self.patrones_turnos_json:
             patrones.extend(self.patrones_turnos_json)
 
-        # 2. Patrones de la relación ManyToMany (legacy)
+        # 2. Patrones de la relación ManyToMany (LEGACY - solo compatibilidad)
         for patron_obj in self.patrones_turnos.filter(activo=True):
             patrones.append({
                 'tipo': patron_obj.tipo,
@@ -376,7 +382,8 @@ class Ejecucion(models.Model):
         null=True,
         blank=True,
         related_name='ejecucion_generada',
-        verbose_name=_('Planilla')
+        verbose_name=_('Planilla'),
+        help_text=_('Deprecated: Use Planilla.ejecucion instead')
     )
 
     class Meta:

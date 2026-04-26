@@ -76,6 +76,23 @@ class CeldaPlanificacion:
     @property
     def es_fin_de_semana(self) -> bool:
         return self.fecha.weekday() >= 5  # Sábado=5, Domingo=6
+    
+    @property
+    def turno_base_id(self):
+        """Obtiene el ID del turno base si pertenece a la rotación"""
+        return self.turno.id if self.turno and self.pertenece_rotacion_base else None
+    
+    @property
+    def turno_id(self):
+        """Obtiene el ID del turno asignado"""
+        return self.turno.id if self.turno else None
+    
+    @turno_id.setter
+    def turno_id(self, value):
+        """Establece el turno por ID (requiere lookup externo)"""
+        # El setter no puede resolver el objeto TurnoInfo directamente
+        # Se debe asignar through celda.turno directamente
+        pass
 
 
 @dataclass
@@ -146,6 +163,7 @@ class MatrizPlanificacion:
     celdas: dict = field(default_factory=dict)
     fechas: list = field(default_factory=list)
     enfermeras: dict = field(default_factory=dict)  # id -> nombre
+    turnos_disponibles: list = field(default_factory=list)  # IDs de turnos disponibles para el solver
     
     def obtener_celda(self, enfermera_id: int, fecha: date) -> Optional[CeldaPlanificacion]:
         if enfermera_id in self.celdas and fecha in self.celdas[enfermera_id]:
@@ -197,6 +215,7 @@ class ResultadoPlanificacion:
     # Validación
     restricciones_duras_cumplidas: bool = True
     violaciones: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
     
     @property
     def porcentaje_modificaciones(self) -> float:

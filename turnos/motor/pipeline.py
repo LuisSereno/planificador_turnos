@@ -43,6 +43,7 @@ class PipelinePlanificacion:
         horas_objetivo: Dict[int, float],
         cobertura_minima: Optional[Dict[int, int]] = None,
         configuracion_solver: Optional[Dict] = None,
+        turnos_info: Optional[Dict[int, 'TurnoInfo']] = None,
     ):
         self.fechas = fechas
         self.enfermeras = enfermeras
@@ -52,6 +53,7 @@ class PipelinePlanificacion:
         self.horas_objetivo = horas_objetivo
         self.cobertura_minima = cobertura_minima or {}
         self.configuracion_solver = configuracion_solver or {}
+        self.turnos_info = turnos_info or {}
         
     def ejecutar(self) -> ResultadoPlanificacion:
         """
@@ -105,24 +107,27 @@ class PipelinePlanificacion:
             # FASE 4: Reparación con CP-SAT (si es necesario)
             matriz_final = matriz_bloqueada
             celdas_modificadas = 0
+            estado_solver = 'NO_EJECUTADO'
             
             if analisis['tiene_conflictos']:
                 logger.info("FASE 4: Iniciando reparación con CP-SAT...")
                 reparador = ReparadorCPSAT(
                     matriz_bloqueada=matriz_bloqueada,
                     analisis_cobertura=analisis,
-                    turnos_info={},  # TODO: Pasar turnos_info
-                    restricciones_duras=[],  # TODO: Pasar restricciones
+                    turnos_info=self.turnos_info,
+                    restricciones_duras=[],
                     objetivos=[],
                 )
                 matriz_final = reparador.reparar()
+                estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'
                 
                 # Contar celdas modificadas
                 celdas_modificadas = sum(
                     1
                     for enf_id in matriz_final.celdas
                     for fecha, celda in matriz_final.celdas[enf_id].items()
-                    if not celda.es_modificable and celda.turno_id != matriz_bloqueada.obtener_celda(enf_id, fecha).turno_id
+                    if matriz_bloqueada.obtener_celda(enf_id, fecha) and \
+                       celda.turno != matriz_bloqueada.obtener_celda(enf_id, fecha).turno
                 )
                 logger.info(f"✓ Reparación completada: {celdas_modificadas} celdas modificadas")
             else:
@@ -140,7 +145,7 @@ class PipelinePlanificacion:
                     'celdas_modificables': matriz_final.total_celdas() - celdas_bloqueadas,
                     'conflictos_cobertura': len(analisis['conflictos']),
                 },
-                estado_solver='NO_EJECUTADO',
+                estado_solver=estado_solver,
                 celdas_modificadas=celdas_modificadas,
                 celdas_totales=matriz_final.total_celdas(),
             )

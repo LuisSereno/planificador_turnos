@@ -168,9 +168,8 @@ def ejecutar_planificacion_async(self, configuracion_id):
                 AsignacionTurno.objects.bulk_create(asignaciones_bulk)
                 logger.info(f"✓ {len(asignaciones_bulk)} asignaciones creadas")
 
-                # Vincular planilla a ejecución
-                ejecucion.planilla = planilla
-                ejecucion.save()
+                # Note: Planilla.ejecucion is the canonical relationship
+                # No need to set ejecucion.planilla (deprecated)
 
         # ══════════════════════════════════════════════════════════════
         # 7. RESULTADO FINAL
@@ -475,7 +474,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
         # Incidencias
         incidencias_db = Incidencia.objects.filter(
             enfermera_id__in=enfermeras.keys()
-        )
+        ).select_related('turno_fijo', 'enfermera')
         
         incidencias_list = []
         for inc_db in incidencias_db:
@@ -488,12 +487,25 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 'ASIGNACION_FIJA': TipoIncidencia.ASIGNACION_FIJA,
             }
             
+            # Build turno_fijo object if exists
+            turno_fijo_obj = None
+            if inc_db.turno_fijo:
+                turno_fijo_obj = TurnoInfo(
+                    id=inc_db.turno_fijo.id,
+                    nombre=inc_db.turno_fijo.nombre,
+                    hora_inicio=inc_db.turno_fijo.hora_inicio,
+                    hora_fin=inc_db.turno_fijo.hora_fin,
+                    duracion_horas=inc_db.turno_fijo.duracion_horas,
+                    es_nocturno=inc_db.turno_fijo.es_nocturno,
+                )
+            
             incidencias_list.append(DTOIncidencia(
                 enfermera_id=inc_db.enfermera_id,
+                enfermera_nombre=inc_db.enfermera.nombre,
                 tipo=tipo_map.get(inc_db.tipo, TipoIncidencia.PERMISO),
                 fecha_inicio=inc_db.fecha_inicio,
                 fecha_fin=inc_db.fecha_fin,
-                turno_fijo_id=inc_db.turno_fijo_id,
+                turno_fijo=turno_fijo_obj,
                 observaciones=inc_db.observaciones,
             ))
         
@@ -504,6 +516,28 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 if isinstance(r, dict):
                     configuracion_restricciones[r.get('nombre', '')] = r.get('valor', {})
         
+        # Build horas_objetivo from contracts
+        from turnos.models import ContratoEnfermera, BalanceHistoricoEnfermera
+        
+        horas_objetivo = {}
+        for enf_id in enfermeras.keys():
+            try:
+                contrato = ContratoEnfermera.objects.get(enfermera_id=enf_id)
+                # Calculate hours for the period from weekly hours
+                semanas_en_periodo = config.num_dias / 7.0
+                horas_objetivo[enf_id] = float(contrato.horas_semana_objetivo * semanas_en_periodo)
+            except ContratoEnfermera.DoesNotExist:
+                # Default to 40 hours/week
+                horas_objetivo[enf_id] = 40.0 * (config.num_dias / 7.0)
+        
+        # Coverage minimum from demand
+        cobertura_minima = {}
+        if config.demanda_por_turno:
+            # Map turno nombre to turno id
+            for turno in TipoTurno.objects.filter(workspace=config.workspace):
+                if turno.nombre in config.demanda_por_turno:
+                    cobertura_minima[turno.id] = config.demanda_por_turno[turno.nombre]
+        
         # 4. Ejecutar pipeline
         logger.info("Ejecutando pipeline de planificación...")
         
@@ -512,11 +546,10 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             enfermeras=enfermeras,
             asignaciones_rotacion=asignaciones_rotacion,
             desfases=desfases,
+            incidencias=incidencias_list,
+            horas_objetivo=horas_objetivo,
+            cobertura_minima=cobertura_minima,
             turnos_info=turnos_info,
-            incidencias_list=incidencias_list if incidencias_list else None,
-            horas_objetivo_enfermeras=None,  # TODO: Obtener de contratos
-            restricciones_duras=config.restricciones_duras or [],
-            objetivos=config.restricciones_blandas or [],
         )
         
         resultado = pipeline.ejecutar()
@@ -585,7 +618,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
         return {
             'success': resultado.exito,
             'ejecucion_id': ejecucion.id,
-            'planilla_id': ejecucion.planilla_generada.id if hasattr(ejecucion, 'planilla_generada') else None,
+            'planilla_id': planilla.id if resultado.exito else None,
             'estado': ejecucion.estado,
             'violaciones': len(resultado.violaciones),
             'warnings': len(resultado.warnings),
