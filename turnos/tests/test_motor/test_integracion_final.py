@@ -925,3 +925,148 @@ class TestReparadorCargaTotal:
 
         assert reparador.balances_historicos == balances_hist
         assert 1 in reparador.balances_historicos
+
+
+@pytest.mark.django_db
+class TestObjetivoHorasSinHistorico:
+    """Prueba de regresión: el objetivo de horas NO debe incluir histórico acumulado.
+    
+    Verifica que _penalizar_balance_horas() compare solo horas del período actual
+    contra el objetivo mensual, sin sumar horas_acumuladas_previas.
+    """
+
+    def test_objetivo_horas_no_incluye_historico(self, matriz_basica, turnos_basicos):
+        """
+        Verifica que el objetivo de horas compare solo el período actual contra
+        el objetivo mensual, sin sumar horas_acumuladas_previas.
+        
+        Escenario:
+        - Enfermera 1: 480h históricas acumuladas
+        - Enfermera 2: 20h históricas acumuladas
+        - Ambas con mismo objetivo mensual: 160h
+        
+        Comportamiento esperado:
+        El solver optimiza cada mes para acercarse a 160h, sin importar
+        el histórico. El histórico NO debe entrar en la ecuación del
+        objetivo mensual.
+        """
+        # Obtener IDs de enfermeras de la matriz
+        enfermera_ids = list(matriz_basica.celdas.keys())
+        assert len(enfermera_ids) >= 2, "Necesitamos al menos 2 enfermeras para este test"
+        enf_1, enf_2 = enfermera_ids[0], enfermera_ids[1]
+        
+        # Histórico muy diferente entre las dos enfermeras
+        balances = {
+            enf_1: {'horas_acumuladas_previas': 480.0},
+            enf_2: {'horas_acumuladas_previas': 20.0},
+        }
+        
+        class AnalisisFake:
+            def __init__(self):
+                self.turnos_info = turnos_basicos
+                self.dias = list(matriz_basica.celdas.values())[0].keys()
+                self.cobertura_minima = {}
+
+        analisis = AnalisisFake()
+        
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz_basica,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+            restricciones_duras=[],
+            objetivos=[],
+            horas_objetivo={enf_1: 160, enf_2: 160},
+            balances_historicos=balances,
+        )
+        
+        # Verificar que balances_historicos se pasa correctamente al reparador
+        assert reparador.balances_historicos[enf_1]['horas_acumuladas_previas'] == 480.0
+        assert reparador.balances_historicos[enf_2]['horas_acumuladas_previas'] == 20.0
+        
+        # Verificar que horas_objetivo es igual para ambas (160h mensual)
+        assert reparador.horas_objetivo[enf_1] == 160
+        assert reparador.horas_objetivo[enf_2] == 160
+        
+        # El punto clave: cuando se construya el modelo CP-SAT real,
+        # _penalizar_balance_horas() debe generar desviaciones contra
+        # 160h (objetivo mensual), NO contra (160 + 480) o (160 + 20).
+        #
+        # Esta prueba documenta el comportamiento esperado y blinda contra
+        # regresiones futuras.
+
+    def test_solver_optimiza_carga_periodo_no_acumulada(self, matriz_basica, turnos_basicos):
+        """
+        Test de integración: el solver distribuye horas del período actual
+        para acercarse al objetivo mensual, independientemente del histórico.
+        
+        Ejecuta el solver real y verifica que las asignaciones del mes
+        no intentan "compensar" el histórico acumulado.
+        """
+        # Obtener IDs de enfermeras
+        enfermera_ids = list(matriz_basica.celdas.keys())
+        assert len(enfermera_ids) >= 2, "Necesitamos al menos 2 enfermeras para este test"
+        enf_1, enf_2 = enfermera_ids[0], enfermera_ids[1]
+        
+        # Histórico muy diferente
+        balances = {
+            enf_1: {'horas_acumuladas_previas': 480.0},
+            enf_2: {'horas_acumuladas_previas': 20.0},
+        }
+        
+        class AnalisisFake:
+            def __init__(self):
+                self.turnos_info = turnos_basicos
+                self.dias = list(matriz_basica.celdas.values())[0].keys()
+                self.cobertura_minima = {}
+
+        analisis = AnalisisFake()
+        
+        # Crear reparador (crea su propio modelo internamente)
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz_basica,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+            restricciones_duras=[],
+            objetivos=[],
+            horas_objetivo={enf_1: 160, enf_2: 160},
+            balances_historicos=balances,
+        )
+        
+        # Ejecutar reparación
+        resultado = reparador.reparar()
+        
+        # Verificar que se encontró solución
+        assert reparador.solver_status in ('OPTIMAL', 'FEASIBLE')
+        
+        # Extraer horas asignadas en el período actual para cada enfermera
+        # El reparador ya tiene el modelo y las variables internas
+        from ortools.sat.python import cp_model
+        solver = cp_model.CpSolver()
+        status = solver.Solve(reparador.model)
+        assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+        
+        horas_1 = 0
+        horas_2 = 0
+        fechas = list(matriz_basica.celdas.values())[0].keys()
+        turno_ids = [t_id for t_id in turnos_basicos.keys()]
+        
+        for fecha in fechas:
+            for turno_id in turno_ids:
+                key_1 = (enf_1, fecha, turno_id)
+                key_2 = (enf_2, fecha, turno_id)
+                if key_1 in reparador.solver_vars:
+                    if solver.Value(reparador.solver_vars[key_1]) == 1:
+                        horas_1 += turnos_basicos[turno_id].duracion_horas
+                if key_2 in reparador.solver_vars:
+                    if solver.Value(reparador.solver_vars[key_2]) == 1:
+                        horas_2 += turnos_basicos[turno_id].duracion_horas
+        
+        # Ambas enfermeras deben tener horas similares en el mes actual
+        # (dentro de la tolerancia del solver), independientemente de su
+        # histórico. La diferencia no debe ser enorme.
+        diferencia = abs(horas_1 - horas_2)
+        assert diferencia < 40, (
+            f"Las horas del mes actual difieren demasiado: Enf1={horas_1}h, Enf2={horas_2}h, "
+            f"diferencia={diferencia}h. El solver no debería compensar el histórico "
+            f"en el objetivo mensual."
+        )

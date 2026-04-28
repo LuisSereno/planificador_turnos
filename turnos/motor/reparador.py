@@ -430,8 +430,12 @@ class ReparadorCPSAT:
         """
         Penaliza la desviación de horas mensuales objetivo.
         Usa horas_objetivo reales desde contratos (pasadas desde pipeline).
-        Incluye horas bloqueadas, horas del solver y acumulado histórico
-        para optimizar sobre la carga TOTAL real, no solo la movible.
+        Incluye horas bloqueadas y horas del solver del período actual.
+        
+        NOTA: NO se incluye el histórico acumulado aquí porque horas_objetivo
+        representa el objetivo del período actual (mensual), no un objetivo
+        acumulado anual. El histórico se usa para persistencia, reporting y
+        continuidad entre períodos, pero no para la optimización del mes actual.
         """
         penalizaciones = []
 
@@ -453,21 +457,21 @@ class ReparadorCPSAT:
             for enf_id in self.matriz.enfermeras:
                 horas_objetivo_por_enfermera[enf_id] = 160
 
-        # Para cada enfermera, calcular horas totales y minimizar desviación
+        # Para cada enfermera, calcular horas del período actual y minimizar desviación
         for enfermera_id in self.matriz.enfermeras:
             if enfermera_id not in horas_objetivo_por_enfermera:
                 continue
 
             objetivo = horas_objetivo_por_enfermera[enfermera_id]
 
-            # 1. Horas BLOQUEADAS ya asignadas en la matriz
+            # 1. Horas BLOQUEADAS ya asignadas en la matriz (período actual)
             horas_bloqueadas = 0
             for fecha in self.matriz.fechas:
                 celda = self.matriz.obtener_celda(enfermera_id, fecha)
                 if celda and not celda.es_modificable and celda.turno:
                     horas_bloqueadas += int(celda.turno.duracion_horas * 10)
 
-            # 2. Horas asignables por el SOLVER
+            # 2. Horas asignables por el SOLVER (período actual)
             vars_horas = []
             for fecha in self.matriz.fechas:
                 for turno_id in self.matriz.turnos_disponibles:
@@ -481,18 +485,13 @@ class ReparadorCPSAT:
                             factor = int(duracion.duracion_horas * 10)  # Entero para CP-SAT
                             vars_horas.append(factor * self.solver_vars[key])
 
-            # 3. Horas HISTÓRICAS acumuladas (constante)
-            horas_historico = 0
-            hist = self.balances_historicos.get(enfermera_id, {})
-            horas_historico_val = hist.get('horas_acumuladas_previas', 0.0)
-            horas_historico = int(horas_historico_val * 10)
-
-            # Construir expresión total: bloqueadas + histórico + variables solver
-            total_expr = horas_bloqueadas + horas_historico
+            # Construir expresión del período actual: bloqueadas + variables solver
+            # (sin histórico acumulado, porque objetivo es mensual)
+            total_expr = horas_bloqueadas
             if vars_horas:
                 total_expr += sum(vars_horas)
 
-            if vars_horas or horas_bloqueadas > 0 or horas_historico > 0:
+            if vars_horas or horas_bloqueadas > 0:
                 desviacion = self.model.NewIntVar(0, 50000, f'desv_h_{enfermera_id}')
                 self.model.Add(total_expr - objetivo * 10 <= desviacion)
                 self.model.Add(objetivo * 10 - total_expr <= desviacion)
