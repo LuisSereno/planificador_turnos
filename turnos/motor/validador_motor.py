@@ -162,82 +162,117 @@ class ValidadorMotor:
                     contador_noches = 0
     
     def _validar_descanso_entre_turnos(self):
-        """Valida descanso mínimo entre turnos (noche → mañana prohibido)."""
-        # Within-period validation
+        """Valida descanso mínimo de 12 horas reales entre turnos consecutivos."""
+        from ..utils.tiempo import calcular_descanso_entre_turnos
+
+        # Validación dentro del período
         for enf_id, celdas_enfermera in self.matriz.celdas.items():
             fechas_ordenadas = sorted(celdas_enfermera.keys())
-            
+
             for i in range(len(fechas_ordenadas) - 1):
                 fecha_actual = fechas_ordenadas[i]
                 fecha_siguiente = fechas_ordenadas[i + 1]
-                
+
                 celda_hoy = celdas_enfermera[fecha_actual]
                 celda_manana = celdas_enfermera[fecha_siguiente]
-                
-                # Si hoy es turno nocturno y mañana es turno madrugador
-                if (celda_hoy.turno_id and self._es_turno_nocturno(celda_hoy.turno_id) and
-                    celda_manana.turno_id and self._es_turno_madrugador(celda_manana.turno_id)):
+
+                if not celda_hoy.turno_id or not celda_manana.turno_id:
+                    continue
+
+                t_info_hoy = self.turnos_info.get(celda_hoy.turno_id)
+                t_info_manana = self.turnos_info.get(celda_manana.turno_id)
+                if not t_info_hoy or not t_info_manana:
+                    continue
+
+                descanso = calcular_descanso_entre_turnos(
+                    fecha_actual, t_info_hoy,
+                    fecha_siguiente, t_info_manana
+                )
+
+                if descanso < 12.0:
                     self.violaciones.append({
                         'tipo': 'DESCANSO_MINIMO',
                         'enfermera_id': enf_id,
                         'fecha': f"{fecha_actual.isoformat()} → {fecha_siguiente.isoformat()}",
                         'descripcion': (
-                            f'Enfermera {enf_id}: turno nocturno el {fecha_actual} '
-                            f'seguido de turno madrugador el {fecha_siguiente} '
-                            f'(descanso mínimo 12h violado)'
+                            f'Enfermera {enf_id}: turno {t_info_hoy.nombre} el {fecha_actual} '
+                            f'seguido de turno {t_info_manana.nombre} el {fecha_siguiente} '
+                            f'(descanso real: {descanso:.1f}h, mínimo: 12h)'
                         ),
                     })
-        
-        # Cross-period validation: last shift from previous period vs first day of current period
+
+        # Validación trans-período
         self._validar_descanso_transperiodo()
     
     def _validar_descanso_transperiodo(self):
-        """Valida descanso entre el último turno del período anterior y el primero del actual."""
+        """Valida descanso entre el último turno del período anterior y el primero del actual.
+
+        Solo ejecuta la validación si existe continuidad temporal real:
+        el último turno histórico debe ser exactamente el día anterior al
+        inicio del período actual.
+        """
+        from ..utils.tiempo import calcular_descanso_entre_turnos
+        from datetime import datetime, timedelta
+
         if not self.balances_historicos:
             return
-        
+
         # Find the earliest date in the current matrix
         todas_fechas = set()
         for celdas_enfermera in self.matriz.celdas.values():
             todas_fechas.update(celdas_enfermera.keys())
-        
+
         if not todas_fechas:
             return
-        
+
         primera_fecha = min(todas_fechas)
-        
+
         for enf_id, celdas_enfermera in self.matriz.celdas.items():
             hist = self.balances_historicos.get(enf_id, {})
             ultimo_turno_fecha_str = hist.get('ultimo_turno_fecha')
             ultimo_turno_tipo_id = hist.get('ultimo_turno_tipo_id')
-            
+
             if not ultimo_turno_fecha_str or not ultimo_turno_tipo_id:
                 continue
-            
-            from datetime import datetime
+
             try:
                 ultimo_turno_fecha = datetime.fromisoformat(ultimo_turno_fecha_str).date()
             except (ValueError, TypeError):
                 continue
-            
-            # Only check if the last shift was a night shift
-            if not self._es_turno_nocturno(ultimo_turno_tipo_id):
+
+            # CONTINUIDAD: solo validar si el último turno fue justo antes del período actual
+            if ultimo_turno_fecha + timedelta(days=1) != primera_fecha:
+                continue  # No hay continuidad temporal real
+
+            # Obtener info del último turno histórico
+            t_info_hist = self.turnos_info.get(ultimo_turno_tipo_id)
+            if not t_info_hist:
                 continue
-            
-            # Check if the first day of current period has a morning shift
+
+            # Obtener primera celda del período actual
             celda_primera = celdas_enfermera.get(primera_fecha)
             if not celda_primera or not celda_primera.turno_id:
                 continue
-            
-            if self._es_turno_madrugador(celda_primera.turno_id):
+
+            t_info_primera = self.turnos_info.get(celda_primera.turno_id)
+            if not t_info_primera:
+                continue
+
+            # Calcular descanso real
+            descanso = calcular_descanso_entre_turnos(
+                ultimo_turno_fecha, t_info_hist,
+                primera_fecha, t_info_primera
+            )
+
+            if descanso < 12.0:
                 self.violaciones.append({
                     'tipo': 'DESCANSO_MINIMO_TRANS_PERIODO',
                     'enfermera_id': enf_id,
                     'fecha': f"{ultimo_turno_fecha} → {primera_fecha}",
                     'descripcion': (
-                        f'Enfermera {enf_id}: turno nocturno el {ultimo_turno_fecha} '
-                        f'(período anterior) seguido de turno madrugador el {primera_fecha} '
-                        f'(descanso mínimo trans-período violado)'
+                        f'Enfermera {enf_id}: turno {t_info_hist.nombre} el {ultimo_turno_fecha} '
+                        f'(período anterior) seguido de turno {t_info_primera.nombre} el {primera_fecha} '
+                        f'(descanso real: {descanso:.1f}h, mínimo: 12h)'
                     ),
                 })
     
@@ -406,13 +441,6 @@ class ValidadorMotor:
         """Determina si un turno es nocturno"""
         if turno_id in self.turnos_info:
             return self.turnos_info[turno_id].es_nocturno
-        return False
-    
-    def _es_turno_madrugador(self, turno_id: int) -> bool:
-        """Determina si un turno es madrugador (comienza antes de 8 AM)."""
-        if turno_id in self.turnos_info:
-            turno = self.turnos_info[turno_id]
-            return turno.hora_inicio is not None and turno.hora_inicio.hour < 8
         return False
     
     def _obtener_duracion_turno(self, turno_id: int) -> float:

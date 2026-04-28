@@ -381,7 +381,17 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 'success': False,
                 'error': f'Configuración {configuracion_id} no encontrada'
             }
-        
+
+        # 1b. Validar mensualidad (defensa en profundidad)
+        try:
+            config._validar_mensualidad()
+        except Exception as e:
+            logger.error(f"Configuración {configuracion_id} no cumple requisitos mensuales: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
         # 2. Crear ejecución
         with transaction.atomic():
             ejecucion = Ejecucion.objects.create(

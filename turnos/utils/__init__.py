@@ -19,6 +19,8 @@ from .exportacion import (
     generar_ical_planilla
 )
 
+from .tiempo import calcular_descanso_entre_turnos
+
 __all__ = [
     # Email
     'enviar_email_con_template',
@@ -34,4 +36,7 @@ __all__ = [
     'generar_csv_planilla',
     'generar_json_planilla',
     'generar_ical_planilla',
+
+    # Tiempo
+    'calcular_descanso_entre_turnos',
 ]

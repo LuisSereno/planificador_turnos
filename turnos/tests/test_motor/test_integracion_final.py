@@ -554,7 +554,7 @@ class TestBalanceHistoricoPersistencia:
 
         balance, created = BalanceHistoricoEnfermera.objects.update_or_create(
             enfermera_id=enf.id,
-            periodo_referencia='2026',
+            periodo_referencia='2026-04',
             defaults={
                 'horas_acumuladas_previas': 150.0,
                 'noches_acumuladas': 10,
@@ -564,12 +564,12 @@ class TestBalanceHistoricoPersistencia:
         )
         assert created is True
         assert balance.enfermera_id == enf.id
-        assert balance.periodo_referencia == '2026'
+        assert balance.periodo_referencia == '2026-04'
         assert float(balance.horas_acumuladas_previas) == 150.0
 
         balance2, created2 = BalanceHistoricoEnfermera.objects.update_or_create(
             enfermera_id=enf.id,
-            periodo_referencia='2026',
+            periodo_referencia='2026-04',
             defaults={
                 'horas_acumuladas_previas': 200.0,
                 'noches_acumuladas': 15,
@@ -583,7 +583,7 @@ class TestBalanceHistoricoPersistencia:
 
         balance3, created3 = BalanceHistoricoEnfermera.objects.update_or_create(
             enfermera_id=enf.id,
-            periodo_referencia='2025',
+            periodo_referencia='2025-12',
             defaults={
                 'horas_acumuladas_previas': 100.0,
                 'noches_acumuladas': 5,
@@ -607,12 +607,12 @@ class TestBalanceHistoricoPersistencia:
         with pytest.raises(BalanceHistoricoEnfermera.DoesNotExist):
             BalanceHistoricoEnfermera.objects.get(
                 enfermera_id=enf.id,
-                periodo_referencia='2026'
+                periodo_referencia='2026-04'
             )
 
         balance, created = BalanceHistoricoEnfermera.objects.update_or_create(
             enfermera_id=enf.id,
-            periodo_referencia='2026',
+            periodo_referencia='2026-04',
             defaults={'horas_acumuladas_previas': 0}
         )
         assert created is True
@@ -651,7 +651,7 @@ class TestConfigDuplicacion:
             nombre=f"{original.nombre} (Copia)",
             descripcion=original.descripcion,
             activa=original.activa,
-            num_dias=original.num_dias,
+            num_dias=31,  # Mayo tiene 31 días
             fecha_inicio=date(2026, 5, 1),
             demanda_por_turno=original.demanda_por_turno,
             restricciones_duras=original.restricciones_duras,
@@ -678,7 +678,7 @@ class TestConfigDuplicacion:
 
         copia = ConfiguracionPlanificacion.objects.create(
             nombre=f"{original.nombre} (Copia)",
-            num_dias=original.num_dias,
+            num_dias=31,  # Mayo tiene 31 días
             fecha_inicio=date(2026, 5, 1),
             patrones_turnos_json=original.patrones_turnos_json,
         )
@@ -751,3 +751,177 @@ class TestRelacionCanonicaPlanilla:
         )
 
         assert ejecucion.planilla_generada.id == planilla.id
+
+
+class TestDescansoReal:
+    """Tests para validación de descanso real con datetimes"""
+
+    def test_calcular_descanso_noche_a_manana(self, turnos_basicos):
+        """Noche (23:00-07:00) a Mañana (07:00-15:00) tiene 0h descanso"""
+        from turnos.utils.tiempo import calcular_descanso_entre_turnos
+        from datetime import date
+
+        descanso = calcular_descanso_entre_turnos(
+            date(2026, 4, 1), turnos_basicos[3],  # Noche
+            date(2026, 4, 2), turnos_basicos[1],  # Mañana
+        )
+        assert descanso == 0.0  # Fin noche=07:00, inicio mañana=07:00
+
+    def test_calcular_descanso_tarde_a_manana(self, turnos_basicos):
+        """Tarde (15:00-23:00) a Mañana (07:00-15:00) tiene 8h descanso"""
+        from turnos.utils.tiempo import calcular_descanso_entre_turnos
+        from datetime import date
+
+        descanso = calcular_descanso_entre_turnos(
+            date(2026, 4, 1), turnos_basicos[2],  # Tarde
+            date(2026, 4, 2), turnos_basicos[1],  # Mañana
+        )
+        assert descanso == 8.0  # Fin tarde=23:00, inicio mañana=07:00
+
+    def test_validador_detecta_descanso_insuficiente(self, matriz_basica, turnos_basicos):
+        """Validador debe detectar descanso < 12h real"""
+        # Forzar una celda con turno tarde y otra con mañana al día siguiente
+        celda_tarde = matriz_basica.obtener_celda(1, date(2026, 4, 1))
+        celda_tarde.turno = turnos_basicos[2]  # Tarde
+        celda_tarde.tipo_celda = TipoCelda.TURNO
+
+        celda_manana = matriz_basica.obtener_celda(1, date(2026, 4, 2))
+        celda_manana.turno = turnos_basicos[1]  # Mañana
+        celda_manana.tipo_celda = TipoCelda.TURNO
+
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion={},
+        )
+        validador._validar_descanso_entre_turnos()
+
+        violaciones = [v for v in validador.violaciones if v['tipo'] == 'DESCANSO_MINIMO']
+        assert len(violaciones) > 0
+
+
+class TestDescansoTransperiodo:
+    """Tests para validación trans-período con continuidad real"""
+
+    def test_transperiodo_con_continuidad_detecta_violacion(self, matriz_basica, turnos_basicos):
+        """Si hay continuidad real, debe detectar violación de descanso"""
+        # Forzar primera celda con mañana
+        celda_primera = matriz_basica.obtener_celda(1, date(2026, 4, 1))
+        celda_primera.turno = turnos_basicos[1]  # Mañana
+        celda_primera.tipo_celda = TipoCelda.TURNO
+
+        # Histórico: último turno fue noche el 31 de marzo (justo antes)
+        balances_historicos = {
+            1: {
+                'ultimo_turno_fecha': '2026-03-31',
+                'ultimo_turno_tipo_id': 3,  # Noche
+            }
+        }
+
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion={},
+            balances_historicos=balances_historicos,
+        )
+        validador._validar_descanso_transperiodo()
+
+        violaciones = [v for v in validador.violaciones if v['tipo'] == 'DESCANSO_MINIMO_TRANS_PERIODO']
+        assert len(violaciones) > 0
+
+    def test_transperiodo_sin_continuidad_no_viola(self, matriz_basica, turnos_basicos):
+        """Sin continuidad temporal, NO debe generar violación"""
+        # Forzar primera celda con mañana
+        celda_primera = matriz_basica.obtener_celda(1, date(2026, 4, 1))
+        celda_primera.turno = turnos_basicos[1]  # Mañana
+        celda_primera.tipo_celda = TipoCelda.TURNO
+
+        # Histórico: último turno fue noche hace 10 días (sin continuidad)
+        balances_historicos = {
+            1: {
+                'ultimo_turno_fecha': '2026-03-22',
+                'ultimo_turno_tipo_id': 3,  # Noche
+            }
+        }
+
+        validador = ValidadorMotor(
+            matriz=matriz_basica,
+            turnos_info=turnos_basicos,
+            configuracion={},
+            balances_historicos=balances_historicos,
+        )
+        validador._validar_descanso_transperiodo()
+
+        violaciones = [v for v in validador.violaciones if v['tipo'] == 'DESCANSO_MINIMO_TRANS_PERIODO']
+        assert len(violaciones) == 0
+
+
+@pytest.mark.django_db
+class TestValidacionMensual:
+    """Tests para validación de configuración mensual obligatoria"""
+
+    def test_configuracion_rechaza_fecha_no_inicio_mes(self):
+        """Configuración con fecha_inicio != día 1 debe ser rechazada"""
+        from turnos.models import ConfiguracionPlanificacion
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
+            ConfiguracionPlanificacion.objects.create(
+                nombre='Config Inválida',
+                num_dias=30,
+                fecha_inicio=date(2026, 4, 15),
+            )
+
+    def test_configuracion_rechaza_dias_incorrectos(self):
+        """Configuración con num_dias != días del mes debe ser rechazada"""
+        from turnos.models import ConfiguracionPlanificacion
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
+            ConfiguracionPlanificacion.objects.create(
+                nombre='Config Inválida',
+                num_dias=25,
+                fecha_inicio=date(2026, 4, 1),
+            )
+
+    def test_configuracion_acepta_mes_completo(self):
+        """Configuración mensual completa debe ser aceptada"""
+        from turnos.models import ConfiguracionPlanificacion
+
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre='Config Válida',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 1),
+        )
+        assert config.id is not None
+
+
+class TestReparadorCargaTotal:
+    """Tests para verificar que el reparador optimiza sobre carga total"""
+
+    def test_reparador_acepta_balances_historicos(self, matriz_basica, turnos_basicos):
+        """Reparador debe aceptar y usar balances_historicos"""
+
+        class AnalisisFake:
+            def __init__(self):
+                self.turnos_info = turnos_basicos
+                self.dias = list(matriz_basica.celdas.values())[0].keys()
+                self.cobertura_minima = {}
+
+        analisis = AnalisisFake()
+
+        balances_hist = {
+            1: {'horas_acumuladas_previas': 100.0, 'noches_acumuladas': 5},
+        }
+
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz_basica,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+            restricciones_duras=[],
+            objetivos=[],
+            balances_historicos=balances_hist,
+        )
+
+        assert reparador.balances_historicos == balances_hist
+        assert 1 in reparador.balances_historicos

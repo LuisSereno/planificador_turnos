@@ -6,7 +6,7 @@ from turnos.generador import GeneradorTurnos
 class TestGeneradorTurnos:
     def test_inicializacion(self, configuracion_basica):
         generador = GeneradorTurnos(configuracion_basica)
-        assert generador.num_dias == 7
+        assert generador.num_dias == 30
         assert generador.num_enfermeras == 5
         assert generador.num_turnos == 3
     

@@ -54,10 +54,11 @@ def turnos(db):
 
 @pytest.fixture
 def configuracion_basica(db, user, enfermeras, turnos):
+    # Usar mes completo (abril 2026 = 30 días) para cumplir validación mensual
     config = ConfiguracionPlanificacion.objects.create(
         nombre='Config Test',
-        num_dias=7,
-        fecha_inicio=date.today(),
+        num_dias=30,
+        fecha_inicio=date(2026, 4, 1),
         creado_por=user
     )
     config.enfermeras.set(enfermeras)

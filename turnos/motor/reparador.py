@@ -41,6 +41,7 @@ class ReparadorCPSAT:
         objetivos: List[dict] = None,
         cobertura_minima: Dict[int, int] = None,
         horas_objetivo: Dict[int, float] = None,
+        balances_historicos: Dict[int, dict] = None,
     ):
         self.matriz = matriz_bloqueada
         self.analisis = analisis_cobertura
@@ -49,10 +50,11 @@ class ReparadorCPSAT:
         self.objetivos = objetivos or []
         self.cobertura_minima = cobertura_minima or {}
         self.horas_objetivo = horas_objetivo or {}  # enfermera_id -> horas_mes_objetivo
+        self.balances_historicos = balances_historicos or {}
         self.model = cp_model.CpModel()
         self.solver_vars = {}  # (enfermera_id, fecha_idx, turno_id) -> BoolVar
         self.solver_status = 'NO_EJECUTADO'
-        
+
         # Sentinel para celdas LIBRE en el solver
         self.LIBRE_SENTINEL = '__LIBRE__'
         
@@ -207,63 +209,63 @@ class ReparadorCPSAT:
                     self.model.Add(sum(vars_trabajo) <= limite_solver)
     
     def _restringir_descanso_entre_turnos(self):
-        """Garantiza descanso mínimo entre turnos (12h entre noche y mañana).
-        
-        Considera tanto celdas bloqueadas como variables del solver para
-        detectar transiciones prohibidas noche->manana en días consecutivos.
+        """Garantiza descanso mínimo de 12 horas reales entre turnos consecutivos.
+
+        Utiliza cálculo de datetime real (fin turno A → inicio turno B) en lugar
+        de heurísticas semánticas (noche → madrugador). Considera tanto celdas
+        bloqueadas como variables del solver.
         """
-        # Identify night and morning shifts
-        turnos_nocturnos = []
-        turnos_madrugadores = []
-        
-        for turno_id, turno_info in self.turnos_info.items():
-            if turno_info.es_nocturno:
-                turnos_nocturnos.append(turno_id)
-            # Morning shifts starting before 8 AM after night shift
-            elif turno_info.hora_inicio and turno_info.hora_inicio.hour < 8:
-                turnos_madrugadores.append(turno_id)
-        
-        if not turnos_nocturnos or not turnos_madrugadores:
+        from ..utils.tiempo import calcular_descanso_entre_turnos
+        from datetime import date, timedelta
+
+        # Precomputar pares de turnos incompatibles en días consecutivos
+        transiciones_prohibidas = set()
+        ref_date = date(2026, 1, 1)
+        next_date = ref_date + timedelta(days=1)
+
+        for t_id_a, t_info_a in self.turnos_info.items():
+            for t_id_b, t_info_b in self.turnos_info.items():
+                descanso = calcular_descanso_entre_turnos(
+                    ref_date, t_info_a, next_date, t_info_b
+                )
+                if descanso < 12.0:
+                    transiciones_prohibidas.add((t_id_a, t_id_b))
+
+        if not transiciones_prohibidas:
             return
-        
+
         fechas_ordenadas = sorted(self.matriz.fechas)
-        
-        # Prevent night shift followed by early morning shift next day
+
         for enfermera_id in self.matriz.enfermeras:
             for i in range(len(fechas_ordenadas) - 1):
                 fecha_actual = fechas_ordenadas[i]
                 fecha_siguiente = fechas_ordenadas[i + 1]
-                
-                # For each night shift on day D
-                for turno_noche in turnos_nocturnos:
-                    # For each early morning shift on day D+1
-                    for turno_manana in turnos_madrugadores:
-                        key_noche = (enfermera_id, fecha_actual, turno_noche)
-                        key_manana = (enfermera_id, fecha_siguiente, turno_manana)
-                        
-                        noche_en_solver = key_noche in self.solver_vars
-                        manana_en_solver = key_manana in self.solver_vars
-                        
-                        if noche_en_solver and manana_en_solver:
-                            # Ambos son modificables: el solver no puede activar los dos
-                            self.model.Add(
-                                self.solver_vars[key_noche] + self.solver_vars[key_manana] <= 1
-                            )
-                        elif noche_en_solver and not manana_en_solver:
-                            # Noche es modificable, mañana está bloqueada
-                            celda_manana = self.matriz.obtener_celda(enfermera_id, fecha_siguiente)
-                            if celda_manana and not celda_manana.es_modificable:
-                                if celda_manana.turno and celda_manana.turno.id == turno_manana:
-                                    # Mañana está bloqueada como turno madrugador: prohibir noche
-                                    self.model.Add(self.solver_vars[key_noche] == 0)
-                        elif not noche_en_solver and manana_en_solver:
-                            # Noche está bloqueada, mañana es modificable
-                            celda_noche = self.matriz.obtener_celda(enfermera_id, fecha_actual)
-                            if celda_noche and not celda_noche.es_modificable:
-                                if celda_noche.turno and celda_noche.turno.id == turno_noche:
-                                    # Noche está bloqueada como turno nocturno: prohibir mañana
-                                    self.model.Add(self.solver_vars[key_manana] == 0)
-                        # Si ambos están bloqueados, no hay variables que restringir
+
+                for t_id_a, t_id_b in transiciones_prohibidas:
+                    key_a = (enfermera_id, fecha_actual, t_id_a)
+                    key_b = (enfermera_id, fecha_siguiente, t_id_b)
+
+                    a_en_solver = key_a in self.solver_vars
+                    b_en_solver = key_b in self.solver_vars
+
+                    if a_en_solver and b_en_solver:
+                        # Ambos modificables: no pueden activarse juntos
+                        self.model.Add(
+                            self.solver_vars[key_a] + self.solver_vars[key_b] <= 1
+                        )
+                    elif a_en_solver and not b_en_solver:
+                        # A es modificable, B está bloqueada
+                        celda_b = self.matriz.obtener_celda(enfermera_id, fecha_siguiente)
+                        if (celda_b and not celda_b.es_modificable and
+                                celda_b.turno and celda_b.turno.id == t_id_b):
+                            self.model.Add(self.solver_vars[key_a] == 0)
+                    elif not a_en_solver and b_en_solver:
+                        # A está bloqueada, B es modificable
+                        celda_a = self.matriz.obtener_celda(enfermera_id, fecha_actual)
+                        if (celda_a and not celda_a.es_modificable and
+                                celda_a.turno and celda_a.turno.id == t_id_a):
+                            self.model.Add(self.solver_vars[key_b] == 0)
+                    # Si ambos están bloqueados, no hay variables que restringir
     
     def _restringir_cobertura_minima(self):
         """Garantiza cobertura mínima por turno y fecha.
@@ -428,12 +430,14 @@ class ReparadorCPSAT:
         """
         Penaliza la desviación de horas mensuales objetivo.
         Usa horas_objetivo reales desde contratos (pasadas desde pipeline).
+        Incluye horas bloqueadas, horas del solver y acumulado histórico
+        para optimizar sobre la carga TOTAL real, no solo la movible.
         """
         penalizaciones = []
-        
+
         # Usar horas_objetivo reales si están disponibles
         horas_objetivo_por_enfermera = dict(self.horas_objetivo)
-        
+
         # Fallback: intentar deducir desde objetivos/config si no hay horas_objetivo
         if not horas_objetivo_por_enfermera:
             for r in self.objetivos:
@@ -442,21 +446,29 @@ class ReparadorCPSAT:
                 if 'HORA' in nombre_raw.upper() or 'EQUIDAD' in nombre_raw.upper():
                     for enf_id in self.matriz.enfermeras:
                         horas_objetivo_por_enfermera[enf_id] = int(r.get('horas_objetivo', r.get('valor', 160)))
-        
+
         # Fallback final: 160h/mes para todos si no hay configuración
         if not horas_objetivo_por_enfermera:
             logger.warning("No hay horas_objetivo disponibles, usando 160h por defecto")
             for enf_id in self.matriz.enfermeras:
                 horas_objetivo_por_enfermera[enf_id] = 160
-        
+
         # Para cada enfermera, calcular horas totales y minimizar desviación
         for enfermera_id in self.matriz.enfermeras:
             if enfermera_id not in horas_objetivo_por_enfermera:
                 continue
-            
+
             objetivo = horas_objetivo_por_enfermera[enfermera_id]
+
+            # 1. Horas BLOQUEADAS ya asignadas en la matriz
+            horas_bloqueadas = 0
+            for fecha in self.matriz.fechas:
+                celda = self.matriz.obtener_celda(enfermera_id, fecha)
+                if celda and not celda.es_modificable and celda.turno:
+                    horas_bloqueadas += int(celda.turno.duracion_horas * 10)
+
+            # 2. Horas asignables por el SOLVER
             vars_horas = []
-            
             for fecha in self.matriz.fechas:
                 for turno_id in self.matriz.turnos_disponibles:
                     # Saltar LIBRE sentinel (no suma horas)
@@ -468,122 +480,173 @@ class ReparadorCPSAT:
                         if duracion:
                             factor = int(duracion.duracion_horas * 10)  # Entero para CP-SAT
                             vars_horas.append(factor * self.solver_vars[key])
-            
+
+            # 3. Horas HISTÓRICAS acumuladas (constante)
+            horas_historico = 0
+            hist = self.balances_historicos.get(enfermera_id, {})
+            horas_historico_val = hist.get('horas_acumuladas_previas', 0.0)
+            horas_historico = int(horas_historico_val * 10)
+
+            # Construir expresión total: bloqueadas + histórico + variables solver
+            total_expr = horas_bloqueadas + horas_historico
             if vars_horas:
-                # Variable de desviación (entera positiva)
-                desviacion = self.model.NewIntVar(0, 10000, f'desv_h_{enfermera_id}')
-                self.model.Add(
-                    sum(vars_horas) - objetivo * 10 <= desviacion
-                )
-                self.model.Add(
-                    objetivo * 10 - sum(vars_horas) <= desviacion
-                )
+                total_expr += sum(vars_horas)
+
+            if vars_horas or horas_bloqueadas > 0 or horas_historico > 0:
+                desviacion = self.model.NewIntVar(0, 50000, f'desv_h_{enfermera_id}')
+                self.model.Add(total_expr - objetivo * 10 <= desviacion)
+                self.model.Add(objetivo * 10 - total_expr <= desviacion)
                 penalizaciones.append(desviacion)
-        
+
         return penalizaciones
     
     def _penalizar_equilibrio_noches(self) -> list:
         """
         Penaliza el desequilibrio en noches asignadas entre enfermeras.
         Minimiza la diferencia máxima de noches.
+        Incluye noches bloqueadas y acumulado histórico para medir
+        la carga total real, no solo la parte movible.
         """
         penalizaciones = []
-        
+
         # Identificar turnos nocturnos
         turnos_nocturnos = [
             t_id for t_id, t_info in self.turnos_info.items()
             if t_info.es_nocturno
         ]
-        
+
         if not turnos_nocturnos:
             return penalizaciones
-        
-        # Para cada enfermera, contar noches
+
+        # Para cada enfermera, contar noches (bloqueadas + solver + histórico)
         vars_noches_por_enf = {}
         for enfermera_id in self.matriz.enfermeras:
+            # 1. Noches BLOQUEADAS ya asignadas
+            noches_bloqueadas = 0
+            for fecha in self.matriz.fechas:
+                celda = self.matriz.obtener_celda(enfermera_id, fecha)
+                if (celda and not celda.es_modificable and
+                        celda.turno and celda.turno.id in turnos_nocturnos):
+                    noches_bloqueadas += 1
+
+            # 2. Noches asignables por el SOLVER
             vars_noche = []
             for fecha in self.matriz.fechas:
                 for turno_id in turnos_nocturnos:
                     key = (enfermera_id, fecha, turno_id)
                     if key in self.solver_vars:
                         vars_noche.append(self.solver_vars[key])
-            
+
+            # 3. Noches HISTÓRICAS acumuladas (constante)
+            noches_historico = 0
+            hist = self.balances_historicos.get(enfermera_id, {})
+            noches_historico = hist.get('noches_acumuladas', 0)
+
+            total_noches = noches_bloqueadas + noches_historico
             if vars_noche:
-                noche_var = self.model.NewIntVar(0, len(self.matriz.fechas), f'noches_{enfermera_id}')
-                self.model.Add(sum(vars_noche) == noche_var)
+                noche_var = self.model.NewIntVar(
+                    0, len(self.matriz.fechas) + noches_bloqueadas + noches_historico,
+                    f'noches_{enfermera_id}'
+                )
+                self.model.Add(total_noches + sum(vars_noche) == noche_var)
                 vars_noches_por_enf[enfermera_id] = noche_var
-        
+            elif total_noches > 0:
+                # Solo tiene noches bloqueadas/históricas: variable constante
+                noche_var = self.model.NewIntVar(total_noches, total_noches, f'noches_{enfermera_id}')
+                vars_noches_por_enf[enfermera_id] = noche_var
+
         if vars_noches_por_enf:
             # Minimizar diferencia máxima
-            max_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'max_noches')
-            min_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'min_noches')
-            
+            max_noches = self.model.NewIntVar(0, len(self.matriz.fechas) * 2, 'max_noches')
+            min_noches = self.model.NewIntVar(0, len(self.matriz.fechas) * 2, 'min_noches')
+
             for v in vars_noches_por_enf.values():
                 self.model.Add(max_noches >= v)
                 self.model.Add(min_noches <= v)
-            
-            diff_noches = self.model.NewIntVar(0, len(self.matriz.fechas), 'diff_noches')
+
+            diff_noches = self.model.NewIntVar(0, len(self.matriz.fechas) * 2, 'diff_noches')
             self.model.Add(diff_noches == max_noches - min_noches)
             penalizaciones.append(diff_noches)
-        
+
         return penalizaciones
     
     def _penalizar_equilibrio_findes(self) -> list:
         """
         Penaliza el desequilibrio en fines de semana trabajados.
         Minimiza la diferencia máxima de fines de semana entre enfermeras.
-        
-        Solo cuenta turnos REALES (excluye LIBRE_SENTINEL).
+        Incluye fines de semana bloqueados y acumulado histórico para
+        medir la carga total real, no solo la parte movible.
         """
         penalizaciones = []
-        
+
         # Identificar fines de semana en el período
         findes = []
-        for i, fecha in enumerate(sorted(self.matriz.fechas)):
+        for fecha in sorted(self.matriz.fechas):
             if fecha.weekday() >= 5:  # Sábado=5, Domingo=6
-                findes.append(i)
-        
+                findes.append(fecha)
+
         if not findes:
             return penalizaciones
-        
+
         # Solo turnos REALES (excluir LIBRE_SENTINEL)
         turno_ids = [
             t_id for t_id in self.matriz.turnos_disponibles
             if t_id != self.LIBRE_SENTINEL
         ]
-        
+
         if not turno_ids:
             return penalizaciones
-        
-        # Para cada enfermera, contar findes trabajados
+
+        # Para cada enfermera, contar findes trabajados (bloqueados + solver + histórico)
         vars_finde_por_enf = {}
         for enfermera_id in self.matriz.enfermeras:
+            # 1. Fines de semana BLOQUEADOS ya asignados
+            findes_bloqueados = 0
+            for fecha in findes:
+                celda = self.matriz.obtener_celda(enfermera_id, fecha)
+                if (celda and not celda.es_modificable and
+                        celda.turno and celda.turno.id in turno_ids):
+                    findes_bloqueados += 1
+
+            # 2. Fines de semana asignables por el SOLVER
             vars_finde = []
-            for fecha_idx, fecha in enumerate(sorted(self.matriz.fechas)):
-                if fecha.weekday() >= 5:
-                    for turno_id in turno_ids:
-                        key = (enfermera_id, fecha, turno_id)
-                        if key in self.solver_vars:
-                            vars_finde.append(self.solver_vars[key])
-            
+            for fecha in findes:
+                for turno_id in turno_ids:
+                    key = (enfermera_id, fecha, turno_id)
+                    if key in self.solver_vars:
+                        vars_finde.append(self.solver_vars[key])
+
+            # 3. Fines de semana HISTÓRICOS acumulados (constante)
+            findes_historico = 0
+            hist = self.balances_historicos.get(enfermera_id, {})
+            findes_historico = hist.get('fines_semana_acumulados', 0)
+
+            total_findes = findes_bloqueados + findes_historico
             if vars_finde:
-                finde_var = self.model.NewIntVar(0, len(findes), f'findes_{enfermera_id}')
-                self.model.Add(sum(vars_finde) == finde_var)
+                finde_var = self.model.NewIntVar(
+                    0, len(findes) + findes_bloqueados + findes_historico,
+                    f'findes_{enfermera_id}'
+                )
+                self.model.Add(total_findes + sum(vars_finde) == finde_var)
                 vars_finde_por_enf[enfermera_id] = finde_var
-        
+            elif total_findes > 0:
+                # Solo tiene findes bloqueados/históricos: variable constante
+                finde_var = self.model.NewIntVar(total_findes, total_findes, f'findes_{enfermera_id}')
+                vars_finde_por_enf[enfermera_id] = finde_var
+
         if vars_finde_por_enf:
             # Minimizar diferencia máxima
-            max_finde = self.model.NewIntVar(0, len(findes), 'max_finde')
-            min_finde = self.model.NewIntVar(0, len(findes), 'min_finde')
-            
+            max_finde = self.model.NewIntVar(0, len(findes) * 2, 'max_finde')
+            min_finde = self.model.NewIntVar(0, len(findes) * 2, 'min_finde')
+
             for v in vars_finde_por_enf.values():
                 self.model.Add(max_finde >= v)
                 self.model.Add(min_finde <= v)
-            
-            diff_finde = self.model.NewIntVar(0, len(findes), 'diff_finde')
+
+            diff_finde = self.model.NewIntVar(0, len(findes) * 2, 'diff_finde')
             self.model.Add(diff_finde == max_finde - min_finde)
             penalizaciones.append(diff_finde)
-        
+
         return penalizaciones
     
     def _extraer_solucion(self, solver: cp_model.CpSolver) -> MatrizPlanificacion:

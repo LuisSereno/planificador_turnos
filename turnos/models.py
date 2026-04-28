@@ -319,6 +319,37 @@ class ConfiguracionPlanificacion(models.Model):
     def get_absolute_url(self):
         return reverse('turnos:config_detalle', kwargs={'pk': self.pk})
 
+    def _validar_mensualidad(self):
+        """Valida que la configuración sea un mes natural completo."""
+        import calendar
+        from django.core.exceptions import ValidationError
+
+        if self.fecha_inicio and self.fecha_inicio.day != 1:
+            raise ValidationError(
+                "La fecha de inicio debe ser el primer día del mes para garantizar "
+                "consistencia con el histórico mensual."
+            )
+        if self.fecha_inicio and self.num_dias:
+            dias_mes = calendar.monthrange(
+                self.fecha_inicio.year, self.fecha_inicio.month
+            )[1]
+            if self.num_dias != dias_mes:
+                raise ValidationError(
+                    f"El número de días ({self.num_dias}) no coincide con los días "
+                    f"reales del mes ({dias_mes}). Las planificaciones deben ser "
+                    f"mensuales completas."
+                )
+
+    def clean(self):
+        """Validación al guardar mediante formularios o admin."""
+        self._validar_mensualidad()
+
+    def save(self, *args, **kwargs):
+        """Sobrescribe save para validar mensualidad en creación."""
+        if self._state.adding:
+            self._validar_mensualidad()
+        super().save(*args, **kwargs)
+
     def get_patrones_combinados(self):
         """
         ✅ Método helper para obtener TODOS los patrones (JSON + ManyToMany)
@@ -650,8 +681,8 @@ class BalanceHistoricoEnfermera(models.Model):
         related_name='balances_historicos'
     )
     periodo_referencia = models.CharField(
-        max_length=20, 
-        help_text="Año o rango: '2025', '2025-H1'",
+        max_length=20,
+        help_text="Formato mensual YYYY-MM, ej. '2026-04'",
         verbose_name=_('Periodo referencia')
     )
     horas_acumuladas_previas = models.DecimalField(

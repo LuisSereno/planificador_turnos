@@ -127,6 +127,7 @@ class PipelinePlanificacion:
                     objetivos=self.restricciones_blandas,
                     cobertura_minima=self.cobertura_minima,
                     horas_objetivo=self.horas_objetivo,
+                    balances_historicos=self.balances_historicos,
                 )
                 matriz_final = reparador.reparar()
                 estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'
