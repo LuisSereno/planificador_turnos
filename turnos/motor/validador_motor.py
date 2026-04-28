@@ -36,10 +36,12 @@ class ValidadorMotor:
         matriz: MatrizPlanificacion,
         turnos_info: Dict[int, TurnoInfo],
         configuracion: dict,
+        balances_historicos: Dict[int, dict] = None,
     ):
         self.matriz = matriz
         self.turnos_info = turnos_info
         self.configuracion = configuracion
+        self.balances_historicos = balances_historicos or {}
         self.violaciones = []
         self.warnings = []
         
@@ -94,6 +96,9 @@ class ValidadorMotor:
         
         # Validar noches consecutivas máximas
         self._validar_noches_consecutivas()
+        
+        # Validar descanso mínimo entre turnos (noche → mañana)
+        self._validar_descanso_entre_turnos()
         
         # Validar cobertura mínima
         self._validar_cobertura_minima()
@@ -155,6 +160,32 @@ class ValidadorMotor:
                         })
                 else:
                     contador_noches = 0
+    
+    def _validar_descanso_entre_turnos(self):
+        """Valida descanso mínimo entre turnos (noche → mañana prohibido)."""
+        for enf_id, celdas_enfermera in self.matriz.celdas.items():
+            fechas_ordenadas = sorted(celdas_enfermera.keys())
+            
+            for i in range(len(fechas_ordenadas) - 1):
+                fecha_actual = fechas_ordenadas[i]
+                fecha_siguiente = fechas_ordenadas[i + 1]
+                
+                celda_hoy = celdas_enfermera[fecha_actual]
+                celda_manana = celdas_enfermera[fecha_siguiente]
+                
+                # Si hoy es turno nocturno y mañana es turno madrugador
+                if (celda_hoy.turno_id and self._es_turno_nocturno(celda_hoy.turno_id) and
+                    celda_manana.turno_id and self._es_turno_madrugador(celda_manana.turno_id)):
+                    self.violaciones.append({
+                        'tipo': 'DESCANSO_MINIMO',
+                        'enfermera_id': enf_id,
+                        'fecha': f"{fecha_actual.isoformat()} → {fecha_siguiente.isoformat()}",
+                        'descripcion': (
+                            f'Enfermera {enf_id}: turno nocturno el {fecha_actual} '
+                            f'seguido de turno madrugador el {fecha_siguiente} '
+                            f'(descanso mínimo 12h violado)'
+                        ),
+                    })
     
     def _validar_cobertura_minima(self):
         """Valida cobertura mínima por turno, incluyendo ausencia total"""
@@ -267,7 +298,7 @@ class ValidadorMotor:
                     })
     
     def _calcular_balances_finales(self) -> Dict[int, BalanceEnfermera]:
-        """Calcula los balances finales de cada enfermera"""
+        """Calcula los balances finales de cada enfermera, incluyendo acumulados históricos."""
         balances = {}
         
         for enf_id, celdas_enfermera in self.matriz.celdas.items():
@@ -289,6 +320,13 @@ class ValidadorMotor:
                     if celda.es_festivo:
                         festivos += 1
             
+            # Obtener acumulados históricos
+            hist = self.balances_historicos.get(enf_id, {})
+            horas_acumuladas = hist.get('horas_acumuladas_previas', 0.0)
+            noches_acumuladas = hist.get('noches_acumuladas', 0)
+            findes_acumulados = hist.get('fines_semana_acumulados', 0)
+            festivos_acumulados = hist.get('festivos_acumulados', 0)
+            
             # Obtener nombre de enfermera desde la matriz
             enfermera_nombre = self.matriz.enfermeras.get(enf_id, f'Enfermera {enf_id}')
             
@@ -296,13 +334,17 @@ class ValidadorMotor:
                 enfermera_id=enf_id,
                 enfermera_nombre=enfermera_nombre,
                 horas_asignadas=horas,
+                horas_acumuladas_previas=horas_acumuladas,
                 turnos_asignados=sum(1 for c in celdas_enfermera.values() if c.turno_id),
                 noches_asignadas=noches,
+                noches_acumuladas=noches_acumuladas,
                 fines_semana_asignados=findes,
+                fines_semana_acumulados=findes_acumulados,
                 festivos_asignados=festivos,
+                festivos_acumulados=festivos_acumulados,
             )
         
-        logger.info(f"Balances calculados para {len(balances)} enfermeras")
+        logger.info(f"Balances calculados para {len(balances)} enfermeras (con histórico)")
         
         return balances
     
@@ -310,6 +352,13 @@ class ValidadorMotor:
         """Determina si un turno es nocturno"""
         if turno_id in self.turnos_info:
             return self.turnos_info[turno_id].es_nocturno
+        return False
+    
+    def _es_turno_madrugador(self, turno_id: int) -> bool:
+        """Determina si un turno es madrugador (comienza antes de 8 AM)."""
+        if turno_id in self.turnos_info:
+            turno = self.turnos_info[turno_id]
+            return turno.hora_inicio is not None and turno.hora_inicio.hour < 8
         return False
     
     def _obtener_duracion_turno(self, turno_id: int) -> float:

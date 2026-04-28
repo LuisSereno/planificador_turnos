@@ -650,6 +650,17 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 
                 # Persistir balances históricos actualizados
                 for enf_id, balance in resultado.balances.items():
+                    # Determinar el último turno asignado a esta enfermera
+                    ultimo_turno_tipo_id = None
+                    celdas_enf = resultado.matriz.celdas.get(enf_id, {})
+                    if celdas_enf:
+                        # Iterar fechas ordenadas para encontrar el último turno real
+                        for fecha in sorted(celdas_enf.keys(), reverse=True):
+                            celda = celdas_enf[fecha]
+                            if celda.turno_id and not celda.es_libre:
+                                ultimo_turno_tipo_id = celda.turno_id
+                                break
+                    
                     balance_hist, created = BalanceHistoricoEnfermera.objects.update_or_create(
                         enfermera_id=enf_id,
                         periodo_referencia=str(config.fecha_inicio.year),
@@ -659,6 +670,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                             'fines_semana_acumulados': balance.fines_semana_asignados + balance.fines_semana_acumulados,
                             'festivos_acumulados': balance.festivos_asignados + balance.festivos_acumulados,
                             'ultimo_turno_fecha': config.fecha_inicio + timedelta(days=config.num_dias - 1),
+                            'ultimo_turno_tipo_id': ultimo_turno_tipo_id,
                         }
                     )
                     action = "Creado" if created else "Actualizado"

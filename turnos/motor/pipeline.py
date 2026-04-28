@@ -174,6 +174,7 @@ class PipelinePlanificacion:
                 matriz=matriz_final,
                 turnos_info=self.turnos_info,
                 configuracion=configuracion_validador,
+                balances_historicos=self.balances_historicos,
             )
             
             # El resultado final sale del validador, NO se construye directamente
