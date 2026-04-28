@@ -546,21 +546,31 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 # Default to 40 hours/week
                 horas_objetivo[enf_id] = 40.0 * (config.num_dias / 7.0)
             
-            # Get historical balance if exists
+            # Determine period reference for this planning (year-month for idempotency)
+        periodo_actual = f"{config.fecha_inicio.year}-{config.fecha_inicio.month:02d}"
+        
+        # Get historical balance if exists
+        for enf_id in enfermeras:
             try:
-                balance_hist = BalanceHistoricoEnfermera.objects.get(
+                # Load the most recent historical record BEFORE the current period.
+                # Year-month format (YYYY-MM) orders lexicographically, so __lt works.
+                balance_hist = BalanceHistoricoEnfermera.objects.filter(
                     enfermera_id=enf_id,
-                    periodo_referencia=str(config.fecha_inicio.year)
-                )
-                balances_historicos[enf_id] = {
-                    'horas_acumuladas_previas': float(balance_hist.horas_acumuladas_previas),
-                    'noches_acumuladas': balance_hist.noches_acumuladas,
-                    'fines_semana_acumulados': balance_hist.fines_semana_acumulados,
-                    'festivos_acumulados': balance_hist.festivos_acumulados,
-                    'ultimo_turno_fecha': balance_hist.ultimo_turno_fecha.isoformat() if balance_hist.ultimo_turno_fecha else None,
-                    'ultimo_turno_tipo_id': balance_hist.ultimo_turno_tipo_id if balance_hist.ultimo_turno_tipo else None,
-                }
-            except BalanceHistoricoEnfermera.DoesNotExist:
+                    periodo_referencia__lt=periodo_actual
+                ).order_by('-periodo_referencia').first()
+                
+                if balance_hist:
+                    balances_historicos[enf_id] = {
+                        'horas_acumuladas_previas': float(balance_hist.horas_acumuladas_previas),
+                        'noches_acumuladas': balance_hist.noches_acumuladas,
+                        'fines_semana_acumulados': balance_hist.fines_semana_acumulados,
+                        'festivos_acumulados': balance_hist.festivos_acumulados,
+                        'ultimo_turno_fecha': balance_hist.ultimo_turno_fecha.isoformat() if balance_hist.ultimo_turno_fecha else None,
+                        'ultimo_turno_tipo_id': balance_hist.ultimo_turno_tipo_id if balance_hist.ultimo_turno_tipo else None,
+                    }
+                else:
+                    balances_historicos[enf_id] = {}
+            except Exception:
                 balances_historicos[enf_id] = {}
         
         # Coverage minimum from demand - SOLO para turnos seleccionados en la configuración
@@ -652,29 +662,37 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 for enf_id, balance in resultado.balances.items():
                     # Determinar el último turno asignado a esta enfermera
                     ultimo_turno_tipo_id = None
+                    ultimo_turno_fecha = None
                     celdas_enf = resultado.matriz.celdas.get(enf_id, {})
                     if celdas_enf:
-                        # Iterar fechas ordenadas para encontrar el último turno real
+                        # Iterar fechas ordenadas hacia atrás para encontrar el último turno real
                         for fecha in sorted(celdas_enf.keys(), reverse=True):
                             celda = celdas_enf[fecha]
                             if celda.turno_id and not celda.es_libre:
                                 ultimo_turno_tipo_id = celda.turno_id
+                                ultimo_turno_fecha = fecha
                                 break
+                    
+                    defaults = {
+                        'horas_acumuladas_previas': balance.horas_totales_con_historico,
+                        'noches_acumuladas': balance.noches_asignadas + balance.noches_acumuladas,
+                        'fines_semana_acumulados': balance.fines_semana_asignados + balance.fines_semana_acumulados,
+                        'festivos_acumulados': balance.festivos_asignados + balance.festivos_acumulados,
+                    }
+                    
+                    # Solo actualizar ultimo_turno si la enfermera trabajó en este período.
+                    # Si todo el período fue libre/vacaciones/baja, preservar el histórico previo.
+                    if ultimo_turno_fecha is not None:
+                        defaults['ultimo_turno_fecha'] = ultimo_turno_fecha
+                        defaults['ultimo_turno_tipo_id'] = ultimo_turno_tipo_id
                     
                     balance_hist, created = BalanceHistoricoEnfermera.objects.update_or_create(
                         enfermera_id=enf_id,
-                        periodo_referencia=str(config.fecha_inicio.year),
-                        defaults={
-                            'horas_acumuladas_previas': balance.horas_totales_con_historico,
-                            'noches_acumuladas': balance.noches_asignadas + balance.noches_acumuladas,
-                            'fines_semana_acumulados': balance.fines_semana_asignados + balance.fines_semana_acumulados,
-                            'festivos_acumulados': balance.festivos_asignados + balance.festivos_acumulados,
-                            'ultimo_turno_fecha': config.fecha_inicio + timedelta(days=config.num_dias - 1),
-                            'ultimo_turno_tipo_id': ultimo_turno_tipo_id,
-                        }
+                        periodo_referencia=periodo_actual,
+                        defaults=defaults
                     )
                     action = "Creado" if created else "Actualizado"
-                    logger.info(f"✓ {action} balance histórico para enfermera {enf_id}")
+                    logger.info(f"✓ {action} balance histórico para enfermera {enf_id} (periodo {periodo_actual})")
         
         logger.info(f"═══ [NUEVO MOTOR] Ejecución {ejecucion.id} completada ═══")
         

@@ -163,6 +163,7 @@ class ValidadorMotor:
     
     def _validar_descanso_entre_turnos(self):
         """Valida descanso mínimo entre turnos (noche → mañana prohibido)."""
+        # Within-period validation
         for enf_id, celdas_enfermera in self.matriz.celdas.items():
             fechas_ordenadas = sorted(celdas_enfermera.keys())
             
@@ -186,6 +187,59 @@ class ValidadorMotor:
                             f'(descanso mínimo 12h violado)'
                         ),
                     })
+        
+        # Cross-period validation: last shift from previous period vs first day of current period
+        self._validar_descanso_transperiodo()
+    
+    def _validar_descanso_transperiodo(self):
+        """Valida descanso entre el último turno del período anterior y el primero del actual."""
+        if not self.balances_historicos:
+            return
+        
+        # Find the earliest date in the current matrix
+        todas_fechas = set()
+        for celdas_enfermera in self.matriz.celdas.values():
+            todas_fechas.update(celdas_enfermera.keys())
+        
+        if not todas_fechas:
+            return
+        
+        primera_fecha = min(todas_fechas)
+        
+        for enf_id, celdas_enfermera in self.matriz.celdas.items():
+            hist = self.balances_historicos.get(enf_id, {})
+            ultimo_turno_fecha_str = hist.get('ultimo_turno_fecha')
+            ultimo_turno_tipo_id = hist.get('ultimo_turno_tipo_id')
+            
+            if not ultimo_turno_fecha_str or not ultimo_turno_tipo_id:
+                continue
+            
+            from datetime import datetime
+            try:
+                ultimo_turno_fecha = datetime.fromisoformat(ultimo_turno_fecha_str).date()
+            except (ValueError, TypeError):
+                continue
+            
+            # Only check if the last shift was a night shift
+            if not self._es_turno_nocturno(ultimo_turno_tipo_id):
+                continue
+            
+            # Check if the first day of current period has a morning shift
+            celda_primera = celdas_enfermera.get(primera_fecha)
+            if not celda_primera or not celda_primera.turno_id:
+                continue
+            
+            if self._es_turno_madrugador(celda_primera.turno_id):
+                self.violaciones.append({
+                    'tipo': 'DESCANSO_MINIMO_TRANS_PERIODO',
+                    'enfermera_id': enf_id,
+                    'fecha': f"{ultimo_turno_fecha} → {primera_fecha}",
+                    'descripcion': (
+                        f'Enfermera {enf_id}: turno nocturno el {ultimo_turno_fecha} '
+                        f'(período anterior) seguido de turno madrugador el {primera_fecha} '
+                        f'(descanso mínimo trans-período violado)'
+                    ),
+                })
     
     def _validar_cobertura_minima(self):
         """Valida cobertura mínima por turno, incluyendo ausencia total"""
