@@ -48,17 +48,7 @@ services:
       dockerfile: Dockerfile
     container_name: planificador_web
     restart: unless-stopped
-    command: >
-      sh -c "python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput &&
-             gunicorn --bind 0.0.0.0:8000 
-                      --workers 4 
-                      --threads 2 
-                      --timeout 120 
-                      --access-logfile - 
-                      --error-logfile - 
-                      --log-level info
-                      config.wsgi:application"
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 proyecto_turnos.wsgi:application"
     volumes:
       - ./:/app
       - static_volume:/app/staticfiles

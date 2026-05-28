@@ -2,10 +2,10 @@
 set -e
 
 echo "Esperando a PostgreSQL..."
-/wait-for-it.sh db:5432 --timeout=60 --strict -- echo "PostgreSQL está listo"
+/wait-for-it.sh db:5432 --timeout=60 -- echo "PostgreSQL está listo"
 
 echo "Esperando a Redis..."
-/wait-for-it.sh redis:6379 --timeout=60 --strict -- echo "Redis está listo"
+/wait-for-it.sh redis:6379 --timeout=60 -- echo "Redis está listo"
 
 echo "Aplicando migraciones..."
 python manage.py migrate --noinput
