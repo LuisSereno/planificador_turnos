@@ -68,12 +68,20 @@ class RotacionBaseBuilder:
                 dia_en_ciclo = (idx + desfase) % rotacion.ciclo_dias
                 turno = rotacion.obtener_turno(dia_en_ciclo)
                 
+                # Determinar tipo_celda: si el turno es sustituto de LIBRE, marcarlo como LIBRE
+                if turno is None:
+                    tipo_celda = TipoCelda.LIBRE
+                elif turno.es_sustituto_libre:
+                    tipo_celda = TipoCelda.LIBRE
+                else:
+                    tipo_celda = TipoCelda.TURNO
+                
                 celda = CeldaPlanificacion(
                     enfermera_id=enfermera_id,
                     enfermera_nombre=enfermera_nombre,
                     fecha=fecha,
                     turno=turno,
-                    tipo_celda=TipoCelda.TURNO if turno else TipoCelda.LIBRE,
+                    tipo_celda=tipo_celda,
                     es_modificable=True,
                     pertenece_rotacion_base=True,
                     _turno_base_original_id=turno.id if turno else None,

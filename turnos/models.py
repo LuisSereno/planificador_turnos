@@ -100,6 +100,11 @@ class TipoTurno(models.Model):
         default=False,
         help_text=_('Si es verdadero, se trata como incidencia (no se asigna automáticamente)')
     )
+    es_sustituto_libre = models.BooleanField(
+        _('Es sustituto de Libre'),
+        default=False,
+        help_text=_('Si es verdadero, este tipo actúa como "Libre" (0 horas, sin horario específico) en la planificación')
+    )
 
     class Meta:
         verbose_name = _('Tipo de Turno')
@@ -120,8 +125,19 @@ class TipoTurno(models.Model):
 
     def clean(self):
         """Validaciones adicionales del modelo"""
-        # Si es un turno regular (no incidencia), debe tener horario
-        if not self.es_incidencia:
+        # Si es sustituto de Libre, no puede tener horario específico
+        if self.es_sustituto_libre:
+            if self.hora_inicio or self.hora_fin:
+                raise ValidationError(
+                    _('Los sustitutos de Libre no deben tener horario específico.')
+                )
+            if self.es_incidencia:
+                raise ValidationError(
+                    _('Los sustitutos de Libre deben ser turnos regulares, no incidencias.')
+                )
+        
+        # Si es un turno regular (no incidencia, no sustituto), debe tener horario
+        if not self.es_incidencia and not self.es_sustituto_libre:
             if not self.hora_inicio or not self.hora_fin:
                 raise ValidationError(
                     _('Los turnos regulares deben tener hora de inicio y fin definidas.')

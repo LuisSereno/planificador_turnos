@@ -49,6 +49,12 @@ class TurnoInfo:
     hora_fin: time
     duracion_horas: float
     es_nocturno: bool = False
+    es_sustituto_libre: bool = False
+    
+    @property
+    def es_tipo_libre(self) -> bool:
+        """True si este turno actúa como 'Libre' (sustituto o sin horas)"""
+        return self.es_sustituto_libre or self.duracion_horas == 0
 
 
 @dataclass

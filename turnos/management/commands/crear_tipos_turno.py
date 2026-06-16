@@ -71,6 +71,12 @@ class Command(BaseCommand):
         )
         
         parser.add_argument(
+            '--sustituto-libre',
+            action='store_true',
+            help='Marcar el turno como sustituto de Libre (actúa como día sin turno)',
+        )
+        
+        parser.add_argument(
             '--descripcion',
             type=str,
             default='',
@@ -241,6 +247,7 @@ class Command(BaseCommand):
             'codigo_corto': codigo,
             'descripcion': options.get('descripcion', ''),
             'es_incidencia': options.get('incidencia', False),
+            'es_sustituto_libre': options.get('sustituto_libre', False),
             'activo': True,
         }
         
@@ -269,7 +276,9 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Horario: {turno.hora_inicio.strftime('%H:%M')} - {turno.hora_fin.strftime('%H:%M')} ({turno.duracion_horas}h)")
             else:
                 self.stdout.write('  Horario: Sin horario específico')
-            if turno.es_incidencia:
+            if turno.es_sustituto_libre:
+                self.stdout.write('  Clasificación: SUSTITUTO DE LIBRE (se trata como día sin turno)')
+            elif turno.es_incidencia:
                 self.stdout.write('  Clasificación: INCIDENCIA (no se asigna automáticamente)')
             
         except ValidationError as e:

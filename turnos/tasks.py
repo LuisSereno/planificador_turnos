@@ -429,6 +429,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 hora_fin=t.hora_fin,
                 duracion_horas=t.duracion_horas,
                 es_nocturno=t.es_nocturno,
+                es_sustituto_libre=t.es_sustituto_libre,
             )
             for t in config.turnos.all()
         }
@@ -466,6 +467,7 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                         hora_fin=t.hora_fin,
                         duracion_horas=t.duracion_horas,
                         es_nocturno=t.es_nocturno,
+                        es_sustituto_libre=t.es_sustituto_libre,
                     ) if t else None
                     for t in celdas if t is not None or True  # Incluir None para libres
                 ],

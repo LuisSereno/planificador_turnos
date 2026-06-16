@@ -15,8 +15,8 @@ from .models import (
 
 @admin.register(TipoTurno)
 class TipoTurnoAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'codigo_corto', 'hora_inicio', 'hora_fin', 'duracion_horas', 'es_incidencia', 'activo', 'color_badge']
-    list_filter = ['nombre', 'es_incidencia', 'activo']
+    list_display = ['nombre', 'codigo_corto', 'hora_inicio', 'hora_fin', 'duracion_horas', 'es_incidencia', 'es_sustituto_libre', 'activo', 'color_badge']
+    list_filter = ['nombre', 'es_incidencia', 'es_sustituto_libre', 'activo']
     search_fields = ['nombre', 'codigo_corto']
     ordering = ['nombre']
 
@@ -29,8 +29,8 @@ class TipoTurnoAdmin(admin.ModelAdmin):
             'description': 'Opcional para turnos como Libre o Descanso'
         }),
         ('Clasificación', {
-            'fields': ('es_incidencia',),
-            'description': 'Marcar si se trata de una incidencia (no se asigna automáticamente)'
+            'fields': ('es_incidencia', 'es_sustituto_libre'),
+            'description': 'Marcar si es incidencia o sustituto de Libre'
         }),
         ('Estado', {
             'fields': ('activo',)
