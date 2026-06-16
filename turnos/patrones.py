@@ -8,9 +8,10 @@ logger = logging.getLogger(__name__)
 class AplicadorPatronesPersonalizados:
     """Maneja la aplicación de patrones de turnos (descanso post-turno, secuencias, etc.)."""
 
-    def __init__(self, modelo, turnos_map, turnos, num_enfermeras, num_dias, shifts, offdays, configuracion):
+    def __init__(self, modelo, turnos_map, turnos, num_enfermeras, num_dias, shifts, offdays, configuracion, acronimos_map=None):
         self.model = modelo
         self.turnos_map = turnos_map
+        self.acronimos_map = acronimos_map or {}
         self.turnos = turnos
         self.num_enfermeras = num_enfermeras
         self.num_dias = num_dias
@@ -106,10 +107,14 @@ class AplicadorPatronesPersonalizados:
             return
 
         indices_secuencia = []
-        for turno_nombre in secuencia:
-            idx = self.turnos_map.get(turno_nombre)
+        for elemento in secuencia:
+            # Primero intentar por nombre (patrones legacy)
+            idx = self.turnos_map.get(elemento)
+            # Si no encontrado, intentar por acronimo (nuevo formato)
             if idx is None:
-                logger.warning(f"  ⚠️ Patrón {nombre}: turno '{turno_nombre}' no encontrado")
+                idx = self.acronimos_map.get(elemento)
+            if idx is None:
+                logger.warning(f"  ⚠️ Patrón {nombre}: '{elemento}' no encontrado en nombres ni acrónimos")
                 return
             indices_secuencia.append(idx)
 

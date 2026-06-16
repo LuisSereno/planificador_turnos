@@ -152,6 +152,13 @@ class ConfiguracionCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
     template_name = 'turnos/configuration_form.html'
     success_message = 'Configuración creada con éxito.'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from turnos.models import TipoTurno
+        tipos = TipoTurno.objects.filter(activo=True).values('id', 'nombre', 'codigo_corto', 'es_sustituto_libre', 'es_incidencia')
+        context['tipos_turno_json'] = json.dumps(list(tipos), ensure_ascii=False)
+        return context
+
     def form_valid(self, form):
         logger.info(
             f"Creating new configuration by user {self.request.user.username} ({self.request.user.id})"
@@ -243,6 +250,13 @@ class ConfiguracionUpdateView(LoginRequiredMixin, OwnerRequiredMixin, FormMessag
     template_name = 'turnos/configuration_form.html'
     success_message = 'Configuración actualizada con éxito.'
     owner_field = 'creado_por'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from turnos.models import TipoTurno
+        tipos = TipoTurno.objects.filter(activo=True).values('id', 'nombre', 'codigo_corto', 'es_sustituto_libre', 'es_incidencia')
+        context['tipos_turno_json'] = json.dumps(list(tipos), ensure_ascii=False)
+        return context
 
     def form_valid(self, form):
         logger.info(

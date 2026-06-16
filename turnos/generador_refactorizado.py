@@ -27,6 +27,7 @@ class GeneradorTurnos:
         self.num_turnos = len(self.turnos)
 
         self.turnos_map = {self.turnos[i].nombre: i for i in range(self.num_turnos)}
+        self.acronimos_map = {self.turnos[i].codigo_corto: i for i in range(self.num_turnos) if self.turnos[i].codigo_corto}
         self.demanda = self.configuracion.demanda_por_turno or {}
 
         self.administrador_variables = AdministradorVariables(
@@ -115,7 +116,8 @@ class GeneradorTurnos:
         aplicador_patrones = AplicadorPatronesPersonalizados(
             self.model, self.turnos_map, self.turnos, self.num_enfermeras,
             self.num_dias, self.administrador_variables.shifts,
-            self.administrador_variables.offdays, self.configuracion
+            self.administrador_variables.offdays, self.configuracion,
+            acronimos_map=self.acronimos_map
         )
         aplicador_patrones.aplicar_todos()
 
