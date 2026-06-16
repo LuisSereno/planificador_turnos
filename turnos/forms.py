@@ -197,6 +197,16 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             'seed': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Excluir de la selección tipos que no son asignables como turnos de trabajo
+        from turnos.models import TipoTurno
+        self.fields['turnos'].queryset = TipoTurno.objects.filter(
+            activo=True,
+            es_sustituto_libre=False,
+            es_incidencia=False,
+        )
+
     def clean_num_dias(self):
         """Valida el número de días"""
         num_dias = self.cleaned_data.get('num_dias')
@@ -361,7 +371,7 @@ class ConfiguracionWizardStep1Form(forms.Form):
     )
 
     turnos = forms.ModelMultipleChoiceField(
-        queryset=TipoTurno.objects.filter(activo=True),
+        queryset=TipoTurno.objects.filter(activo=True, es_sustituto_libre=False, es_incidencia=False),
         label=_('Tipos de turno'),
         widget=forms.CheckboxSelectMultiple()
     )
@@ -679,6 +689,14 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Excluir de la selección tipos que no son asignables como turnos de trabajo
+        from turnos.models import TipoTurno
+        self.fields['turnos'].queryset = TipoTurno.objects.filter(
+            activo=True,
+            es_sustituto_libre=False,
+            es_incidencia=False,
+        )
 
         if self.instance and self.instance.pk:
             # ✅ Manejar restricciones_json (existente)

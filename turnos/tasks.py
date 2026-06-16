@@ -547,10 +547,10 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             except Exception:
                 balances_historicos[enf_id] = {}
         
-        # Coverage minimum from demand - SOLO para turnos seleccionados en la configuración
+        # Coverage minimum from demand - SOLO para turnos asignables (excluye sustitutos de libre e incidencias)
         cobertura_minima = {}
         if config.demanda_por_turno:
-            for turno in config.turnos.all():
+            for turno in config.turnos.filter(es_sustituto_libre=False, es_incidencia=False):
                 if turno.nombre in config.demanda_por_turno:
                     demanda = config.demanda_por_turno[turno.nombre]
                     # Extraer el valor mínimo del diccionario de demanda
