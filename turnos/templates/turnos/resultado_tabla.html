@@ -136,12 +136,17 @@
                             <td class="turno-cell {{ asignacion.clase_css }} {% if asignacion.fin_semana %}fin-semana{% endif %}"
                                 data-bs-toggle="tooltip"
                                 title="{{ asignacion.detalle }}">
-                                {% if asignacion.turno %}
+                                {% if asignacion.turno and asignacion.horario %}
                                     <div class="text-center">
                                         <strong>{{ asignacion.turno_display }}</strong>
                                         <div class="small text-muted">
                                             {{ asignacion.horario }}
                                         </div>
+                                    </div>
+                                {% elif asignacion.turno_display %}
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-times"></i>
+                                        <div class="small">{{ asignacion.turno_display }}</div>
                                     </div>
                                 {% else %}
                                     <div class="text-center">

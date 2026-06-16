@@ -1622,7 +1622,7 @@ class ResultadoTablaView(LoginRequiredMixin, DetailView):
                 fecha = dia['fecha']
                 asig = asignaciones_enf.get(fecha)
 
-                if asig and asig.turno and not asig.es_dia_libre:
+                if asig and asig.turno and not asig.es_dia_libre and not asig.turno.es_sustituto_libre:
                     turno = asig.turno
                     turno_display = turno.codigo_display() if hasattr(turno, 'codigo_display') else turno.nombre
                     horario = f"{turno.hora_inicio.strftime('%H:%M')}-{turno.hora_fin.strftime('%H:%M')}"
@@ -1638,6 +1638,17 @@ class ResultadoTablaView(LoginRequiredMixin, DetailView):
                         'horario': horario,
                         'clase_css': clase_css,
                         'detalle': detalle,
+                        'fin_semana': dia['fin_semana'],
+                    })
+                elif asig and asig.turno and asig.turno.es_sustituto_libre:
+                    turno = asig.turno
+                    dias_libres_totales += 1
+                    fila_asignaciones.append({
+                        'turno': None,
+                        'turno_display': turno.nombre,
+                        'horario': '',
+                        'clase_css': 'dia-libre',
+                        'detalle': f"Libre ({turno.nombre})",
                         'fin_semana': dia['fin_semana'],
                     })
                 else:
