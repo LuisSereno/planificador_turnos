@@ -32,9 +32,16 @@
                             {% for turno in tipos_turno %}
                             <tr>
                                 <td>
-                                    <strong>{{ turno.get_nombre_display }}</strong>
+                                    <strong>{{ turno.nombre }}</strong>
+                                    {% if turno.codigo_corto %}
+                                        <span class="badge bg-secondary ms-1">{{ turno.codigo_corto }}</span>
+                                    {% endif %}
                                     <div class="text-muted small">
-                                        {{ turno.hora_inicio|time:"H:i" }} - {{ turno.hora_fin|time:"H:i" }}
+                                        {% if turno.hora_inicio and turno.hora_fin %}
+                                            {{ turno.hora_inicio|time:"H:i" }} - {{ turno.hora_fin|time:"H:i" }}
+                                        {% else %}
+                                            {% trans "Sin horario" %}
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>

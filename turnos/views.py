@@ -639,11 +639,12 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
             return 'secondary'
 
         if asignacion.turno:
-            if asignacion.turno.nombre == 'MANANA':
+            nombre_lower = asignacion.turno.nombre.lower()
+            if nombre_lower == 'mañana':
                 return 'warning'
-            elif asignacion.turno.nombre == 'TARDE':
+            elif nombre_lower == 'tarde':
                 return 'info'
-            elif asignacion.turno.nombre == 'NOCHE':
+            elif nombre_lower == 'noche':
                 return 'dark'
 
         return 'primary'

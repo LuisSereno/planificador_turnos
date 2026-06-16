@@ -29,17 +29,26 @@
     {% for tipo in tipos_turno %}
     <div class="col">
         <div class="card h-100 tipo-turno-card {% if not tipo.activo %}inactive{% endif %}">
-            <div class="card-header {% if tipo.nombre == 'MANANA' %}bg-warning text-dark{% elif tipo.nombre == 'TARDE' %}bg-info text-white{% else %}bg-dark text-white{% endif %}">
+            <div class="card-header {% if tipo.es_sustituto_libre %}bg-success text-white{% elif tipo.es_incidencia %}bg-danger text-white{% elif tipo.nombre|lower == 'mañana' %}bg-warning text-dark{% elif tipo.nombre|lower == 'tarde' %}bg-info text-white{% elif tipo.nombre|lower == 'noche' %}bg-dark text-white{% else %}bg-secondary text-white{% endif %}">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        {% if tipo.nombre == 'MANANA' %}
+                        {% if tipo.es_sustituto_libre %}
+                            <i class="fas fa-umbrella-beach me-2"></i>
+                        {% elif tipo.es_incidencia %}
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% elif tipo.nombre|lower == 'mañana' %}
                             <i class="fas fa-sun me-2"></i>
-                        {% elif tipo.nombre == 'TARDE' %}
+                        {% elif tipo.nombre|lower == 'tarde' %}
                             <i class="fas fa-cloud-sun me-2"></i>
-                        {% else %}
+                        {% elif tipo.nombre|lower == 'noche' %}
                             <i class="fas fa-moon me-2"></i>
+                        {% else %}
+                            <i class="fas fa-clock me-2"></i>
                         {% endif %}
-                        {{ tipo.get_nombre_display }}
+                        {{ tipo.nombre }}
+                        {% if tipo.codigo_corto %}
+                            <small class="badge bg-light text-dark ms-2">{{ tipo.codigo_corto }}</small>
+                        {% endif %}
                     </h5>
                     {{ tipo.activo|activo_badge }}
                 </div>
@@ -77,16 +86,28 @@
                        class="btn btn-sm btn-outline-primary flex-grow-1">
                         <i class="fas fa-edit me-1"></i>{% trans "Editar" %}
                     </a>
+                    {% if tipo.num_configs_count > 0 %}
+                    <button class="btn btn-sm btn-outline-danger" disabled 
+                            title="{% trans 'No se puede eliminar: está en uso' %}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    {% else %}
                     <a href="{% url 'turnos:tipo_turno_eliminar' tipo.id %}" 
-                       class="btn btn-sm btn-outline-danger">
+                       class="btn btn-sm btn-outline-danger"
+                       title="{% trans 'Eliminar tipo de turno' %}">
                         <i class="fas fa-trash"></i>
                     </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="card-footer bg-light text-center">
                 <small class="text-muted">
                     <i class="fas fa-calendar-check me-1"></i>
-                    {% trans "Usado en" %} <strong>{{ tipo.num_configuraciones|default:0 }}</strong> {% trans "configuraciones" %}
+                    {% if tipo.num_configs_count > 0 %}
+                        {% trans "En uso en" %} <strong class="text-primary">{{ tipo.num_configs_count }}</strong> {% trans "configuraci" %}{% if tipo.num_configs_count == 1 %}{% trans "ón" %}{% else %}{% trans "ones" %}{% endif %}
+                    {% else %}
+                        {% trans "No está en uso" %}
+                    {% endif %}
                 </small>
             </div>
         </div>

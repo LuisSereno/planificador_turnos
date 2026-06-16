@@ -77,10 +77,16 @@ class TipoTurnoForm(forms.ModelForm):
 
     class Meta:
         model = TipoTurno
-        fields = ['nombre', 'hora_inicio', 'hora_fin', 'descripcion', 'activo']
+        fields = ['nombre', 'codigo_corto', 'hora_inicio', 'hora_fin', 'descripcion', 'es_incidencia', 'es_sustituto_libre', 'activo']
         widgets = {
-            'nombre': forms.Select(attrs={
-                'class': 'form-select'
+            'nombre': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Mañana, Tarde, Noche, Libre, Descanso'
+            }),
+            'codigo_corto': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: M, T, N, L, D',
+                'maxlength': '5'
             }),
             'hora_inicio': forms.TimeInput(attrs={
                 'class': 'form-control',
@@ -94,6 +100,12 @@ class TipoTurnoForm(forms.ModelForm):
                 'class': 'form-control',
                 'rows': 3
             }),
+            'es_incidencia': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'es_sustituto_libre': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
             'activo': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
@@ -102,10 +114,30 @@ class TipoTurnoForm(forms.ModelForm):
     def clean(self):
         """Valida que no haya solapamiento de horas"""
         cleaned_data = super().clean()
+        es_incidencia = cleaned_data.get('es_incidencia', False)
+        es_sustituto_libre = cleaned_data.get('es_sustituto_libre', False)
         hora_inicio = cleaned_data.get('hora_inicio')
         hora_fin = cleaned_data.get('hora_fin')
+        codigo_corto = cleaned_data.get('codigo_corto')
 
-        if hora_inicio and hora_fin:
+        # Los sustitutos de libre no deben tener horario
+        if es_sustituto_libre:
+            if hora_inicio or hora_fin:
+                raise ValidationError(
+                    _('Los sustitutos de Libre no deben tener horario específico.')
+                )
+            if es_incidencia:
+                raise ValidationError(
+                    _('Los sustitutos de Libre deben ser turnos regulares, no incidencias.')
+                )
+
+        # Los turnos regulares (no incidencia, no sustituto) deben tener horario
+        if not es_incidencia and not es_sustituto_libre:
+            if not hora_inicio or not hora_fin:
+                raise ValidationError(
+                    _('Los turnos regulares deben tener hora de inicio y fin definidas.')
+                )
+
             # Calcular duración
             from datetime import datetime, timedelta
             inicio = datetime.combine(datetime.today(), hora_inicio)
@@ -121,6 +153,10 @@ class TipoTurnoForm(forms.ModelForm):
                 raise ValidationError(_('La duración del turno debe ser de al menos 4 horas.'))
             if duracion > 12:
                 raise ValidationError(_('La duración del turno no puede exceder 12 horas.'))
+
+        # El código corto es obligatorio
+        if not codigo_corto:
+            raise ValidationError(_('El código corto es obligatorio.'))
 
         return cleaned_data
 

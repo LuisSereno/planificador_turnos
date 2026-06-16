@@ -50,7 +50,7 @@
                 <select class="form-select" id="filtro-turno">
                     <option value="">{% trans "Todos los turnos" %}</option>
                     {% for turno in tipos_turno %}
-                        <option value="{{ turno.id }}">{{ turno.get_nombre_display }}</option>
+                        <option value="{{ turno.id }}">{{ turno.nombre }}{% if turno.codigo_corto %} [{{ turno.codigo_corto }}]{% endif %}</option>
                     {% endfor %}
                 </select>
             </div>

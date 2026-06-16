@@ -42,7 +42,7 @@
                         </div>
                     {% endif %}
 
-                    <!-- Tipo de Turno -->
+                    <!-- Nombre y Código Corto -->
                     <div class="mb-4">
                         <label for="{{ form.nombre.id_for_label }}" class="form-label fw-bold">
                             <i class="fas fa-tag me-2"></i>{{ form.nombre.label }} *
@@ -54,7 +54,24 @@
                             </div>
                         {% else %}
                             <small class="form-text text-muted">
-                                {% trans "Selecciona el tipo de turno (Mañana, Tarde o Noche)" %}
+                                {% trans "Nombre del tipo de turno (ej: Mañana, Tarde, Noche, Libre, Descanso)" %}
+                            </small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Código Corto -->
+                    <div class="mb-4">
+                        <label for="{{ form.codigo_corto.id_for_label }}" class="form-label fw-bold">
+                            <i class="fas fa-font me-2"></i>{{ form.codigo_corto.label }} *
+                        </label>
+                        {{ form.codigo_corto }}
+                        {% if form.codigo_corto.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.codigo_corto.errors.0 }}
+                            </div>
+                        {% else %}
+                            <small class="form-text text-muted">
+                                {% trans "Acrónimo para planillas compactas (ej: M, T, N, L, D)" %}
                             </small>
                         {% endif %}
                     </div>
@@ -64,26 +81,34 @@
                         <div class="col-md-6">
                             <div class="mb-4">
                                 <label for="{{ form.hora_inicio.id_for_label }}" class="form-label fw-bold">
-                                    <i class="fas fa-clock me-2"></i>{{ form.hora_inicio.label }} *
+                                    <i class="fas fa-clock me-2"></i>{{ form.hora_inicio.label }}
                                 </label>
                                 {{ form.hora_inicio }}
                                 {% if form.hora_inicio.errors %}
                                     <div class="invalid-feedback d-block">
                                         {{ form.hora_inicio.errors.0 }}
                                     </div>
+                                {% else %}
+                                    <small class="form-text text-muted">
+                                        {% trans "Opcional para turnos como Libre o Descanso" %}
+                                    </small>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-4">
                                 <label for="{{ form.hora_fin.id_for_label }}" class="form-label fw-bold">
-                                    <i class="fas fa-clock me-2"></i>{{ form.hora_fin.label }} *
+                                    <i class="fas fa-clock me-2"></i>{{ form.hora_fin.label }}
                                 </label>
                                 {{ form.hora_fin }}
                                 {% if form.hora_fin.errors %}
                                     <div class="invalid-feedback d-block">
                                         {{ form.hora_fin.errors.0 }}
                                     </div>
+                                {% else %}
+                                    <small class="form-text text-muted">
+                                        {% trans "Opcional para turnos como Libre o Descanso" %}
+                                    </small>
                                 {% endif %}
                             </div>
                         </div>
@@ -107,6 +132,37 @@
                         <small class="form-text text-muted">
                             {% trans "Información adicional sobre este turno (opcional)" %}
                         </small>
+                    </div>
+
+                    <!-- Clasificación -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-3">
+                                <i class="fas fa-tags me-2"></i>{% trans "Clasificación" %}
+                            </h6>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.es_incidencia }}
+                                    <label class="form-check-label" for="{{ form.es_incidencia.id_for_label }}">
+                                        <strong>{% trans "Es incidencia" %}</strong>
+                                        <div class="text-muted small">
+                                            {% trans "Si es verdadero, se trata como incidencia (no se asigna automáticamente)" %}
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.es_sustituto_libre }}
+                                    <label class="form-check-label" for="{{ form.es_sustituto_libre.id_for_label }}">
+                                        <strong>{% trans "Es sustituto de Libre" %}</strong>
+                                        <div class="text-muted small">
+                                            {% trans "Si es verdadero, este tipo actúa como 'Libre' (0 horas, sin horario específico)" %}
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Estado -->
@@ -174,8 +230,14 @@
 <script>
 // Calcular duración automáticamente
 function calcularDuracion() {
-    const horaInicio = document.getElementById('{{ form.hora_inicio.id_for_label }}').value;
-    const horaFin = document.getElementById('{{ form.hora_fin.id_for_label }}').value;
+    const horaInicioInput = document.getElementById('{{ form.hora_inicio.id_for_label }}');
+    const horaFinInput = document.getElementById('{{ form.hora_fin.id_for_label }}');
+    const duracionDisplay = document.getElementById('duracion-display');
+    
+    if (!horaInicioInput || !horaFinInput || !duracionDisplay) return;
+    
+    const horaInicio = horaInicioInput.value;
+    const horaFin = horaFinInput.value;
     
     if (horaInicio && horaFin) {
         const [hIni, mIni] = horaInicio.split(':').map(Number);
@@ -193,14 +255,19 @@ function calcularDuracion() {
         const horas = Math.floor(duracionMinutos / 60);
         const minutos = duracionMinutos % 60;
         
-        document.getElementById('duracion-display').textContent = 
+        duracionDisplay.textContent = 
             `${horas} hora${horas !== 1 ? 's' : ''} ${minutos > 0 ? `y ${minutos} minutos` : ''}`;
+    } else {
+        duracionDisplay.textContent = '{% trans "Sin horario específico" %}';
     }
 }
 
 // Listeners para calcular duración
-document.getElementById('{{ form.hora_inicio.id_for_label }}').addEventListener('change', calcularDuracion);
-document.getElementById('{{ form.hora_fin.id_for_label }}').addEventListener('change', calcularDuracion);
+const horaInicioInput = document.getElementById('{{ form.hora_inicio.id_for_label }}');
+const horaFinInput = document.getElementById('{{ form.hora_fin.id_for_label }}');
+
+if (horaInicioInput) horaInicioInput.addEventListener('change', calcularDuracion);
+if (horaFinInput) horaFinInput.addEventListener('change', calcularDuracion);
 
 // Calcular al cargar si hay valores
 document.addEventListener('DOMContentLoaded', calcularDuracion);
