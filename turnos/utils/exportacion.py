@@ -500,7 +500,8 @@ def _ejecucion_to_planificacion_data(ejecucion):
         if asig.es_dia_libre or not asig.turno:
             turnos_asignados[(enf_idx, dia_idx)] = 'LIBRE'
         else:
-            display = asig.turno.get_nombre_display().upper()
+            # Usar nombre directamente (ya no hay get_nombre_display())
+            display = asig.turno.nombre.upper()
             turnos_asignados[(enf_idx, dia_idx)] = display
 
     return {

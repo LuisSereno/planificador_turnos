@@ -526,7 +526,7 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
         context['validacion_resultado'] = validacion_resultado
 
         # Si tiene planilla, calcular datos para visualización
-        if ejecucion.planilla_generada:
+        if hasattr(ejecucion, 'planilla_generada'):
             planilla = ejecucion.planilla_generada
 
             # Obtener todas las asignaciones
@@ -1101,7 +1101,10 @@ class TipoTurnoListView(LoginRequiredMixin, ListView):
     context_object_name = 'tipos_turno'
 
     def get_queryset(self):
-        return TipoTurno.objects.all().order_by('nombre')
+        from django.db.models import Count
+        return TipoTurno.objects.all().annotate(
+            num_configs_count=Count('configuracionplanificacion', distinct=True)
+        ).order_by('nombre')
 
 
 class TipoTurnoCreateView(LoginRequiredMixin, FormMessageMixin, CreateView):
@@ -1127,8 +1130,22 @@ class TipoTurnoDeleteView(LoginRequiredMixin, DeleteView):
     model = TipoTurno
     template_name = 'turnos/tipo_turno_confirm_delete.html'
     success_url = reverse_lazy('turnos:tipo_turno_lista')
+    context_object_name = 'tipo_turno'
 
     def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        # Verificar si el tipo de turno está en uso en alguna configuración
+        num_configs = self.object.configuracionplanificacion.count()
+        if num_configs > 0:
+            messages.error(
+                request,
+                f'No se puede eliminar el tipo de turno porque está siendo usado '
+                f'en {num_configs} configuraci\u00f3n{"es" if num_configs > 1 else ""}. '
+                f'Elimina o modifica esas configuraciones primero.'
+            )
+            return redirect('turnos:tipo_turno_lista')
+        
         messages.success(request, 'Tipo de turno eliminado con éxito.')
         return super().delete(request, *args, **kwargs)
 
@@ -1607,10 +1624,10 @@ class ResultadoTablaView(LoginRequiredMixin, DetailView):
 
                 if asig and asig.turno and not asig.es_dia_libre:
                     turno = asig.turno
-                    turno_display = turno.codigo_display() if hasattr(turno, 'codigo_display') else turno.get_nombre_display()
+                    turno_display = turno.codigo_display() if hasattr(turno, 'codigo_display') else turno.nombre
                     horario = f"{turno.hora_inicio.strftime('%H:%M')}-{turno.hora_fin.strftime('%H:%M')}"
                     clase_css = CLASE_CSS.get(turno.nombre, '')
-                    detalle = f"{turno.get_nombre_display()} ({horario})"
+                    detalle = f"{turno.nombre} ({horario})"
                     total_turnos_enf += 1
                     totales_por_dia[idx] += 1
                     total_general += 1
@@ -1886,7 +1903,7 @@ class ExportarEjecucionCSVView(LoginRequiredMixin, View):
                 turno_info = 'Libre'
                 horario = '-'
             else:
-                turno_info = asignacion.turno.get_nombre_display()
+                turno_info = asignacion.turno.nombre
                 horario = f"{asignacion.turno.hora_inicio.strftime('%H:%M')} - {asignacion.turno.hora_fin.strftime('%H:%M')}"
 
             writer.writerow([
@@ -1933,7 +1950,7 @@ class ExportarEjecucionJSONView(LoginRequiredMixin, View):
             data['planilla']['asignaciones'].append({
                 'enfermera': asignacion.enfermera.nombre,
                 'fecha': asignacion.fecha.isoformat(),
-                'turno': asignacion.turno.get_nombre_display() if asignacion.turno else None,
+                'turno': asignacion.turno.nombre if asignacion.turno else None,
                 'es_dia_libre': asignacion.es_dia_libre
             })
 
@@ -1968,7 +1985,7 @@ class ExportarEjecucionICalView(LoginRequiredMixin, View):
         for asignacion in asignaciones:
             if not asignacion.es_dia_libre:
                 event = Event()
-                event.add('summary', f"{asignacion.enfermera.nombre} - {asignacion.turno.get_nombre_display()}")
+                event.add('summary', f"{asignacion.enfermera.nombre} - {asignacion.turno.nombre}")
 
                 # Calcular fecha/hora inicio y fin
                 dt_inicio = datetime.combine(asignacion.fecha, asignacion.turno.hora_inicio)
@@ -1980,7 +1997,7 @@ class ExportarEjecucionICalView(LoginRequiredMixin, View):
 
                 event.add('dtstart', dt_inicio)
                 event.add('dtend', dt_fin)
-                event.add('description', f"Turno asignado: {asignacion.turno.get_nombre_display()}")
+                event.add('description', f"Turno asignado: {asignacion.turno.nombre}")
 
                 cal.add_component(event)
 

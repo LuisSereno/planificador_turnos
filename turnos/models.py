@@ -58,7 +58,11 @@ class Enfermera(models.Model):
 
 
 class TipoTurno(models.Model):
-    """Modelo para representar tipos de turno"""
+    """
+    Modelo para representar tipos de turno.
+    Permite crear tipos personalizados (Mañana, Tarde, Noche, Libre, Descanso, etc.)
+    con acrónimos configurables manualmente.
+    """
     workspace = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
@@ -66,43 +70,104 @@ class TipoTurno(models.Model):
         null=True,
         blank=True
     )
-    NOMBRE_CHOICES = [
-        ('MANANA', _('Mañana')),
-        ('TARDE', _('Tarde')),
-        ('NOCHE', _('Noche')),
-    ]
 
-    nombre = models.CharField(_('Nombre'), max_length=50, choices=NOMBRE_CHOICES)
+    nombre = models.CharField(
+        _('Nombre'),
+        max_length=100,
+        help_text=_('Nombre del tipo de turno (ej: Mañana, Tarde, Noche, Libre, Descanso)')
+    )
     codigo_corto = models.CharField(
         _('Código corto'),
         max_length=5,
-        default='',
-        blank=True,
-        help_text=_('Abreviatura para planillas compactas (ej: M, T, N)')
+        help_text=_('Acrónimo para planillas compactas (ej: M, T, N, L, D)')
     )
-    hora_inicio = models.TimeField(_('Hora de inicio'))
-    hora_fin = models.TimeField(_('Hora de fin'))
+    hora_inicio = models.TimeField(
+        _('Hora de inicio'),
+        null=True,
+        blank=True,
+        help_text=_('Hora de inicio (opcional para turnos como Libre o Descanso)')
+    )
+    hora_fin = models.TimeField(
+        _('Hora de fin'),
+        null=True,
+        blank=True,
+        help_text=_('Hora de fin (opcional para turnos como Libre o Descanso)')
+    )
     descripcion = models.TextField(_('Descripción'), blank=True)
     activo = models.BooleanField(_('Activo'), default=True)
+    es_incidencia = models.BooleanField(
+        _('Es incidencia'),
+        default=False,
+        help_text=_('Si es verdadero, se trata como incidencia (no se asigna automáticamente)')
+    )
 
     class Meta:
         verbose_name = _('Tipo de Turno')
         verbose_name_plural = _('Tipos de Turno')
         ordering = ['nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'nombre'],
+                name='unique_nombre_por_workspace',
+                condition=models.Q(workspace__isnull=False)
+            ),
+            models.UniqueConstraint(
+                fields=['workspace', 'codigo_corto'],
+                name='unique_codigo_por_workspace',
+                condition=models.Q(workspace__isnull=False)
+            ),
+        ]
+
+    def clean(self):
+        """Validaciones adicionales del modelo"""
+        # Si es un turno regular (no incidencia), debe tener horario
+        if not self.es_incidencia:
+            if not self.hora_inicio or not self.hora_fin:
+                raise ValidationError(
+                    _('Los turnos regulares deben tener hora de inicio y fin definidas.')
+                )
+        
+        # El código corto es obligatorio
+        if not self.codigo_corto:
+            raise ValidationError(_('El código corto es obligatorio.'))
+        
+        # El código corto debe ser único por workspace
+        if self.pk:
+            duplicado = TipoTurno.objects.filter(
+                workspace=self.workspace,
+                codigo_corto=self.codigo_corto
+            ).exclude(pk=self.pk)
+        else:
+            duplicado = TipoTurno.objects.filter(
+                workspace=self.workspace,
+                codigo_corto=self.codigo_corto
+            )
+        
+        if duplicado.exists():
+            raise ValidationError(
+                _('Ya existe un tipo de turno con el código "{}" en este workspace.').format(
+                    self.codigo_corto
+                )
+            )
 
     def __str__(self):
         codigo = f" [{self.codigo_corto}]" if self.codigo_corto else ""
-        return f"{self.get_nombre_display()}{codigo} ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fin.strftime('%H:%M')})"
+        if self.hora_inicio and self.hora_fin:
+            horario = f" ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fin.strftime('%H:%M')})"
+        else:
+            horario = " (sin horario específico)"
+        return f"{self.nombre}{codigo}{horario}"
 
     def codigo_display(self):
         """Devuelve el código corto para mostrar en planillas compactas."""
-        if self.codigo_corto:
-            return self.codigo_corto
-        return self.get_nombre_display()[0]
+        return self.codigo_corto if self.codigo_corto else self.nombre[0]
 
     @property
     def duracion_horas(self):
-        """Calcula la duración del turno en horas"""
+        """Calcula la duración del turno en horas (0 si no tiene horario definido)"""
+        if not self.hora_inicio or not self.hora_fin:
+            return 0.0
+        
         inicio = datetime.combine(datetime.today(), self.hora_inicio)
         fin = datetime.combine(datetime.today(), self.hora_fin)
 
@@ -114,8 +179,16 @@ class TipoTurno(models.Model):
 
     @property
     def es_nocturno(self):
-        """Determina si el turno es nocturno basado en el nombre"""
-        return self.nombre == 'NOCHE'
+        """Determina si el turno es nocturno basado en el horario"""
+        if not self.hora_inicio or not self.hora_fin:
+            return False
+        # Se considera nocturno si la hora de fin es menor que la de inicio (cruza medianoche)
+        return self.hora_fin < self.hora_inicio
+    
+    @property
+    def num_configuraciones(self):
+        """Número de configuraciones que usan este tipo de turno"""
+        return self.configuracionplanificacion.count()
 
 
 class TipoPatron(models.TextChoices):

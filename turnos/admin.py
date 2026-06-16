@@ -15,16 +15,22 @@ from .models import (
 
 @admin.register(TipoTurno)
 class TipoTurnoAdmin(admin.ModelAdmin):
-    list_display = ['get_nombre_display', 'hora_inicio', 'hora_fin', 'duracion_horas', 'activo', 'color_badge']
-    list_filter = ['nombre', 'activo']
+    list_display = ['nombre', 'codigo_corto', 'hora_inicio', 'hora_fin', 'duracion_horas', 'es_incidencia', 'activo', 'color_badge']
+    list_filter = ['nombre', 'es_incidencia', 'activo']
+    search_fields = ['nombre', 'codigo_corto']
     ordering = ['nombre']
 
     fieldsets = (
         ('Información del Turno', {
-            'fields': ('nombre', 'descripcion')
+            'fields': ('nombre', 'codigo_corto', 'descripcion')
         }),
         ('Horarios', {
-            'fields': ('hora_inicio', 'hora_fin')
+            'fields': ('hora_inicio', 'hora_fin'),
+            'description': 'Opcional para turnos como Libre o Descanso'
+        }),
+        ('Clasificación', {
+            'fields': ('es_incidencia',),
+            'description': 'Marcar si se trata de una incidencia (no se asigna automáticamente)'
         }),
         ('Estado', {
             'fields': ('activo',)
@@ -34,15 +40,18 @@ class TipoTurnoAdmin(admin.ModelAdmin):
     def color_badge(self, obj):
         """Muestra un badge de color según el turno"""
         colors = {
-            'MANANA': '#ffc107',
-            'TARDE': '#17a2b8',
-            'NOCHE': '#343a40'
+            'Mañana': '#ffc107',
+            'Tarde': '#17a2b8',
+            'Noche': '#343a40',
+            'Libre': '#28a745',
+            'Descanso': '#6c757d',
         }
         color = colors.get(obj.nombre, '#6c757d')
         return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 5px;">{}</span>',
+            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 5px;">{} [{}]</span>',
             color,
-            obj.get_nombre_display()
+            obj.nombre,
+            obj.codigo_corto
         )
 
     color_badge.short_description = 'Vista previa'
