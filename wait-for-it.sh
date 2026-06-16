@@ -10,6 +10,12 @@ echoerr() {
   if [ "$QUIET" -ne 1 ]; then printf "%s\n" "$*" 1>&2; fi
 }
 
+# Detectar si nc (netcat) está disponible
+ISBUSY=0
+if command -v nc &> /dev/null; then
+    ISBUSY=1
+fi
+
 usage() {
   exitcode="$1"
   cat << USAGE >&2

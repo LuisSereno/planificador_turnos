@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 COLORES_TURNOS = {
     'MAÑANA': {'rgb': 'FFC107', 'rgb_rl': '#FFC107', 'nombre': 'Mañana'},
     'TARDE': {'rgb': '00BCD4', 'rgb_rl': '#00BCD4', 'nombre': 'Tarde'},
-    'NOCHE': {'rgb': '424242', 'rgb_rl': '#424242', 'nombre': 'Noche'},
+    'NOCHE': {'rgb': '6f42c1', 'rgb_rl': '#6f42c1', 'nombre': 'Noche'},
     'LIBRE': {'rgb': 'E0E0E0', 'rgb_rl': '#E0E0E0', 'nombre': 'Libre'},
     'DESCANSO': {'rgb': 'FFFFFF', 'rgb_rl': '#FFFFFF', 'nombre': 'Descanso'},
 }
@@ -822,12 +822,12 @@ class ExportadorProfesional:
                 if col_idx >= 2 and valor in COLORES_TURNOS:
                     color_hex = COLORES_TURNOS[valor]['rgb_rl']
                     estilos.append(
-                        ('BACKGROUND', (col_idx + 2, row_idx), (col_idx + 2, row_idx),
+                        ('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx),
                          rl_colors.HexColor(color_hex))
                     )
                     if valor == 'NOCHE':
                         estilos.append(
-                            ('TEXTCOLOR', (col_idx + 2, row_idx), (col_idx + 2, row_idx),
+                            ('TEXTCOLOR', (col_idx, row_idx), (col_idx, row_idx),
                              rl_colors.whitesmoke)
                         )
         

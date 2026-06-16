@@ -255,7 +255,7 @@
                                             {% if turno_nombre == "LIBRE" %}
                                             <span class="badge bg-secondary">{{ turno_nombre }}</span>
                                             {% else %}
-                                            <span class="badge bg-{{ datos.turno.color|default:'primary' }}">
+                                            <span class="badge bg-{{ datos.color|default:'primary' }}">
                                                 {{ turno_nombre }}
                                             </span>
                                             {% endif %}

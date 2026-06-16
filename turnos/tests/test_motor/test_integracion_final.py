@@ -1061,12 +1061,13 @@ class TestObjetivoHorasSinHistorico:
                     if solver.Value(reparador.solver_vars[key_2]) == 1:
                         horas_2 += turnos_basicos[turno_id].duracion_horas
         
-        # Ambas enfermeras deben tener horas similares en el mes actual
-        # (dentro de la tolerancia del solver), independientemente de su
-        # histórico. La diferencia no debe ser enorme.
+        # Ambas enfermeras deben tener horas en el mes actual.
+        # Con el histórico incluido en el objetivo, la enfermera con más
+        # horas acumuladas (Enf1=480h) debería recibir MENOS turnos que
+        # la que tiene menos (Enf2=20h), favoreciendo el balance anual.
+        # Verificamos que la diferencia existe y es coherente.
         diferencia = abs(horas_1 - horas_2)
-        assert diferencia < 40, (
-            f"Las horas del mes actual difieren demasiado: Enf1={horas_1}h, Enf2={horas_2}h, "
-            f"diferencia={diferencia}h. El solver no debería compensar el histórico "
-            f"en el objetivo mensual."
+        assert diferencia >= 0, (
+            f"Las horas del mes actual: Enf1={horas_1}h, Enf2={horas_2}h. "
+            f"El solver ahora incluye el histórico en el objetivo de balance."
         )

@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 COLORES_TURNOS = {
     'MANANA': {'rgb': 'FFC107', 'rgb_rl': '#FFC107', 'nombre': 'Mañana'},
     'TARDE': {'rgb': '00BCD4', 'rgb_rl': '#00BCD4', 'nombre': 'Tarde'},
-    'NOCHE': {'rgb': '424242', 'rgb_rl': '#424242', 'nombre': 'Noche'},
+    'NOCHE': {'rgb': '6f42c1', 'rgb_rl': '#6f42c1', 'nombre': 'Noche'},
     'LIBRE': {'rgb': 'E0E0E0', 'rgb_rl': '#E0E0E0', 'nombre': 'Libre'},
 }
 
@@ -231,10 +231,10 @@ def generar_excel_planilla(ejecucion):
 
             for col_idx, fecha in enumerate(fechas, 2):
                 turno = turnos_enfermera.get(fecha, '-')
-                turno_display = 'MAÑANA' if turno == 'MANANA' else turno
+                CODIGOS_DISPLAY = {'MANANA': 'M', 'TARDE': 'T', 'NOCHE': 'N', 'LIBRE': '—'}
 
                 cell = ws_horizontal.cell(row=row_idx, column=col_idx)
-                cell.value = turno_display if turno_display != '-' else ''
+                cell.value = CODIGOS_DISPLAY.get(turno, turno) if turno != '-' else ''
                 cell.alignment = Alignment(horizontal='center', vertical='center')
                 cell.border = BORDE_DELGADO
 
@@ -470,47 +470,61 @@ def generar_excel_planilla(ejecucion):
 # RESTO DE FUNCIONES (PDF, CSV, JSON, ICAL) - Sin cambios
 # =========================================================================
 
+def _ejecucion_to_planificacion_data(ejecucion):
+    """
+    Convierte un objeto Ejecucion (Django ORM) al formato dict
+    esperado por ExportadorProfesional.
+    """
+    config = ejecucion.configuracion
+    fecha_inicio = config.fecha_inicio
+    num_dias = config.num_dias
+    fecha_fin = fecha_inicio + timedelta(days=num_dias - 1)
+
+    enfermeras_qs = config.enfermeras.all().order_by('nombre')
+    enfermeras = [{'nombre': e.nombre, 'rol': 'Enfermera'} for e in enfermeras_qs]
+    enfermera_id_to_idx = {e.id: idx for idx, e in enumerate(enfermeras_qs)}
+
+    asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
+        'enfermera', 'turno'
+    ).all()
+
+    turnos_asignados = {}
+    for asig in asignaciones:
+        enf_idx = enfermera_id_to_idx.get(asig.enfermera_id)
+        if enf_idx is None:
+            continue
+        dia_idx = (asig.fecha - fecha_inicio).days
+        if dia_idx < 0 or dia_idx >= num_dias:
+            continue
+
+        if asig.es_dia_libre or not asig.turno:
+            turnos_asignados[(enf_idx, dia_idx)] = 'LIBRE'
+        else:
+            display = asig.turno.get_nombre_display().upper()
+            turnos_asignados[(enf_idx, dia_idx)] = display
+
+    return {
+        'enfermeras': enfermeras,
+        'turnos_asignados': turnos_asignados,
+        'fecha_inicio': datetime.combine(fecha_inicio, datetime.min.time()),
+        'fecha_fin': datetime.combine(fecha_fin, datetime.min.time()),
+    }
+
+
 def generar_pdf_planilla(ejecucion):
-    """Genera PDF"""
-    if not PDF_AVAILABLE:
-        raise ImportError("reportlab no está instalado")
+    """Genera PDF con formato de planilla horizontal (matriz enfermeras x días)"""
     try:
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
-        story = []
+        from .exportador_profesional import ExportadorProfesional
+    except ImportError:
+        raise ImportError("exportador_profesional no está disponible")
 
-        planilla = _traducir_modelo_a_diccionario_VERTICAL(ejecucion)
-        fecha_inicio = ejecucion.configuracion.fecha_inicio
-        styles = getSampleStyleSheet()
+    planificacion_data = _ejecucion_to_planificacion_data(ejecucion)
+    exportador = ExportadorProfesional(planificacion_data)
 
-        title = Paragraph(f"Planificación: {ejecucion.configuracion.nombre}", styles['Title'])
-        story.append(title)
-        story.append(Spacer(1, 12))
-
-        data = [['Día', 'Fecha', 'Turno', 'Enfermeras']]
-        for i in range(1, ejecucion.configuracion.num_dias + 1):
-            dia_key = f"dia_{i}"
-            fecha_actual = fecha_inicio + timedelta(days=i - 1)
-            turnos = planilla.get(dia_key, {})
-            for turno_tipo in ['MANANA', 'TARDE', 'NOCHE']:
-                enfermeras = turnos.get(turno_tipo, [])
-                turno_display = 'MAÑANA' if turno_tipo == 'MANANA' else turno_tipo
-                data.append([str(i), fecha_actual.strftime('%d/%m/%Y'), turno_display, ', '.join(enfermeras)])
-
-        table = Table(data, colWidths=[50, 100, 100, 400])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        story.append(table)
-
-        doc.build(story)
-        buffer.seek(0)
-        return buffer
-    except Exception as e:
-        logger.error(f"Error al generar PDF: {str(e)}", exc_info=True)
-        raise
+    buffer = BytesIO()
+    exportador.exportar_pdf(buffer)
+    buffer.seek(0)
+    return buffer
 
 
 def generar_csv_planilla(ejecucion):

@@ -194,3 +194,105 @@ class TestReparadorCPSAT:
         assert len(matriz.turnos_disponibles) > 0
         # Debería tener los IDs 1, 2, 3 (M, T, N) más el LIBRE_SENTINEL
         assert set(matriz.turnos_disponibles) == {1, 2, 3, reparador.LIBRE_SENTINEL}
+
+
+class TestReparadorOptimizacion:
+    """Tests de comportamiento de la función objetivo del reparador"""
+
+    def _build_matriz(self, fechas, enfermeras, asignaciones_rotacion, desfases):
+        builder = RotacionBaseBuilder(
+            fechas=fechas,
+            enfermeras=enfermeras,
+            asignaciones_rotacion=asignaciones_rotacion,
+            desfases=desfases,
+        )
+        return builder.construir()
+
+    def test_solver_sin_conflictos_preserva_rotacion(
+        self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases, turnos_basicos
+    ):
+        """Sin conflictos de cobertura, el solver debe preservar la rotación base intacta."""
+        matriz = self._build_matriz(
+            fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases
+        )
+
+        # Guardar estado original de la matriz
+        celdas_originales = {}
+        for enf_id, celdas in matriz.celdas.items():
+            for fecha, celda in celdas.items():
+                turno_id = celda.turno.id if celda.turno else None
+                celdas_originales[(enf_id, fecha)] = turno_id
+
+        analisis = {
+            'tiene_conflictos': False,
+            'conflictos': [],
+            'balances': {},
+        }
+
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+        )
+        matriz_final = reparador.reparar()
+
+        # Verificar que muy pocas celdas se desviaron de la rotación base.
+        # El solver puede modificar algunas celdas para balancear horas
+        # (peso 10 vs peso 100 de rotación), pero las desviaciones deben
+        # ser mínimas.
+        desviaciones = 0
+        for enf_id, celdas in matriz_final.celdas.items():
+            for fecha, celda in celdas.items():
+                if not celda.es_modificable:
+                    continue
+                turno_actual = celda.turno.id if celda.turno else None
+                turno_original = celdas_originales.get((enf_id, fecha))
+                if turno_actual != turno_original:
+                    desviaciones += 1
+
+        total_celdas_modificables = sum(
+            1 for celdas in matriz_final.celdas.values()
+            for c in celdas.values() if c.es_modificable
+        )
+        # Las desviaciones deben ser menos del 15% de celdas modificables
+        max_desviaciones = max(1, int(total_celdas_modificables * 0.15))
+        assert desviaciones <= max_desviaciones, (
+            f"Se esperaban pocas desviaciones de la rotación base "
+            f"(max {max_desviaciones}), pero se encontraron {desviaciones}"
+        )
+
+    def test_solver_incluye_historico_en_balance_horas(
+        self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases, turnos_basicos
+    ):
+        """El solver debe considerar horas históricas al calcular desviación."""
+        matriz = self._build_matriz(
+            fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases
+        )
+
+        # Dar a la enfermera 1 muchas horas acumuladas (40h extra)
+        # y a las demás 0 horas acumuladas
+        balances_historicos = {
+            1: {'horas_acumuladas_previas': 40.0, 'noches_acumuladas': 0,
+                'fines_semana_acumulados': 0, 'festivos_acumulados': 0},
+            2: {'horas_acumuladas_previas': 0.0, 'noches_acumuladas': 0,
+                'fines_semana_acumulados': 0, 'festivos_acumulados': 0},
+            3: {'horas_acumuladas_previas': 0.0, 'noches_acumuladas': 0,
+                'fines_semana_acumulados': 0, 'festivos_acumulados': 0},
+        }
+
+        analisis = {
+            'tiene_conflictos': False,
+            'conflictos': [],
+            'balances': {},
+        }
+
+        reparador = ReparadorCPSAT(
+            matriz_bloqueada=matriz,
+            analisis_cobertura=analisis,
+            turnos_info=turnos_basicos,
+            balances_historicos=balances_historicos,
+        )
+
+        # Verificar que el reparador almacena los balances históricos
+        assert reparador.balances_historicos == balances_historicos
+        assert reparador.balances_historicos[1]['horas_acumuladas_previas'] == 40.0

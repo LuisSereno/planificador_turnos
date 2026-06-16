@@ -20,7 +20,9 @@
                 </div>
                 <h4 class="fw-bold">{{ user.get_full_name|default:user.username }}</h4>
                 <p class="text-muted">{{ user.email }}</p>
-                <span class="badge bg-primary">{{ user.get_rol_display|default:"Usuario" }}</span>
+                <span class="badge bg-primary">
+    {% if user.is_superuser %}Administrador{% elif user.is_staff %}Gestor{% else %}Usuario{% endif %}
+</span>
 
                 <hr>
 

@@ -7,10 +7,9 @@
       "email": "maria.garcia@hospital.es",
       "telefono": "+34 612 345 678",
       "dni": "12345678A",
-      "fecha_alta": "2024-01-15",
       "activa": true,
       "notas": "Preferencia turno de mañana. Experiencia en UCI.",
-      "fecha_creacion": "2024-01-15T10:00:00Z"
+      "fecha_alta": "2024-01-15"
     }
   },
   {
@@ -21,10 +20,9 @@
       "email": "ana.martinez@hospital.es",
       "telefono": "+34 623 456 789",
       "dni": "23456789B",
-      "fecha_alta": "2024-02-01",
       "activa": true,
       "notas": "Disponibilidad completa. Especialista en pediatría.",
-      "fecha_creacion": "2024-02-01T09:30:00Z"
+      "fecha_alta": "2024-02-01"
     }
   },
   {
@@ -35,10 +33,9 @@
       "email": "carmen.rodriguez@hospital.es",
       "telefono": "+34 634 567 890",
       "dni": "34567890C",
-      "fecha_alta": "2024-02-15",
       "activa": true,
       "notas": "Prefiere turnos nocturnos. 10 años de experiencia.",
-      "fecha_creacion": "2024-02-15T11:00:00Z"
+      "fecha_alta": "2024-02-15"
     }
   },
   {
@@ -49,10 +46,9 @@
       "email": "laura.fernandez@hospital.es",
       "telefono": "+34 645 678 901",
       "dni": "45678901D",
-      "fecha_alta": "2024-03-01",
       "activa": true,
       "notas": "Jornada parcial. Disponible mañanas y tardes.",
-      "fecha_creacion": "2024-03-01T08:00:00Z"
+      "fecha_alta": "2024-03-01"
     }
   },
   {
@@ -63,10 +59,9 @@
       "email": "isabel.lopez@hospital.es",
       "telefono": "+34 656 789 012",
       "dni": "56789012E",
-      "fecha_alta": "2024-03-15",
       "activa": true,
       "notas": "Supervisora. Rotación completa de turnos.",
-      "fecha_creacion": "2024-03-15T10:30:00Z"
+      "fecha_alta": "2024-03-15"
     }
   },
   {
@@ -77,10 +72,9 @@
       "email": "marta.gonzalez@hospital.es",
       "telefono": "+34 667 890 123",
       "dni": "67890123F",
-      "fecha_alta": "2024-04-01",
       "activa": true,
       "notas": "Recién incorporada. Sin restricciones de horario.",
-      "fecha_creacion": "2024-04-01T09:00:00Z"
+      "fecha_alta": "2024-04-01"
     }
   },
   {
@@ -91,10 +85,9 @@
       "email": "sara.jimenez@hospital.es",
       "telefono": "+34 678 901 234",
       "dni": "78901234G",
-      "fecha_alta": "2024-04-15",
       "activa": true,
       "notas": "Experiencia en urgencias. Prefiere tardes.",
-      "fecha_creacion": "2024-04-15T11:30:00Z"
+      "fecha_alta": "2024-04-15"
     }
   },
   {
@@ -105,10 +98,9 @@
       "email": "elena.ruiz@hospital.es",
       "telefono": "+34 689 012 345",
       "dni": "89012345H",
-      "fecha_alta": "2024-05-01",
       "activa": true,
       "notas": "Matrona. Disponibilidad mañanas.",
-      "fecha_creacion": "2024-05-01T08:30:00Z"
+      "fecha_alta": "2024-05-01"
     }
   },
   {
@@ -119,10 +111,9 @@
       "email": "patricia.munoz@hospital.es",
       "telefono": "+34 690 123 456",
       "dni": "90123456I",
-      "fecha_alta": "2024-05-15",
       "activa": true,
       "notas": "Turnos rotativos. Experiencia en oncología.",
-      "fecha_creacion": "2024-05-15T10:00:00Z"
+      "fecha_alta": "2024-05-15"
     }
   },
   {
@@ -133,10 +124,9 @@
       "email": "rocio.blanco@hospital.es",
       "telefono": "+34 601 234 567",
       "dni": "01234567J",
-      "fecha_alta": "2024-06-01",
       "activa": true,
       "notas": "Coordinadora de planta. Flexibilidad horaria.",
-      "fecha_creacion": "2024-06-01T09:30:00Z"
+      "fecha_alta": "2024-06-01"
     }
   },
   {
@@ -147,10 +137,9 @@
       "email": "cristina.vega@hospital.es",
       "telefono": "+34 612 345 670",
       "dni": "11234567K",
-      "fecha_alta": "2024-06-15",
       "activa": true,
       "notas": "Especialista en geriatría. Turno de tarde preferente.",
-      "fecha_creacion": "2024-06-15T11:00:00Z"
+      "fecha_alta": "2024-06-15"
     }
   },
   {
@@ -161,10 +150,9 @@
       "email": "beatriz.morales@hospital.es",
       "telefono": "+34 623 456 781",
       "dni": "22345678L",
-      "fecha_alta": "2024-07-01",
       "activa": true,
       "notas": "Disponible noches y fines de semana.",
-      "fecha_creacion": "2024-07-01T08:00:00Z"
+      "fecha_alta": "2024-07-01"
     }
   },
   {
@@ -175,10 +163,9 @@
       "email": "raquel.santos@hospital.es",
       "telefono": "+34 634 567 892",
       "dni": "33456789M",
-      "fecha_alta": "2024-07-15",
       "activa": false,
       "notas": "De baja temporal. Reincorporación prevista en octubre.",
-      "fecha_creacion": "2024-07-15T09:00:00Z"
+      "fecha_alta": "2024-07-15"
     }
   },
   {
@@ -189,10 +176,9 @@
       "email": "silvia.ramos@hospital.es",
       "telefono": "+34 645 678 903",
       "dni": "44567890N",
-      "fecha_alta": "2024-08-01",
       "activa": true,
       "notas": "Enfermera jefe suplente. Turnos variables.",
-      "fecha_creacion": "2024-08-01T10:30:00Z"
+      "fecha_alta": "2024-08-01"
     }
   },
   {
@@ -203,10 +189,9 @@
       "email": "nuria.campos@hospital.es",
       "telefono": "+34 656 789 014",
       "dni": "55678901O",
-      "fecha_alta": "2024-08-15",
       "activa": true,
       "notas": "Recién graduada. Formación en UCI y urgencias.",
-      "fecha_creacion": "2024-08-15T08:30:00Z"
+      "fecha_alta": "2024-08-15"
     }
   }
 ]

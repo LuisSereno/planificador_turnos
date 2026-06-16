@@ -73,6 +73,13 @@ class TipoTurno(models.Model):
     ]
 
     nombre = models.CharField(_('Nombre'), max_length=50, choices=NOMBRE_CHOICES)
+    codigo_corto = models.CharField(
+        _('Código corto'),
+        max_length=5,
+        default='',
+        blank=True,
+        help_text=_('Abreviatura para planillas compactas (ej: M, T, N)')
+    )
     hora_inicio = models.TimeField(_('Hora de inicio'))
     hora_fin = models.TimeField(_('Hora de fin'))
     descripcion = models.TextField(_('Descripción'), blank=True)
@@ -84,7 +91,14 @@ class TipoTurno(models.Model):
         ordering = ['nombre']
 
     def __str__(self):
-        return f"{self.get_nombre_display()} ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fin.strftime('%H:%M')})"
+        codigo = f" [{self.codigo_corto}]" if self.codigo_corto else ""
+        return f"{self.get_nombre_display()}{codigo} ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fin.strftime('%H:%M')})"
+
+    def codigo_display(self):
+        """Devuelve el código corto para mostrar en planillas compactas."""
+        if self.codigo_corto:
+            return self.codigo_corto
+        return self.get_nombre_display()[0]
 
     @property
     def duracion_horas(self):
@@ -509,6 +523,13 @@ class AsignacionTurno(models.Model):
         if self.es_dia_libre or self.tipo_celda == 'LIBRE':
             return f"{self.enfermera.nombre} - {self.fecha} - Libre"
         return f"{self.enfermera.nombre} - {self.fecha} - {self.turno}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.tipo_celda == 'TURNO' and self.turno is None and not self.es_dia_libre:
+            raise ValidationError(
+                'Una celda de tipo TURNO debe tener un turno asignado o marcar es_dia_libre.'
+            )
 
 
 # ============================================================================

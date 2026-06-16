@@ -97,7 +97,7 @@ def enviar_email_verificacion(usuario, request=None):
     Envía email de verificación de cuenta
 
     Args:
-        usuario: Instancia del modelo Usuario
+        usuario: Instancia del modelo User (django.contrib.auth.models.User)
         request: HttpRequest object (opcional, para obtener dominio)
 
     Returns:
@@ -143,7 +143,7 @@ def enviar_email_recuperacion_password(usuario, request=None):
     Envía email de recuperación de contraseña
 
     Args:
-        usuario: Instancia del modelo Usuario
+        usuario: Instancia del modelo User (django.contrib.auth.models.User)
         request: HttpRequest object (opcional)
 
     Returns:
@@ -219,7 +219,7 @@ def enviar_email_cambio_password_exitoso(usuario):
     Envía confirmación de cambio de contraseña
 
     Args:
-        usuario: Instancia del modelo Usuario
+        usuario: Instancia del modelo User (django.contrib.auth.models.User)
 
     Returns:
         bool: True si se envió correctamente
@@ -299,8 +299,8 @@ def enviar_email_ejecucion_error(ejecucion, usuario):
     Envía notificación de que una ejecución ha fallado
 
     Args:
-        ejecucion: Instancia de EjecucionPlanificacion
-        usuario: Instancia del modelo Usuario
+        ejecucion: Instancia de Ejecucion
+        usuario: Instancia del modelo User (django.contrib.auth.models.User)
 
     Returns:
         bool: True si se envió correctamente

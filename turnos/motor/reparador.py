@@ -363,12 +363,21 @@ class ReparadorCPSAT:
     
     def _aplicar_objetivos(self):
         """
-        Configura objetivo lexicográfico combinado para el solver.
-        Construye una única función objetivo ponderada con:
-        1. Minimizar desviación de rotación base (prioridad alta)
-        2. Balance horario mensual
-        3. Equilibrio de noches
-        4. Equilibrio de fines de semana
+        Configura función objetivo ponderada (weighted-sum) para el solver.
+
+        NO es optimización lexicográfica estricta. Se usa una suma ponderada
+        donde los pesos relativos establecen la prioridad entre objetivos:
+          - Rotación base: peso 100 (máxima prioridad tras restricciones duras)
+          - Balance horario: peso 10
+          - Equilibrio noches: peso 5
+          - Equilibrio fines de semana: peso 3
+
+        Con estos pesos, una desviación de rotación cuesta ~10x más que una
+        desviación horaria equivalente, lo que preserva la regularidad de
+        patrones en la mayoría de escenarios.
+
+        TODO: Implementar optimización lexicográfica real mediante llamadas
+        secuenciales a solver.Solve() si se requiere prioridad estricta.
         """
         penalizaciones = []
         
@@ -430,12 +439,9 @@ class ReparadorCPSAT:
         """
         Penaliza la desviación de horas mensuales objetivo.
         Usa horas_objetivo reales desde contratos (pasadas desde pipeline).
-        Incluye horas bloqueadas y horas del solver del período actual.
-        
-        NOTA: NO se incluye el histórico acumulado aquí porque horas_objetivo
-        representa el objetivo del período actual (mensual), no un objetivo
-        acumulado anual. El histórico se usa para persistencia, reporting y
-        continuidad entre períodos, pero no para la optimización del mes actual.
+        Incluye horas bloqueadas, horas del solver del período actual, y
+        un offset por horas acumuladas históricamente para favorecer el
+        balance inter-mensual.
         """
         penalizaciones = []
 
@@ -485,9 +491,16 @@ class ReparadorCPSAT:
                             factor = int(duracion.duracion_horas * 10)  # Entero para CP-SAT
                             vars_horas.append(factor * self.solver_vars[key])
 
-            # Construir expresión del período actual: bloqueadas + variables solver
-            # (sin histórico acumulado, porque objetivo es mensual)
-            total_expr = horas_bloqueadas
+            # Construir expresión: bloqueadas + histórico + variables solver
+            # El histórico actúa como offset constante: enfermeras con más
+            # horas acumuladas verán mayor desviación, favoreciendo que el
+            # solver les asigne menos turnos este mes.
+            horas_historico = int(
+                self.balances_historicos.get(enfermera_id, {}).get(
+                    'horas_acumuladas_previas', 0
+                ) * 10
+            )
+            total_expr = horas_bloqueadas + horas_historico
             if vars_horas:
                 total_expr += sum(vars_horas)
 

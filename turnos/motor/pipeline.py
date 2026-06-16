@@ -100,11 +100,31 @@ class PipelinePlanificacion:
             
             # FASE 3: Análisis de cobertura
             logger.info("FASE 3: Analizando cobertura...")
+
+            # Extraer limites de consecutivos desde restricciones duras
+            from ..dominio.normalizacion import normalizar_nombre
+            max_consecutivos = 6
+            max_noches_consecutivas = 3
+            for r in self.restricciones_duras:
+                nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+                nombre_norm = normalizar_nombre(nombre_raw)
+                params = r.get('parametros', {})
+                if nombre_norm == 'TURNO_CONSECUTIVOS_MAX':
+                    max_consecutivos = int(
+                        params.get('max_dias_consecutivos', r.get('valor', 6))
+                    )
+                elif nombre_norm == 'NOCHES_CONSECUTIVAS_MAX':
+                    max_noches_consecutivas = int(
+                        params.get('max_noches_consecutivas', r.get('valor', 3))
+                    )
+
             analisis = AnalizadorCobertura(
                 matriz=matriz_bloqueada,
                 horas_objetivo_enfermeras=self.horas_objetivo,
                 cobertura_minima_turnos=self.cobertura_minima,
                 balances_historicos=self.balances_historicos,
+                max_consecutivos=max_consecutivos,
+                max_noches_consecutivas=max_noches_consecutivas,
             ).analizar()
             
             if analisis['tiene_conflictos']:

@@ -9,9 +9,7 @@ class Command(BaseCommand):
         fixtures = [
             'initial_data',
             'demo_enfermeras',
-            'usuarios_demo',
             'demo_configuracion',
-            'plantillas_demo',
         ]
 
         for fixture in fixtures:

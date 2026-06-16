@@ -53,12 +53,17 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install gunicorn==21.2.0
 
 # Copiar código de la aplicación
-COPY --chown=django:django proyecto_turnos .
+COPY --chown=django:django manage.py .
+COPY --chown=django:django proyecto_turnos ./proyecto_turnos
+COPY --chown=django:django turnos ./turnos
+COPY --chown=django:django static ./static
+COPY --chown=django:django locale ./locale
+COPY --chown=django:django init_web.sh /app/init_web.sh
 
 # Copiar scripts de entrada
 COPY --chown=django:django docker-entrypoint.sh /docker-entrypoint.sh
 COPY --chown=django:django wait-for-it.sh /wait-for-it.sh
-RUN chmod +x /docker-entrypoint.sh /wait-for-it.sh
+RUN chmod +x /docker-entrypoint.sh /wait-for-it.sh /app/init_web.sh
 
 # Crear directorios adicionales
 RUN mkdir -p /app/logs /app/media /app/staticfiles && \
@@ -72,10 +77,10 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health/ || exit 1
+    CMD python manage.py check || exit 1
 
 # Punto de entrada
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Comando por defecto
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "config.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "proyecto_turnos.wsgi:application"]

@@ -48,9 +48,9 @@ services:
       dockerfile: Dockerfile
     container_name: planificador_web
     restart: unless-stopped
-    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 proyecto_turnos.wsgi:application"
+    user: root
+    command: bash -c "chown -R django:django /app && su django -c '/app/init_web.sh'"
     volumes:
-      - ./:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
@@ -63,6 +63,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme123}@db:5432/${POSTGRES_DB:-planificador_turnos}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redispass123}@redis:6379/0
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-redispass123}@redis:6379/0
+      - ALLOWED_HOSTS=*
     depends_on:
       db:
         condition: service_healthy
@@ -71,7 +72,7 @@ services:
     networks:
       - planificador_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD", "python", "manage.py", "check"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -86,7 +87,6 @@ services:
     restart: unless-stopped
     command: celery -A proyecto_turnos worker -l info --concurrency=2
     volumes:
-      - ./:/app
       - logs_volume:/app/logs
     env_file:
       - .env
@@ -111,7 +111,6 @@ services:
     restart: unless-stopped
     command: celery -A proyecto_turnos beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
-      - ./:/app
       - logs_volume:/app/logs
     env_file:
       - .env
@@ -139,8 +138,8 @@ services:
       - media_volume:/app/media:ro
       - ./docker/nginx/logs:/var/log/nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     depends_on:
       - web
     networks:

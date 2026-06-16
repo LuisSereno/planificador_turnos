@@ -8,6 +8,16 @@ from datetime import date, time
 from typing import Optional
 from enum import Enum
 
+# Calendario de festivos inyectable (set de date objects).
+# Usar set_calendario_festivos() para configurar.
+_calendario_festivos: Optional[set] = None
+
+
+def set_calendario_festivos(festivos: Optional[set]):
+    """Inyecta un conjunto de fechas festivas (date objects) para el dominio."""
+    global _calendario_festivos
+    _calendario_festivos = festivos
+
 
 class TipoCelda(Enum):
     """Tipos explícitos de celda en la planilla"""
@@ -79,8 +89,13 @@ class CeldaPlanificacion:
     
     @property
     def es_festivo(self) -> bool:
-        """Determina si la fecha es festivo (por ahora siempre False, se puede ampliar)"""
-        # TODO: Integrar con calendario de festivos nacionales/locales
+        """Determina si la fecha es festivo.
+
+        Usa el calendario de festivos inyectado via set_calendario_festivos().
+        Si no hay calendario configurado, devuelve False.
+        """
+        if _calendario_festivos is not None:
+            return self.fecha in _calendario_festivos
         return False
     
     @property

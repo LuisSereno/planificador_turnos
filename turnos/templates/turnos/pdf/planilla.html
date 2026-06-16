@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page {
+        size: A4 landscape;
+        margin: 1.5cm 1cm 1.5cm 1cm;
+
+        @bottom-center {
+            content: "Página " counter(page) " de " counter(pages);
+            font-size: 8pt;
+            color: #666;
+        }
+        @bottom-right {
+            content: "Generado: {{ fecha_generacion|default:'' }}";
+            font-size: 7pt;
+            color: #999;
+        }
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 7pt;
+        margin: 0;
+        padding: 0;
+        color: #222;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 8px;
+    }
+
+    .header h1 {
+        font-size: 13pt;
+        margin: 0 0 2px 0;
+        color: #1F4E78;
+    }
+
+    .header .subtitulo {
+        font-size: 9pt;
+        color: #555;
+        margin: 0;
+    }
+
+    .header .periodo {
+        font-size: 8pt;
+        color: #777;
+        margin-top: 2px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    th, td {
+        border: 0.5pt solid #555;
+        padding: 1px 2px;
+        text-align: center;
+        vertical-align: middle;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    /* Columna de enfermera (primera columna) */
+    th.col-enfermera,
+    td.col-enfermera {
+        width: 130px;
+        min-width: 130px;
+        max-width: 130px;
+        text-align: left;
+        padding-left: 4px;
+        font-weight: 600;
+        background: #f0f4f8;
+        font-size: 6.5pt;
+    }
+
+    /* Encabezado de días */
+    thead th {
+        background: #1F4E78;
+        color: white;
+        font-size: 6pt;
+        font-weight: 600;
+        padding: 2px 0;
+    }
+
+    thead th.dia-num {
+        font-size: 7pt;
+    }
+
+    thead th.dia-letra {
+        font-size: 5.5pt;
+        font-weight: normal;
+        background: #2c6090;
+        padding: 1px 0;
+    }
+
+    thead th.fin-semana-header {
+        background: #8B0000;
+    }
+
+    thead th.dia-letra.fin-semana-header {
+        background: #a52a2a;
+    }
+
+    /* Celdas de turnos */
+    td.turno {
+        font-weight: 700;
+        font-size: 8pt;
+        min-width: 18px;
+        width: 18px;
+    }
+
+    td.m {
+        background-color: #fff3cd;
+        color: #664d03;
+    }
+
+    td.t {
+        background-color: #cff4fc;
+        color: #055160;
+    }
+
+    td.n {
+        background-color: #e2d9f3;
+        color: #432874;
+    }
+
+    td.libre {
+        background-color: #f8f9fa;
+        color: #aaa;
+        font-size: 6pt;
+    }
+
+    td.vacaciones {
+        background-color: #d4edda;
+        color: #155724;
+        font-size: 6pt;
+    }
+
+    td.permiso {
+        background-color: #fff3cd;
+        color: #856404;
+        font-size: 6pt;
+    }
+
+    td.baja {
+        background-color: #f8d7da;
+        color: #721c24;
+        font-size: 6pt;
+    }
+
+    td.formacion {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        font-size: 6pt;
+    }
+
+    td.fija {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+
+    td.fin-semana-cell {
+        border-left: 1pt solid #aaa;
+        border-right: 1pt solid #aaa;
+    }
+
+    /* Fila de totales */
+    tfoot th {
+        background: #e9ecef;
+        font-size: 6pt;
+        font-weight: 600;
+    }
+
+    tfoot td {
+        background: #e9ecef;
+        font-size: 6.5pt;
+        font-weight: 600;
+    }
+
+    /* Leyenda */
+    .leyenda {
+        margin-top: 8px;
+        font-size: 7pt;
+        color: #555;
+    }
+
+    .leyenda span {
+        display: inline-block;
+        margin-right: 12px;
+    }
+
+    .leyenda .swatch {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border: 0.5pt solid #999;
+        vertical-align: middle;
+        margin-right: 3px;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Ficha de Turnos. {{ periodo|upper }}</h1>
+    <p class="subtitulo">{{ nombre_configuracion|default:'' }}</p>
+    <p class="periodo">{{ fecha_inicio_str }} - {{ fecha_fin_str }}</p>
+</div>
+
+<table>
+    <thead>
+        <!-- Fila de letras de día (L M X J V S D) -->
+        <tr>
+            <th class="col-enfermera" rowspan="2">Enfermera</th>
+            {% for dia in dias %}
+            <th class="dia-letra{% if dia.fin_semana %} fin-semana-header{% endif %}">
+                {{ dia.letra }}
+            </th>
+            {% endfor %}
+            <th rowspan="2" style="width: 30px;">Total</th>
+        </tr>
+        <!-- Fila de números de día -->
+        <tr>
+            {% for dia in dias %}
+            <th class="dia-num{% if dia.fin_semana %} fin-semana-header{% endif %}">
+                {{ dia.numero }}
+            </th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for fila in matriz %}
+        <tr>
+            <td class="col-enfermera">{{ fila.enfermera }}</td>
+            {% for celda in fila.celdas %}
+            <td class="turno {{ celda.clase }}{% if celda.fin_semana %} fin-semana-cell{% endif %}">
+                {{ celda.codigo }}
+            </td>
+            {% endfor %}
+            <td style="font-weight: 700;">{{ fila.total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <th class="col-enfermera">Enfermeras/Día</th>
+            {% for total in totales_por_dia %}
+            <td>{{ total }}</td>
+            {% endfor %}
+            <td>{{ total_general }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="leyenda">
+    <strong>Leyenda:</strong>
+    <span><span class="swatch" style="background:#fff3cd;"></span> M = Mañana</span>
+    <span><span class="swatch" style="background:#cff4fc;"></span> T = Tarde</span>
+    <span><span class="swatch" style="background:#e2d9f3;"></span> N = Noche</span>
+    <span><span class="swatch" style="background:#f8f9fa;"></span> — = Libre</span>
+    {% if tiene_vacaciones %}
+    <span><span class="swatch" style="background:#d4edda;"></span> V = Vacaciones</span>
+    {% endif %}
+    {% if tiene_bajas %}
+    <span><span class="swatch" style="background:#f8d7da;"></span> B = Baja</span>
+    {% endif %}
+    {% if tiene_formacion %}
+    <span><span class="swatch" style="background:#d1ecf1;"></span> F = Formación</span>
+    {% endif %}
+</div>
+
+</body>
+</html>

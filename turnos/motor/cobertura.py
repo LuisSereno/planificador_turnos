@@ -33,11 +33,15 @@ class AnalizadorCobertura:
         horas_objetivo_enfermeras: Dict[int, float],  # enfermera_id -> horas_mes_objetivo
         cobertura_minima_turnos: Dict[int, int] = None,  # turno_id -> mínimo enfermeras
         balances_historicos: Dict[int, dict] = None,  # enfermera_id -> historical data
+        max_consecutivos: int = 6,
+        max_noches_consecutivas: int = 3,
     ):
         self.matriz = matriz
         self.horas_objetivo = horas_objetivo_enfermeras
         self.cobertura_minima = cobertura_minima_turnos or {}
         self.balances_historicos = balances_historicos or {}
+        self.max_consecutivos = max_consecutivos
+        self.max_noches_consecutivas = max_noches_consecutivas
         
     def analizar(self) -> Dict:
         """
@@ -55,6 +59,8 @@ class AnalizadorCobertura:
         balances = self._calcular_balances()
         cobertura = self._calcular_cobertura()
         conflictos = self._detectar_conflictos(cobertura)
+        conflictos.extend(self._detectar_violaciones_consecutivos())
+        conflictos.extend(self._detectar_violaciones_noches_consecutivas())
         
         resultado = {
             'balances': balances,
@@ -152,4 +158,50 @@ class AnalizadorCobertura:
                         f"{enfermeras_asignadas} enfermeras (mínimo {minimo})"
                     )
         
+        return conflictos
+
+    def _detectar_violaciones_consecutivos(self) -> List[str]:
+        """Detecta enfermeras que exceden el maximo de turnos consecutivos."""
+        conflictos = []
+
+        for enf_id, celdas_enfermera in self.matriz.celdas.items():
+            fechas_ordenadas = sorted(celdas_enfermera.keys())
+            contador = 0
+
+            for fecha in fechas_ordenadas:
+                celda = celdas_enfermera[fecha]
+                if celda.tipo_celda == TipoCelda.TURNO and celda.turno and not celda.es_libre:
+                    contador += 1
+                    if contador > self.max_consecutivos:
+                        conflictos.append(
+                            f"Enfermera {enf_id}, fecha {fecha}: "
+                            f"{contador} turnos consecutivos "
+                            f"(maximo {self.max_consecutivos})"
+                        )
+                else:
+                    contador = 0
+
+        return conflictos
+
+    def _detectar_violaciones_noches_consecutivas(self) -> List[str]:
+        """Detecta enfermeras que exceden el maximo de noches consecutivas."""
+        conflictos = []
+
+        for enf_id, celdas_enfermera in self.matriz.celdas.items():
+            fechas_ordenadas = sorted(celdas_enfermera.keys())
+            contador_noches = 0
+
+            for fecha in fechas_ordenadas:
+                celda = celdas_enfermera[fecha]
+                if celda.es_noche:
+                    contador_noches += 1
+                    if contador_noches > self.max_noches_consecutivas:
+                        conflictos.append(
+                            f"Enfermera {enf_id}, fecha {fecha}: "
+                            f"{contador_noches} noches consecutivas "
+                            f"(maximo {self.max_noches_consecutivas})"
+                        )
+                else:
+                    contador_noches = 0
+
         return conflictos

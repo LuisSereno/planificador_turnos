@@ -550,7 +550,8 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
                     'fecha': asignacion.fecha,
                     'turno': asignacion.turno,
                     'es_libre': asignacion.es_dia_libre,
-                    'turno_color': self._get_turno_color(asignacion)
+                    'turno_color': self._get_turno_color(asignacion),
+                    'horario': f"{asignacion.turno.hora_inicio.strftime('%H:%M')}-{asignacion.turno.hora_fin.strftime('%H:%M')}" if asignacion.turno else '-',
                 })
 
             # Lista de días únicos
@@ -1212,7 +1213,7 @@ class PlanillaDetailView(DetailView):
             fecha = fecha_inicio + timedelta(days=i)
             dias.append({
                 'fecha': fecha,
-                'dia_semana': fecha.strftime('%A')  # Lunes, Martes, etc
+                'dia_semana': ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][fecha.weekday()]
             })
 
         # Crear estructura de enfermeras con sus turnos
@@ -1368,16 +1369,53 @@ class ReporteConflictosView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Aquí se implementaría la lógica para detectar conflictos
-        # Por ejemplo: turnos con descanso insuficiente, sobrecarga, etc.
+        # Obtener última ejecución completada del workspace del usuario
+        workspace_id = self.request.session.get('workspace_id')
+        if workspace_id:
+            try:
+                workspace = Workspace.objects.get(id=workspace_id, usuarios=self.request.user)
+            except Workspace.DoesNotExist:
+                workspace = self.request.user.workspaces.first()
+        else:
+            workspace = self.request.user.workspaces.first()
 
-        context['conflictos'] = []
-        context['resumen'] = {
-            'total_conflictos': 0,
-            'severidad_alta': 0,
-            'severidad_media': 0,
-            'severidad_baja': 0
-        }
+        conflictos = []
+        resumen = {'total_conflictos': 0, 'severidad_alta': 0, 'severidad_media': 0, 'severidad_baja': 0}
+
+        if workspace:
+            ultima_ejecucion = Ejecucion.objects.filter(
+                workspace=workspace,
+                estado='COMPLETADA'
+            ).order_by('-fecha_inicio').first()
+
+            if ultima_ejecucion and ultima_ejecucion.mensajes:
+                mensajes = ultima_ejecucion.mensajes
+                violaciones = mensajes.get('violaciones', [])
+                warnings = mensajes.get('warnings', [])
+
+                for v in violaciones:
+                    conflictos.append({
+                        'tipo': v.get('tipo', 'restriccion'),
+                        'mensaje': v.get('mensaje', str(v)),
+                        'severidad': 'alta',
+                        'ejecucion_id': ultima_ejecucion.id,
+                    })
+                    resumen['severidad_alta'] += 1
+
+                for w in warnings:
+                    severidad = 'media' if 'cobertura' in str(w).lower() else 'baja'
+                    conflictos.append({
+                        'tipo': 'warning',
+                        'mensaje': str(w),
+                        'severidad': severidad,
+                        'ejecucion_id': ultima_ejecucion.id,
+                    })
+                    resumen[f'severidad_{severidad}'] += 1
+
+                resumen['total_conflictos'] = len(conflictos)
+
+        context['conflictos'] = conflictos
+        context['resumen'] = resumen
 
         return context
 
@@ -1495,6 +1533,130 @@ class ResultadoTablaView(LoginRequiredMixin, DetailView):
     template_name = 'turnos/resultado_tabla.html'
     context_object_name = 'ejecucion'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ejecucion = self.object
+
+        try:
+            planilla = ejecucion.planilla_generada
+        except Exception:
+            planilla = None
+
+        if not planilla:
+            return context
+
+        config = ejecucion.configuracion
+        fecha_inicio = config.fecha_inicio
+        num_dias = config.num_dias
+
+        DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+        # Construir lista de días
+        dias = []
+        for i in range(num_dias):
+            fecha = fecha_inicio + timedelta(days=i)
+            dias.append({
+                'nombre': DIAS_CORTOS[fecha.weekday()],
+                'fecha': fecha,
+                'fin_semana': fecha.weekday() >= 5,
+            })
+
+        # Agrupar días en semanas (corte Lunes-Domingo)
+        semanas = []
+        semana_actual = {'dias': 0}
+        for dia in dias:
+            if dia['nombre'] == 'Lun' and semana_actual['dias'] > 0:
+                semanas.append(semana_actual)
+                semana_actual = {'dias': 0}
+            semana_actual['dias'] += 1
+        if semana_actual['dias'] > 0:
+            semanas.append(semana_actual)
+
+        # Obtener todas las asignaciones
+        asignaciones = planilla.asignaciones.select_related(
+            'enfermera', 'turno'
+        ).order_by('fecha', 'enfermera__nombre')
+
+        # Agrupar por enfermera
+        asignaciones_por_enfermera = defaultdict(dict)
+        for asig in asignaciones:
+            asignaciones_por_enfermera[asig.enfermera_id][asig.fecha] = asig
+
+        # Construir planilla_por_enfermera
+        CLASE_CSS = {
+            'MANANA': 'turno-manana',
+            'TARDE': 'turno-tarde',
+            'NOCHE': 'turno-noche',
+        }
+
+        enfermeras = config.enfermeras.all().order_by('nombre')
+        planilla_por_enfermera = []
+        totales_por_dia = [0] * num_dias
+        total_general = 0
+        dias_libres_totales = 0
+        horas_totales = 0
+
+        for enfermera in enfermeras:
+            asignaciones_enf = asignaciones_por_enfermera.get(enfermera.id, {})
+            fila_asignaciones = []
+            total_turnos_enf = 0
+
+            for idx, dia in enumerate(dias):
+                fecha = dia['fecha']
+                asig = asignaciones_enf.get(fecha)
+
+                if asig and asig.turno and not asig.es_dia_libre:
+                    turno = asig.turno
+                    turno_display = turno.codigo_display() if hasattr(turno, 'codigo_display') else turno.get_nombre_display()
+                    horario = f"{turno.hora_inicio.strftime('%H:%M')}-{turno.hora_fin.strftime('%H:%M')}"
+                    clase_css = CLASE_CSS.get(turno.nombre, '')
+                    detalle = f"{turno.get_nombre_display()} ({horario})"
+                    total_turnos_enf += 1
+                    totales_por_dia[idx] += 1
+                    total_general += 1
+                    horas_totales += turno.duracion_horas
+                    fila_asignaciones.append({
+                        'turno': turno,
+                        'turno_display': turno_display,
+                        'horario': horario,
+                        'clase_css': clase_css,
+                        'detalle': detalle,
+                        'fin_semana': dia['fin_semana'],
+                    })
+                else:
+                    dias_libres_totales += 1
+                    fila_asignaciones.append({
+                        'turno': None,
+                        'turno_display': '',
+                        'horario': '',
+                        'clase_css': 'dia-libre',
+                        'detalle': 'Día libre',
+                        'fin_semana': dia['fin_semana'],
+                    })
+
+            planilla_por_enfermera.append({
+                'enfermera': enfermera,
+                'asignaciones': fila_asignaciones,
+                'total_turnos': total_turnos_enf,
+            })
+
+        num_enfermeras = enfermeras.count() or 1
+        context.update({
+            'planilla_por_enfermera': planilla_por_enfermera,
+            'dias': dias,
+            'semanas': semanas,
+            'totales_por_dia': totales_por_dia,
+            'total_general': total_general,
+            'resumen': {
+                'total_turnos': total_general,
+                'promedio_por_enfermera': round(total_general / num_enfermeras, 1),
+                'dias_libres_totales': dias_libres_totales,
+                'horas_totales': round(horas_totales, 1),
+            },
+        })
+
+        return context
+
 
 class ResultadoCompararView(LoginRequiredMixin, TemplateView):
     """Vista para comparar dos resultados"""
@@ -1525,84 +1687,36 @@ class MaintenanceView(TemplateView):
 # ========== Exportaciones ==========
 
 class ExportarEjecucionExcelView(LoginRequiredMixin, View):
-    """Exporta una ejecución a Excel"""
+    """Exporta una ejecución a Excel (7 hojas con planilla horizontal)"""
 
     def get(self, request, pk):
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment
-
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla_generada:
+        try:
+            _ = ejecucion.planilla_generada
+        except Exception:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Planilla de Turnos"
-
-        # Título
-        ws['A1'] = ejecucion.configuracion.nombre
-        ws['A1'].font = Font(size=16, bold=True)
-        ws.merge_cells('A1:E1')
-
-        ws[
-            'A2'] = f"Período: {ejecucion.planilla_generada.fecha_inicio.strftime('%d/%m/%Y')} - {ejecucion.planilla_generada.fecha_fin.strftime('%d/%m/%Y')}"
-        ws.merge_cells('A2:E2')
-
-        # Headers
-        headers = ['Enfermera', 'Fecha', 'Día Semana', 'Turno', 'Horario']
-        ws.append([''])  # Línea en blanco
-        ws.append(headers)
-
-        # Estilo headers
-        for cell in ws[4]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-            cell.alignment = Alignment(horizontal='center')
-
-        # Datos
-        asignaciones = ejecucion.planilla_generada.asignaciones.select_related(
-            'enfermera', 'turno'
-        ).order_by('fecha', 'enfermera')
-
-        for asignacion in asignaciones:
-            if asignacion.es_dia_libre:
-                turno_info = 'Libre'
-                horario = '-'
-            else:
-                turno_info = asignacion.turno.get_nombre_display()
-                horario = f"{asignacion.turno.hora_inicio.strftime('%H:%M')} - {asignacion.turno.hora_fin.strftime('%H:%M')}"
-
-            dia_semana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][asignacion.fecha.weekday()]
-
-            ws.append([
-                asignacion.enfermera.nombre,
-                asignacion.fecha.strftime('%d/%m/%Y'),
-                dia_semana,
-                turno_info,
-                horario
-            ])
-
-        # Ajustar anchos
-        ws.column_dimensions['A'].width = 25
-        ws.column_dimensions['B'].width = 12
-        ws.column_dimensions['C'].width = 12
-        ws.column_dimensions['D'].width = 15
-        ws.column_dimensions['E'].width = 20
-
-        # Respuesta
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename=planilla_{ejecucion.id}.xlsx'
-        wb.save(response)
-
-        return response
+        try:
+            buffer = generar_excel_planilla(ejecucion)
+            response = FileResponse(
+                buffer,
+                as_attachment=True,
+                filename=f'planilla_{ejecucion.id}.xlsx',
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Error generating Excel: {str(e)}", exc_info=True)
+            messages.error(request, f'Error al generar Excel: {str(e)}')
+            return redirect('turnos:ejecucion_detalle', pk=pk)
 
 
 class ExportarEjecucionPDFView(LoginRequiredMixin, View):
-    """Exporta una ejecución a PDF"""
+    """Exporta una ejecución a PDF con formato de planilla horizontal (matriz enfermeras x días)"""
+
+    DIAS_LETRAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
     def get(self, request, pk):
         from django.template.loader import render_to_string
@@ -1610,26 +1724,139 @@ class ExportarEjecucionPDFView(LoginRequiredMixin, View):
 
         ejecucion = get_object_or_404(Ejecucion, pk=pk)
 
-        if not ejecucion.planilla_generada:
+        try:
+            planilla = ejecucion.planilla_generada
+        except Exception:
             messages.error(request, 'Esta ejecución no tiene planilla asociada.')
             return redirect('turnos:ejecucion_detalle', pk=pk)
 
-        # Renderizar HTML
-        html_string = render_to_string('turnos/pdf/planilla.html', {
-            'ejecucion': ejecucion,
-            'planilla': ejecucion.planilla_generada,
-            'asignaciones': ejecucion.planilla_generada.asignaciones.select_related('enfermera', 'turno').order_by('fecha',
-                                                                                                          'enfermera')
-        })
+        context = self._build_matrix_context(ejecucion, planilla)
 
-        # Generar PDF
+        html_string = render_to_string('turnos/pdf/planilla.html', context)
         html = HTML(string=html_string)
         pdf = html.write_pdf()
 
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=planilla_{ejecucion.id}.pdf'
-
         return response
+
+    def _build_matrix_context(self, ejecucion, planilla):
+        config = ejecucion.configuracion
+        fecha_inicio = config.fecha_inicio
+        num_dias = config.num_dias
+
+        # Construir encabezados de días
+        dias = []
+        for i in range(num_dias):
+            fecha = fecha_inicio + timedelta(days=i)
+            dias.append({
+                'numero': fecha.day,
+                'letra': self.DIAS_LETRAS[fecha.weekday()],
+                'fecha': fecha,
+                'fin_semana': fecha.weekday() >= 5,
+            })
+
+        # Obtener asignaciones agrupadas por enfermera
+        asignaciones = planilla.asignaciones.select_related(
+            'enfermera', 'turno'
+        ).order_by('enfermera__nombre', 'fecha')
+
+        asignaciones_por_enfermera = defaultdict(dict)
+        for asig in asignaciones:
+            asignaciones_por_enfermera[asig.enfermera_id][asig.fecha] = asig
+
+        # Mapeo tipo_celda -> código corto
+        CODIGOS_CELDA = {
+            'VACACIONES': 'V',
+            'PERMISO': 'P',
+            'BAJA': 'B',
+            'FORMACION': 'F',
+            'ASIGNACION_FIJA': 'AF',
+        }
+        CLASES_CELDA = {
+            'VACACIONES': 'vacaciones',
+            'PERMISO': 'permiso',
+            'BAJA': 'baja',
+            'FORMACION': 'formacion',
+            'ASIGNACION_FIJA': 'fija',
+        }
+
+        # Construir matriz
+        enfermeras = config.enfermeras.all().order_by('nombre')
+        matriz = []
+        totales_por_dia = [0] * num_dias
+        total_general = 0
+        tiene_vacaciones = False
+        tiene_bajas = False
+        tiene_formacion = False
+
+        for enfermera in enfermeras:
+            asignaciones_enf = asignaciones_por_enfermera.get(enfermera.id, {})
+            celdas = []
+            total_enf = 0
+
+            for idx, dia in enumerate(dias):
+                fecha = dia['fecha']
+                asig = asignaciones_enf.get(fecha)
+
+                if asig and not asig.es_dia_libre and asig.turno:
+                    codigo = asig.turno.codigo_display()
+                    clase = asig.turno.nombre.lower().replace('Ñ', 'n').replace('mañana', 'm').replace('tarde', 't').replace('noche', 'n')
+                    # Usar códigos CSS simples
+                    clase_map = {'MANANA': 'm', 'TARDE': 't', 'NOCHE': 'n'}
+                    clase = clase_map.get(asig.turno.nombre, 'm')
+                    total_enf += 1
+                    totales_por_dia[idx] += 1
+                    total_general += 1
+                elif asig and asig.tipo_celda in CODIGOS_CELDA:
+                    codigo = CODIGOS_CELDA[asig.tipo_celda]
+                    clase = CLASES_CELDA[asig.tipo_celda]
+                    if asig.tipo_celda == 'VACACIONES':
+                        tiene_vacaciones = True
+                    elif asig.tipo_celda == 'BAJA':
+                        tiene_bajas = True
+                    elif asig.tipo_celda == 'FORMACION':
+                        tiene_formacion = True
+                else:
+                    codigo = '—'
+                    clase = 'libre'
+
+                celdas.append({
+                    'codigo': codigo,
+                    'clase': clase,
+                    'fin_semana': dia['fin_semana'],
+                })
+
+            matriz.append({
+                'enfermera': enfermera.nombre,
+                'celdas': celdas,
+                'total': total_enf,
+            })
+
+        # Formato de período
+        fecha_fin = fecha_inicio + timedelta(days=num_dias - 1)
+        meses_es = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ]
+        periodo = f"{meses_es[fecha_inicio.month - 1]} - {fecha_inicio.year}"
+
+        return {
+            'ejecucion': ejecucion,
+            'planilla': planilla,
+            'periodo': periodo,
+            'nombre_configuracion': config.nombre,
+            'fecha_inicio_str': fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin_str': fecha_fin.strftime('%d/%m/%Y'),
+            'fecha_generacion': datetime.now().strftime('%d/%m/%Y %H:%M'),
+            'dias': dias,
+            'matriz': matriz,
+            'totales_por_dia': totales_por_dia,
+            'total_general': total_general,
+            'tiene_vacaciones': tiene_vacaciones,
+            'tiene_bajas': tiene_bajas,
+            'tiene_formacion': tiene_formacion,
+        }
 
 
 class ExportarEjecucionCSVView(LoginRequiredMixin, View):
@@ -2194,7 +2421,18 @@ class DescargarEnfermerasExcelView(LoginRequiredMixin, View):
         try:
             logger.info(f"Enfermeras Excel download requested by user {request.user.username}")
 
-            enfermeras = Enfermera.objects.all()
+            # Filtrar por workspace del usuario
+            workspace_id = request.session.get('workspace_id')
+            if workspace_id:
+                workspace = get_object_or_404(Workspace, id=workspace_id, usuarios=request.user)
+            else:
+                workspace = request.user.workspaces.first()
+
+            if workspace:
+                enfermeras = Enfermera.objects.filter(workspace=workspace)
+            else:
+                enfermeras = Enfermera.objects.none()
+
             buffer = exportar_enfermeras_excel(enfermeras)
 
             response = FileResponse(

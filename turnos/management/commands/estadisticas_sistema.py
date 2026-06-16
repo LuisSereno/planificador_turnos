@@ -1,8 +1,9 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Avg, Q
+from django.contrib.auth.models import User
 from turnos.models import (
     Enfermera, TipoTurno, ConfiguracionPlanificacion,
-    EjecucionPlanificacion, Usuario, AuditLog
+    Ejecucion,
 )
 
 
@@ -19,7 +20,7 @@ class Command(BaseCommand):
         activas = Enfermera.objects.filter(activa=True).count()
         inactivas = Enfermera.objects.filter(activa=False).count()
 
-        self.stdout.write(self.style.SUCCESS('👥 ENFERMERAS'))
+        self.stdout.write(self.style.SUCCESS('ENFERMERAS'))
         self.stdout.write(f'  Total: {total_enfermeras}')
         self.stdout.write(f'  Activas: {activas}')
         self.stdout.write(f'  Inactivas: {inactivas}')
@@ -29,7 +30,7 @@ class Command(BaseCommand):
         total_turnos = TipoTurno.objects.count()
         turnos_activos = TipoTurno.objects.filter(activo=True).count()
 
-        self.stdout.write(self.style.SUCCESS('🕐 TIPOS DE TURNO'))
+        self.stdout.write(self.style.SUCCESS('TIPOS DE TURNO'))
         self.stdout.write(f'  Total: {total_turnos}')
         self.stdout.write(f'  Activos: {turnos_activos}')
         self.stdout.write('')
@@ -38,19 +39,19 @@ class Command(BaseCommand):
         total_configs = ConfiguracionPlanificacion.objects.count()
         configs_activas = ConfiguracionPlanificacion.objects.filter(activa=True).count()
 
-        self.stdout.write(self.style.SUCCESS('⚙️  CONFIGURACIONES'))
+        self.stdout.write(self.style.SUCCESS('CONFIGURACIONES'))
         self.stdout.write(f'  Total: {total_configs}')
         self.stdout.write(f'  Activas: {configs_activas}')
         self.stdout.write('')
 
         # Ejecuciones
-        total_ejecuciones = EjecucionPlanificacion.objects.count()
-        completadas = EjecucionPlanificacion.objects.filter(estado='COMPLETADA').count()
-        fallidas = EjecucionPlanificacion.objects.filter(estado='ERROR').count()
-        pendientes = EjecucionPlanificacion.objects.filter(estado='PENDIENTE').count()
-        procesando = EjecucionPlanificacion.objects.filter(estado='PROCESANDO').count()
+        total_ejecuciones = Ejecucion.objects.count()
+        completadas = Ejecucion.objects.filter(estado='COMPLETADA').count()
+        fallidas = Ejecucion.objects.filter(estado='ERROR').count()
+        pendientes = Ejecucion.objects.filter(estado='PENDIENTE').count()
+        procesando = Ejecucion.objects.filter(estado='PROCESANDO').count()
 
-        self.stdout.write(self.style.SUCCESS('▶️  EJECUCIONES'))
+        self.stdout.write(self.style.SUCCESS('EJECUCIONES'))
         self.stdout.write(f'  Total: {total_ejecuciones}')
         self.stdout.write(f'  Completadas: {completadas}')
         self.stdout.write(f'  Fallidas: {fallidas}')
@@ -59,39 +60,38 @@ class Command(BaseCommand):
 
         if completadas > 0:
             tasa_exito = (completadas / total_ejecuciones) * 100
-            self.stdout.write(f'  Tasa de éxito: {tasa_exito:.1f}%')
+            self.stdout.write(f'  Tasa de exito: {tasa_exito:.1f}%')
 
-            # Promedio de penalización y duración
-            stats = EjecucionPlanificacion.objects.filter(estado='COMPLETADA').aggregate(
+            stats = Ejecucion.objects.filter(estado='COMPLETADA').aggregate(
                 pen_promedio=Avg('penalizacion_total'),
-                dur_promedio=Avg('duracion')
             )
 
             if stats['pen_promedio']:
-                self.stdout.write(f'  Penalización promedio: {stats["pen_promedio"]:.2f}')
-            if stats['dur_promedio']:
-                self.stdout.write(f'  Duración promedio: {stats["dur_promedio"]:.2f}s')
+                self.stdout.write(f'  Penalizacion promedio: {stats["pen_promedio"]:.2f}')
+
+            # Duracion promedio calculada via property
+            duraciones = [
+                e.duracion for e in
+                Ejecucion.objects.filter(estado='COMPLETADA')
+                if e.duracion is not None
+            ]
+            if duraciones:
+                dur_promedio = sum(duraciones) / len(duraciones)
+                self.stdout.write(f'  Duracion promedio: {dur_promedio:.2f}s')
 
         self.stdout.write('')
 
         # Usuarios
-        total_usuarios = Usuario.objects.count()
-        usuarios_activos = Usuario.objects.filter(is_active=True).count()
-        admins = Usuario.objects.filter(rol='ADMIN').count()
-        gestores = Usuario.objects.filter(rol='GESTOR').count()
+        total_usuarios = User.objects.count()
+        usuarios_activos = User.objects.filter(is_active=True).count()
+        admins = User.objects.filter(is_superuser=True).count()
+        staff = User.objects.filter(is_staff=True).count()
 
-        self.stdout.write(self.style.SUCCESS('👤 USUARIOS'))
+        self.stdout.write(self.style.SUCCESS('USUARIOS'))
         self.stdout.write(f'  Total: {total_usuarios}')
         self.stdout.write(f'  Activos: {usuarios_activos}')
         self.stdout.write(f'  Administradores: {admins}')
-        self.stdout.write(f'  Gestores: {gestores}')
-        self.stdout.write('')
-
-        # Auditoría
-        total_logs = AuditLog.objects.count()
-
-        self.stdout.write(self.style.SUCCESS('📋 AUDITORÍA'))
-        self.stdout.write(f'  Total de logs: {total_logs}')
+        self.stdout.write(f'  Staff: {staff}')
         self.stdout.write('')
 
         self.stdout.write(self.style.SUCCESS('=' * 60 + '\n'))
