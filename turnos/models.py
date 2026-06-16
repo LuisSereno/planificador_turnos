@@ -422,35 +422,36 @@ class ConfiguracionPlanificacion(models.Model):
     def get_absolute_url(self):
         return reverse('turnos:config_detalle', kwargs={'pk': self.pk})
 
-    def _validar_mensualidad(self):
-        """Valida que la configuración sea un mes natural completo."""
-        import calendar
+    def _validar_periodo(self):
+        """Valida que el periodo de planificación sea razonable."""
         from django.core.exceptions import ValidationError
 
-        if self.fecha_inicio and self.fecha_inicio.day != 1:
-            raise ValidationError(
-                "La fecha de inicio debe ser el primer día del mes para garantizar "
-                "consistencia con el histórico mensual."
-            )
         if self.fecha_inicio and self.num_dias:
-            dias_mes = calendar.monthrange(
-                self.fecha_inicio.year, self.fecha_inicio.month
-            )[1]
-            if self.num_dias != dias_mes:
+            fecha_fin = self.fecha_inicio + timedelta(days=self.num_dias - 1)
+            if self.num_dias < 7:
                 raise ValidationError(
-                    f"El número de días ({self.num_dias}) no coincide con los días "
-                    f"reales del mes ({dias_mes}). Las planificaciones deben ser "
-                    f"mensuales completas."
+                    f"El período mínimo es de 7 días (fecha fin: {fecha_fin})."
                 )
+            if self.num_dias > 366:
+                raise ValidationError(
+                    f"El período máximo es de 366 días (fecha fin: {fecha_fin})."
+                )
+
+    @property
+    def fecha_fin(self):
+        """Calcula la fecha de fin de la planificación."""
+        if self.fecha_inicio and self.num_dias:
+            return self.fecha_inicio + timedelta(days=self.num_dias - 1)
+        return None
 
     def clean(self):
         """Validación al guardar mediante formularios o admin."""
-        self._validar_mensualidad()
+        self._validar_periodo()
 
     def save(self, *args, **kwargs):
-        """Sobrescribe save para validar mensualidad en creación."""
+        """Sobrescribe save para validar periodo en creación."""
         if self._state.adding:
-            self._validar_mensualidad()
+            self._validar_periodo()
         super().save(*args, **kwargs)
 
     def get_patrones_combinados(self):

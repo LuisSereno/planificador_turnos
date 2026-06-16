@@ -857,30 +857,42 @@ class TestDescansoTransperiodo:
 
 
 @pytest.mark.django_db
-class TestValidacionMensual:
-    """Tests para validación de configuración mensual obligatoria"""
+class TestValidacionPeriodo:
+    """Tests para validación de período de configuración flexible"""
 
-    def test_configuracion_rechaza_fecha_no_inicio_mes(self):
-        """Configuración con fecha_inicio != día 1 debe ser rechazada"""
+    def test_configuracion_acepta_cualquier_fecha(self):
+        """Configuración con fecha_inicio != día 1 debe ser aceptada"""
+        from turnos.models import ConfiguracionPlanificacion
+
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre='Config Fecha Libre',
+            num_dias=30,
+            fecha_inicio=date(2026, 4, 15),
+        )
+        assert config.id is not None
+        assert config.fecha_fin == date(2026, 5, 14)
+
+    def test_configuracion_acepta_periodo_anio(self):
+        """Configuración de un año completo debe ser aceptada"""
+        from turnos.models import ConfiguracionPlanificacion
+
+        config = ConfiguracionPlanificacion.objects.create(
+            nombre='Config Anual',
+            num_dias=365,
+            fecha_inicio=date(2026, 1, 1),
+        )
+        assert config.id is not None
+        assert config.fecha_fin == date(2026, 12, 31)
+
+    def test_configuracion_rechaza_periodo_corto(self):
+        """Configuración con menos de 7 días debe ser rechazada"""
         from turnos.models import ConfiguracionPlanificacion
         from django.core.exceptions import ValidationError
 
         with pytest.raises(ValidationError):
             ConfiguracionPlanificacion.objects.create(
-                nombre='Config Inválida',
-                num_dias=30,
-                fecha_inicio=date(2026, 4, 15),
-            )
-
-    def test_configuracion_rechaza_dias_incorrectos(self):
-        """Configuración con num_dias != días del mes debe ser rechazada"""
-        from turnos.models import ConfiguracionPlanificacion
-        from django.core.exceptions import ValidationError
-
-        with pytest.raises(ValidationError):
-            ConfiguracionPlanificacion.objects.create(
-                nombre='Config Inválida',
-                num_dias=25,
+                nombre='Config Corta',
+                num_dias=3,
                 fecha_inicio=date(2026, 4, 1),
             )
 

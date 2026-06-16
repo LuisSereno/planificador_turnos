@@ -285,6 +285,24 @@
     margin-bottom: 0.5rem;
     font-size: 2rem;
 }
+
+/* Sequence Builder */
+.sequence-builder { padding: 0.5rem 0; }
+.shift-palette { border: 2px dashed #dee2e6; border-radius: 8px; padding: 0.75rem; }
+.shift-btn { font-family: monospace; cursor: pointer; }
+.shift-btn strong { font-size: 1.1em; }
+.sequence-display { border: 2px solid #667eea; border-radius: 8px; padding: 0.75rem; background: #f8f9ff; }
+.sequence-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; padding: 2px 8px; border-radius: 12px;
+    font-family: monospace; font-weight: bold; font-size: 0.9em;
+}
+.sequence-badge .remove-step {
+    background: none; border: none; color: rgba(255,255,255,0.7);
+    cursor: pointer; padding: 0 2px; font-size: 1.1em; line-height: 1;
+}
+.sequence-badge .remove-step:hover { color: white; }
 </style>
 {% endblock %}
 
@@ -357,21 +375,27 @@
                         <div class="row">
                             <div class="col-md-6 field-group">
                                 <label class="form-label fw-bold">
-                                    Número de Días <span class="text-danger">*</span>
+                                    Fecha de Inicio <span class="text-danger">*</span>
                                 </label>
-                                {{ form.num_dias }}
-                                <div class="quick-presets">
-                                    <button type="button" class="preset-btn" onclick="document.getElementById('id_num_dias').value=7">1 semana</button>
-                                    <button type="button" class="preset-btn" onclick="document.getElementById('id_num_dias').value=14">2 semanas</button>
-                                    <button type="button" class="preset-btn" onclick="document.getElementById('id_num_dias').value=28">4 semanas</button>
+                                {{ form.fecha_inicio }}
+                                <div class="quick-presets mt-1">
+                                    <button type="button" class="preset-btn" onclick="setFechaHoy()">Hoy</button>
+                                    <button type="button" class="preset-btn" onclick="setFechaInicioMes()">Inicio de mes</button>
                                 </div>
                             </div>
 
                             <div class="col-md-6 field-group">
                                 <label class="form-label fw-bold">
-                                    Fecha de Inicio <span class="text-danger">*</span>
+                                    Duración <span class="text-danger">*</span>
                                 </label>
-                                {{ form.fecha_inicio }}
+                                {{ form.num_dias }}
+                                <div class="quick-presets mt-1">
+                                    <button type="button" class="preset-btn" onclick="setDuracionMeses(1)">1 mes</button>
+                                    <button type="button" class="preset-btn" onclick="setDuracionMeses(3)">3 meses</button>
+                                    <button type="button" class="preset-btn" onclick="setDuracionMeses(6)">6 meses</button>
+                                    <button type="button" class="preset-btn" onclick="setDuracionMeses(12)">1 año</button>
+                                </div>
+                                <div id="fecha-fin-display" class="mt-1 small text-muted"></div>
                             </div>
                         </div>
 
@@ -584,6 +608,9 @@
 
 {% block extra_js %}
 <script>
+// Tipos de turno disponibles para el builder de secuencias (desde Django context)
+const TIPOS_TURNO = {{ tipos_turno_json|safe }};
+
 // Definición de restricciones disponibles
 const HARD_RESTRICTIONS = [
     { id: 'un_turno_por_dia', name: 'Un turno por día', params: [] },
@@ -623,9 +650,9 @@ const PATRON_TEMPLATES = {
     'SECUENCIA_OBLIGATORIA': {
         name: 'Secuencia Obligatoria',
         icon: 'fa-sort-amount-down',
-        description: 'Fuerza un orden específico de turnos (ej: Mañana → Tarde → Noche)',
+        description: 'Fuerza un orden específico de turnos usando sus acrónimos (ej: M→T→N)',
         fields: [
-            { name: 'secuencia', label: 'Secuencia (separado por comas)', type: 'text', default: 'MANANA,TARDE,NOCHE', placeholder: 'MANANA,TARDE,NOCHE' },
+            { name: 'secuencia', label: 'Secuencia', type: 'sequence_builder', default: [] },
             { name: 'ciclica', label: 'Es Cíclica', type: 'checkbox', default: true }
         ]
     },
@@ -660,12 +687,68 @@ const PATRON_TEMPLATES = {
     }
 };
 
+// ========================================
+// HELPERS DE FECHA Y DURACION
+// ========================================
+
+function setFechaHoy() {
+    const hoy = new Date();
+    const iso = hoy.toISOString().split('T')[0];
+    document.getElementById('id_fecha_inicio').value = iso;
+    actualizarFechaFin();
+}
+
+function setFechaInicioMes() {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    document.getElementById('id_fecha_inicio').value = inicioMes.toISOString().split('T')[0];
+    actualizarFechaFin();
+}
+
+function setDuracionMeses(meses) {
+    const fechaStr = document.getElementById('id_fecha_inicio').value;
+    if (!fechaStr) {
+        alert('Selecciona primero una fecha de inicio');
+        return;
+    }
+    const inicio = new Date(fechaStr + 'T00:00:00');
+    const fin = new Date(inicio.getFullYear(), inicio.getMonth() + meses, inicio.getDate());
+    // Calcular diferencia en dias
+    const diffMs = fin - inicio;
+    const dias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    document.getElementById('id_num_dias').value = dias;
+    actualizarFechaFin();
+}
+
+function actualizarFechaFin() {
+    const fechaStr = document.getElementById('id_fecha_inicio').value;
+    const numDias = parseInt(document.getElementById('id_num_dias').value);
+    const display = document.getElementById('fecha-fin-display');
+
+    if (fechaStr && numDias > 0) {
+        const inicio = new Date(fechaStr + 'T00:00:00');
+        const fin = new Date(inicio.getTime() + (numDias - 1) * 24 * 60 * 60 * 1000);
+        const opciones = { year: 'numeric', month: 'long', day: 'numeric' };
+        display.innerHTML = `<i class="fas fa-calendar-alt me-1"></i>Fecha de fin: <strong>${fin.toLocaleDateString('es-ES', opciones)}</strong> (${numDias} días)`;
+    } else {
+        display.innerHTML = '';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Iniciando aplicación...');
     initDemandBuilder();
     initRestrictionBuilders();
     initPatronBuilder();
     loadExistingData();
+
+    // Actualizar fecha de fin al cambiar fecha inicio o num dias
+    const fechaInput = document.getElementById('id_fecha_inicio');
+    const numDiasInput = document.getElementById('id_num_dias');
+    if (fechaInput) fechaInput.addEventListener('change', actualizarFechaFin);
+    if (numDiasInput) numDiasInput.addEventListener('input', actualizarFechaFin);
+    actualizarFechaFin(); // Render inicial
+
     console.log('✅ Aplicación inicializada');
 });
 
@@ -765,6 +848,8 @@ function addPatronCard(type, existingData = null) {
             configHtml += `<input type="number" class="form-control form-control-sm patron-field"
                                   data-name="${field.name}" value="${value}" min="${field.min || 0}"
                                   placeholder="${field.placeholder || ''}">`;
+        } else if (field.type === 'sequence_builder') {
+            configHtml += buildSequenceBuilder(field.name, value || []);
         } else {
             configHtml += `<input type="text" class="form-control form-control-sm patron-field"
                                   data-name="${field.name}" value="${value}"
@@ -779,6 +864,121 @@ function addPatronCard(type, existingData = null) {
 
     card.innerHTML = headerHtml + configHtml;
     container.appendChild(card);
+
+    // Inicializar sequence builder si existe
+    const seqBuilder = card.querySelector('.sequence-builder');
+    if (seqBuilder) {
+        initSequenceBuilder(seqBuilder);
+    }
+}
+
+// ========================================
+// SEQUENCE BUILDER (para SECUENCIA_OBLIGATORIA)
+// ========================================
+
+function buildSequenceBuilder(fieldName, existingSequence) {
+    let html = `<div class="sequence-builder" data-field="${fieldName}">`;
+
+    // Fila de turnos disponibles (se rellena dinamicamente segun checkboxes marcados)
+    html += '<div class="shift-palette">';
+    html += '<label class="small fw-bold text-muted mb-1">Turnos disponibles (click para añadir):</label>';
+    html += '<div class="shift-buttons d-flex flex-wrap gap-1"></div>';
+    html += '</div>';
+
+    // Fila de secuencia actual
+    html += '<div class="sequence-display mt-2">';
+    html += '<label class="small fw-bold text-muted mb-1">Secuencia actual:</label>';
+    html += '<div class="sequence-badges d-flex flex-wrap gap-1" style="min-height:32px"></div>';
+    html += '<div class="sequence-actions mt-1">';
+    html += '<button type="button" class="btn btn-sm btn-outline-danger btn-clear-seq">Limpiar</button>';
+    html += ' <button type="button" class="btn btn-sm btn-outline-secondary btn-undo-seq">Deshacer último</button>';
+    html += '</div></div>';
+
+    // Hidden input con valor JSON
+    const escaped = JSON.stringify(existingSequence).replace(/'/g, '&#39;');
+    html += `<input type="hidden" class="patron-field" data-name="${fieldName}" value='${escaped}'>`;
+    html += '</div>';
+    return html;
+}
+
+function initSequenceBuilder(builder) {
+    const hiddenInput = builder.querySelector('input[type="hidden"]');
+    const badgesContainer = builder.querySelector('.sequence-badges');
+    const shiftButtonsContainer = builder.querySelector('.shift-buttons');
+    let sequence;
+    try {
+        sequence = JSON.parse(hiddenInput.value || '[]');
+    } catch(e) {
+        sequence = [];
+    }
+
+    function renderBadges() {
+        badgesContainer.innerHTML = sequence.map((acr, i) =>
+            `<span class="sequence-badge" data-index="${i}">
+                ${acr} <button type="button" class="remove-step">&times;</button>
+             </span>`
+        ).join('');
+        hiddenInput.value = JSON.stringify(sequence);
+    }
+
+    function renderPalette() {
+        // Leer turnos seleccionados en el formulario (checkboxes name="turnos")
+        const checkedIds = new Set(
+            Array.from(document.querySelectorAll('input[name="turnos"]:checked'))
+                .map(cb => parseInt(cb.value))
+        );
+        // Turnos de demanda seleccionados + sustitutos de Libre siempre disponibles
+        const availableTurnos = TIPOS_TURNO.filter(t => checkedIds.has(t.id) || t.es_sustituto_libre);
+
+        if (availableTurnos.length === 0) {
+            shiftButtonsContainer.innerHTML = '<span class="text-muted small">Selecciona turnos en la sección superior para usar aquí</span>';
+            return;
+        }
+
+        shiftButtonsContainer.innerHTML = availableTurnos.map(t =>
+            `<button type="button" class="btn btn-outline-primary btn-sm shift-btn"
+                data-acronimo="${t.codigo_corto}" title="${t.nombre}">
+                <strong>${t.codigo_corto}</strong> <small>${t.nombre}</small>
+             </button>`
+        ).join('');
+
+        // Re-bind click events
+        shiftButtonsContainer.querySelectorAll('.shift-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sequence.push(btn.dataset.acronimo);
+                renderBadges();
+            });
+        });
+    }
+
+    // Click en × de badge → quitar ese paso
+    badgesContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-step')) {
+            const idx = parseInt(e.target.closest('.sequence-badge').dataset.index);
+            sequence.splice(idx, 1);
+            renderBadges();
+        }
+    });
+
+    // Limpiar
+    builder.querySelector('.btn-clear-seq').addEventListener('click', () => {
+        sequence = [];
+        renderBadges();
+    });
+
+    // Deshacer último
+    builder.querySelector('.btn-undo-seq').addEventListener('click', () => {
+        sequence.pop();
+        renderBadges();
+    });
+
+    // Escuchar cambios en los checkboxes de turnos para actualizar la paleta
+    document.querySelectorAll('input[name="turnos"]').forEach(cb => {
+        cb.addEventListener('change', renderPalette);
+    });
+
+    renderPalette();  // Render inicial de paleta
+    renderBadges();   // Render inicial de badges (para patrones existentes)
 }
 
 function removePatronCard(btn) {
@@ -1121,8 +1321,12 @@ function buildAndSubmit() {
                     value = input.checked;
                 } else if (input.type === 'number') {
                     value = parseInt(input.value) || 0;
-                } else if (input.type === 'text' && name === 'secuencia') {
-                    value = input.value ? input.value.split(',').map(s => s.trim()).filter(s => s) : [];
+                } else if (name === 'secuencia') {
+                    try {
+                        value = input.value ? JSON.parse(input.value) : [];
+                    } catch(e) {
+                        value = [];
+                    }
                 } else if (input.type === 'text' && name === 'aplicar_dias') {
                     const dias = input.value ? input.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
                     value = dias.length > 0 ? dias : null;

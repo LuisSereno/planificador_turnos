@@ -382,11 +382,11 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 'error': f'Configuración {configuracion_id} no encontrada'
             }
 
-        # 1b. Validar mensualidad (defensa en profundidad)
+        # 1b. Validar periodo (defensa en profundidad)
         try:
-            config._validar_mensualidad()
+            config._validar_periodo()
         except Exception as e:
-            logger.error(f"Configuración {configuracion_id} no cumple requisitos mensuales: {e}")
+            logger.error(f"Configuración {configuracion_id} no cumple requisitos de periodo: {e}")
             return {
                 'success': False,
                 'error': str(e)
