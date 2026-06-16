@@ -27,9 +27,11 @@ class ReparadorCPSAT:
     
     Este módulo actúa como motor de ajuste fino, NO como generador libre.
     Solo modifica celdas conflictivas respetando:
-    - Celdas bloqueadas por incidencias
     - Restricciones duras (descansos, máximos consecutivos, etc.)
     - Proximidad a la rotación base (objetivo primario)
+    
+    Nota: No maneja celdas bloqueadas por incidencias porque estas se aplican
+    como overlay post-generación (Phase 6), después del solver.
     """
     
     def __init__(
@@ -94,9 +96,12 @@ class ReparadorCPSAT:
     
     def _crear_variables(self):
         """
-        Crea variables CP-SAT solo para celdas modificables.
+        Crea variables CP-SAT para TODAS las celdas.
         Incluye opción explícita de LIBRE para que una celda libre
         pueda seguir siendo libre o convertirse en un turno.
+        
+        Nota: No hay celdas bloqueadas porque las incidencias se aplican
+        como overlay post-generación, no antes del solver.
         
         turnos_disponibles se construye a partir de TODOS los turnos
         en turnos_info (configuración completa), no solo los presentes
@@ -111,9 +116,6 @@ class ReparadorCPSAT:
         
         for enfermera_id, celdas in self.matriz.celdas.items():
             for fecha, celda in celdas.items():
-                if not celda.es_modificable:
-                    continue  # Saltar celdas bloqueadas
-                
                 # Variable: ¿se asigna turno t (o LIBRE) a esta celda?
                 for turno_id in self.matriz.turnos_disponibles:
                     var = self.model.NewBoolVar(
@@ -121,7 +123,7 @@ class ReparadorCPSAT:
                     )
                     self.solver_vars[(enfermera_id, fecha, turno_id)] = var
                 
-                # Restricción: exactamente una opción por celda modificable
+                # Restricción: exactamente una opción por celda
                 # (puede ser un turno real o LIBRE)
                 self.model.Add(
                     sum(self.solver_vars[(enfermera_id, fecha, t)] 
@@ -152,14 +154,14 @@ class ReparadorCPSAT:
         Solo cuenta turnos REALES (no LIBRE). En cualquier ventana de
         max_consec+1 días, debe haber al menos 1 día LIBRE.
         
-        Cuenta tanto celdas bloqueadas (ya asignadas) como variables del solver.
+        Todas las celdas son variables del solver (no hay celdas bloqueadas).
         """
         # Buscar configuración - soportar ambos campos: 'nombre' y 'tipo'
         max_consec = 6  # Default
         for r in self.restricciones_duras:
             nombre_raw = r.get('nombre', '') or r.get('tipo', '')
             if normalizar_nombre(nombre_raw) == 'TURNO_CONSECUTIVOS_MAX':
-                max_consec = int(r.get('valor', 6))
+                max_consec = int(r.get('valor', r.get('parametros', {}).get('max', 6)))
                 break
         
         # Identificar turnos reales (excluir LIBRE_SENTINEL)
@@ -177,36 +179,16 @@ class ReparadorCPSAT:
             for i in range(len(fechas_ordenadas) - max_consec + 1):
                 ventana = fechas_ordenadas[i:i + max_consec + 1]
                 
-                # 1. Contar días BLOQUEADOS que ya son trabajo real
-                bloqueados_trabajo = 0
-                for fecha in ventana:
-                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                    if celda and not celda.es_modificable:
-                        if celda.turno and celda.turno.id in turnos_reales:
-                            bloqueados_trabajo += 1
-                
-                # 2. Contar días MODIFICABLES que el solver puede asignar como trabajo
+                # Todas las celdas son variables del solver
                 vars_trabajo = []
                 for fecha in ventana:
-                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                    if celda and celda.es_modificable:
-                        for turno_id in turnos_reales:
-                            key = (enfermera_id, fecha, turno_id)
-                            if key in self.solver_vars:
-                                vars_trabajo.append(self.solver_vars[key])
+                    for turno_id in turnos_reales:
+                        key = (enfermera_id, fecha, turno_id)
+                        if key in self.solver_vars:
+                            vars_trabajo.append(self.solver_vars[key])
                 
-                # 3. Restricción: bloqueados + solver <= max_consec
-                # Equivalente: solver <= max_consec - bloqueados_trabajo
-                limite_solver = max_consec - bloqueados_trabajo
-                if limite_solver < 0:
-                    # Ya se violó la restricción con celdas bloqueadas
-                    logger.warning(
-                        f"Enfermera {enfermera_id}: ventana {ventana[0]}-{ventana[-1]} "
-                        f"ya tiene {bloqueados_trabajo} días de trabajo bloqueados "
-                        f"(máximo permitido: {max_consec})"
-                    )
-                elif vars_trabajo:
-                    self.model.Add(sum(vars_trabajo) <= limite_solver)
+                if vars_trabajo:
+                    self.model.Add(sum(vars_trabajo) <= max_consec)
     
     def _restringir_descanso_entre_turnos(self):
         """Garantiza descanso mínimo de 12 horas reales entre turnos consecutivos.
@@ -249,72 +231,41 @@ class ReparadorCPSAT:
                     b_en_solver = key_b in self.solver_vars
 
                     if a_en_solver and b_en_solver:
-                        # Ambos modificables: no pueden activarse juntos
+                        # Ambos en solver: no pueden activarse juntos
                         self.model.Add(
                             self.solver_vars[key_a] + self.solver_vars[key_b] <= 1
                         )
-                    elif a_en_solver and not b_en_solver:
-                        # A es modificable, B está bloqueada
-                        celda_b = self.matriz.obtener_celda(enfermera_id, fecha_siguiente)
-                        if (celda_b and not celda_b.es_modificable and
-                                celda_b.turno and celda_b.turno.id == t_id_b):
-                            self.model.Add(self.solver_vars[key_a] == 0)
-                    elif not a_en_solver and b_en_solver:
-                        # A está bloqueada, B es modificable
-                        celda_a = self.matriz.obtener_celda(enfermera_id, fecha_actual)
-                        if (celda_a and not celda_a.es_modificable and
-                                celda_a.turno and celda_a.turno.id == t_id_a):
-                            self.model.Add(self.solver_vars[key_b] == 0)
-                    # Si ambos están bloqueados, no hay variables que restringir
     
     def _restringir_cobertura_minima(self):
         """Garantiza cobertura mínima por turno y fecha.
         
-        Cuenta tanto celdas bloqueadas (ya asignadas por rotación/incidencias)
-        como celdas modificables (variables del solver). Solo exige al solver
-        la diferencia que falta para alcanzar el mínimo.
+        Todas las celdas son variables del solver (no hay celdas bloqueadas).
         """
         cobertura_min = self.cobertura_minima
         
         for fecha in self.matriz.fechas:
             for turno_id, minimo in cobertura_min.items():
-                # 1. Contar celdas BLOQUEADAS ya asignadas a este turno
-                bloqueadas_count = 0
-                for enfermera_id in self.matriz.enfermeras:
-                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                    if celda and not celda.es_modificable:
-                        if celda.turno and celda.turno.id == turno_id:
-                            bloqueadas_count += 1
-                
-                # 2. Contar celdas MODIFICABLES que el solver puede asignar
-                vars_modificables = []
+                # Todas las celdas son variables del solver
+                vars_solver = []
                 for enfermera_id in self.matriz.enfermeras:
                     key = (enfermera_id, fecha, turno_id)
                     if key in self.solver_vars:
-                        vars_modificables.append(self.solver_vars[key])
+                        vars_solver.append(self.solver_vars[key])
                 
-                # 3. El solver debe cubrir lo que falta (mínimo 0)
-                restante = max(0, minimo - bloqueadas_count)
-                if restante > 0 and vars_modificables:
-                    self.model.Add(sum(vars_modificables) >= restante)
-                elif restante > 0 and not vars_modificables:
-                    logger.warning(
-                        f"Cobertura imposible: fecha {fecha}, turno {turno_id}, "
-                        f"necesita {minimo}, bloqueadas={bloqueadas_count}, "
-                        f"sin celdas modificables disponibles"
-                    )
+                if minimo > 0 and vars_solver:
+                    self.model.Add(sum(vars_solver) >= minimo)
     
     def _restringir_noches_consecutivas(self):
         """Limita noches consecutivas.
         
-        Cuenta tanto celdas bloqueadas (ya asignadas) como variables del solver.
+        Todas las celdas son variables del solver (no hay celdas bloqueadas).
         """
         # Soportar ambos campos: 'nombre' y 'tipo'
-        max_noches = 4  # Default
+        max_noches = 3  # Default: igual que validador_motor
         for r in self.restricciones_duras:
             nombre_raw = r.get('nombre', '') or r.get('tipo', '')
             if normalizar_nombre(nombre_raw) == 'NOCHES_CONSECUTIVAS_MAX':
-                max_noches = int(r.get('valor', 4))
+                max_noches = int(r.get('valor', r.get('parametros', {}).get('max', 3)))
                 break
         
         # Identificar turnos nocturnos
@@ -332,34 +283,16 @@ class ReparadorCPSAT:
             for i in range(len(fechas_ordenadas) - max_noches):
                 ventana = fechas_ordenadas[i:i + max_noches + 1]
                 
-                # 1. Contar noches BLOQUEADAS ya asignadas
-                bloqueadas_noches = 0
-                for fecha in ventana:
-                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                    if celda and not celda.es_modificable:
-                        if celda.turno and celda.turno.id in turnos_nocturnos:
-                            bloqueadas_noches += 1
-                
-                # 2. Contar noches MODIFICABLES que el solver puede asignar
+                # Todas las celdas son variables del solver
                 vars_noches = []
                 for fecha in ventana:
-                    celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                    if celda and celda.es_modificable:
-                        for turno_id in turnos_nocturnos:
-                            key = (enfermera_id, fecha, turno_id)
-                            if key in self.solver_vars:
-                                vars_noches.append(self.solver_vars[key])
+                    for turno_id in turnos_nocturnos:
+                        key = (enfermera_id, fecha, turno_id)
+                        if key in self.solver_vars:
+                            vars_noches.append(self.solver_vars[key])
                 
-                # 3. Restricción: bloqueadas + solver <= max_noches
-                limite_solver = max_noches - bloqueadas_noches
-                if limite_solver < 0:
-                    logger.warning(
-                        f"Enfermera {enfermera_id}: ventana {ventana[0]}-{ventana[-1]} "
-                        f"ya tiene {bloqueadas_noches} noches bloqueadas "
-                        f"(máximo permitido: {max_noches})"
-                    )
-                elif vars_noches:
-                    self.model.Add(sum(vars_noches) <= limite_solver)
+                if vars_noches:
+                    self.model.Add(sum(vars_noches) <= max_noches)
     
     def _aplicar_objetivos(self):
         """
@@ -367,27 +300,27 @@ class ReparadorCPSAT:
 
         NO es optimización lexicográfica estricta. Se usa una suma ponderada
         donde los pesos relativos establecen la prioridad entre objetivos:
-          - Rotación base: peso 100 (máxima prioridad tras restricciones duras)
-          - Balance horario: peso 10
+          - Rotación base: peso 500 (máxima prioridad: preservar patrón)
+          - Balance horario: peso 5
           - Equilibrio noches: peso 5
           - Equilibrio fines de semana: peso 3
 
-        Con estos pesos, una desviación de rotación cuesta ~10x más que una
-        desviación horaria equivalente, lo que preserva la regularidad de
-        patrones en la mayoría de escenarios.
+        Con estos pesos, romper una celda de rotación cuesta 500 puntos,
+        mientras que una desviación horaria de ±24h genera ~120 puntos por
+        enfermera. El solver prefiere mantener el patrón antes que romperlo.
 
         TODO: Implementar optimización lexicográfica real mediante llamadas
         secuenciales a solver.Solve() si se requiere prioridad estricta.
         """
         penalizaciones = []
         
-        # Objetivo 1: Minimizar desviación de rotación base (peso 100)
+        # Objetivo 1: Minimizar desviación de rotación base (peso 500)
         penalizaciones_base = self._penalizar_desviacion_base()
-        penalizaciones.extend([100 * p for p in penalizaciones_base])
+        penalizaciones.extend([500 * p for p in penalizaciones_base])
         
-        # Objetivo 2: Balance de horas mensuales (peso 10)
+        # Objetivo 2: Balance de horas mensuales (peso 5)
         penalizaciones_horas = self._penalizar_balance_horas()
-        penalizaciones.extend([10 * p for p in penalizaciones_horas])
+        penalizaciones.extend([5 * p for p in penalizaciones_horas])
         
         # Objetivo 3: Equilibrar noches (peso 5)
         penalizaciones_noches = self._penalizar_equilibrio_noches()
@@ -405,6 +338,9 @@ class ReparadorCPSAT:
         Penaliza celdas que se desvían de la rotación base.
         Objetivo PRIORITARIO.
         
+        Usa `_turno_base_original_id` (snapshot inmutable de Phase 1) cuando
+        está disponible, para que AjustadorHoras no corrompa la referencia.
+        
         - Si turno_base es un turno real: penaliza asignar otro turno
         - Si turno_base es None (libre): penaliza asignar cualquier turno real
         """
@@ -412,10 +348,12 @@ class ReparadorCPSAT:
         
         for enfermera_id, celdas in self.matriz.celdas.items():
             for fecha, celda in celdas.items():
-                if not celda.es_modificable:
-                    continue
-                
-                turno_base = celda.turno_base_id
+                # Usar snapshot inmutable si existe; fallback a propiedad computada
+                turno_base = (
+                    celda._turno_base_original_id
+                    if celda._turno_base_original_id is not None
+                    else celda.turno_base_id
+                )
                 
                 if turno_base is not None:
                     # Era un turno real: penalizar si se asigna otro turno
@@ -439,9 +377,10 @@ class ReparadorCPSAT:
         """
         Penaliza la desviación de horas mensuales objetivo.
         Usa horas_objetivo reales desde contratos (pasadas desde pipeline).
-        Incluye horas bloqueadas, horas del solver del período actual, y
-        un offset por horas acumuladas históricamente para favorecer el
-        balance inter-mensual.
+        Incluye horas del solver del período actual y un offset por horas
+        acumuladas históricamente para favorecer el balance inter-mensual.
+        
+        No hay horas bloqueadas porque las incidencias se aplican post-generación.
         """
         penalizaciones = []
 
@@ -468,16 +407,10 @@ class ReparadorCPSAT:
             if enfermera_id not in horas_objetivo_por_enfermera:
                 continue
 
-            objetivo = horas_objetivo_por_enfermera[enfermera_id]
+            # Asegurar que objetivo sea entero (CP-SAT no acepta flotantes)
+            objetivo = int(horas_objetivo_por_enfermera[enfermera_id])
 
-            # 1. Horas BLOQUEADAS ya asignadas en la matriz (período actual)
-            horas_bloqueadas = 0
-            for fecha in self.matriz.fechas:
-                celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                if celda and not celda.es_modificable and celda.turno:
-                    horas_bloqueadas += int(celda.turno.duracion_horas * 10)
-
-            # 2. Horas asignables por el SOLVER (período actual)
+            # Horas asignables por el SOLVER (período actual)
             vars_horas = []
             for fecha in self.matriz.fechas:
                 for turno_id in self.matriz.turnos_disponibles:
@@ -491,7 +424,7 @@ class ReparadorCPSAT:
                             factor = int(duracion.duracion_horas * 10)  # Entero para CP-SAT
                             vars_horas.append(factor * self.solver_vars[key])
 
-            # Construir expresión: bloqueadas + histórico + variables solver
+            # Construir expresión: histórico + variables solver
             # El histórico actúa como offset constante: enfermeras con más
             # horas acumuladas verán mayor desviación, favoreciendo que el
             # solver les asigne menos turnos este mes.
@@ -500,11 +433,11 @@ class ReparadorCPSAT:
                     'horas_acumuladas_previas', 0
                 ) * 10
             )
-            total_expr = horas_bloqueadas + horas_historico
+            total_expr = horas_historico
             if vars_horas:
                 total_expr += sum(vars_horas)
 
-            if vars_horas or horas_bloqueadas > 0:
+            if vars_horas:
                 desviacion = self.model.NewIntVar(0, 50000, f'desv_h_{enfermera_id}')
                 self.model.Add(total_expr - objetivo * 10 <= desviacion)
                 self.model.Add(objetivo * 10 - total_expr <= desviacion)
@@ -516,8 +449,9 @@ class ReparadorCPSAT:
         """
         Penaliza el desequilibrio en noches asignadas entre enfermeras.
         Minimiza la diferencia máxima de noches.
-        Incluye noches bloqueadas y acumulado histórico para medir
-        la carga total real, no solo la parte movible.
+        Incluye acumulado histórico para medir la carga total real.
+        
+        No hay noches bloqueadas porque las incidencias se aplican post-generación.
         """
         penalizaciones = []
 
@@ -530,18 +464,10 @@ class ReparadorCPSAT:
         if not turnos_nocturnos:
             return penalizaciones
 
-        # Para cada enfermera, contar noches (bloqueadas + solver + histórico)
+        # Para cada enfermera, contar noches (solver + histórico)
         vars_noches_por_enf = {}
         for enfermera_id in self.matriz.enfermeras:
-            # 1. Noches BLOQUEADAS ya asignadas
-            noches_bloqueadas = 0
-            for fecha in self.matriz.fechas:
-                celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                if (celda and not celda.es_modificable and
-                        celda.turno and celda.turno.id in turnos_nocturnos):
-                    noches_bloqueadas += 1
-
-            # 2. Noches asignables por el SOLVER
+            # Noches asignables por el SOLVER
             vars_noche = []
             for fecha in self.matriz.fechas:
                 for turno_id in turnos_nocturnos:
@@ -549,22 +475,21 @@ class ReparadorCPSAT:
                     if key in self.solver_vars:
                         vars_noche.append(self.solver_vars[key])
 
-            # 3. Noches HISTÓRICAS acumuladas (constante)
+            # Noches HISTÓRICAS acumuladas (constante)
             noches_historico = 0
             hist = self.balances_historicos.get(enfermera_id, {})
             noches_historico = hist.get('noches_acumuladas', 0)
 
-            total_noches = noches_bloqueadas + noches_historico
             if vars_noche:
                 noche_var = self.model.NewIntVar(
-                    0, len(self.matriz.fechas) + noches_bloqueadas + noches_historico,
+                    0, len(self.matriz.fechas) + noches_historico,
                     f'noches_{enfermera_id}'
                 )
-                self.model.Add(total_noches + sum(vars_noche) == noche_var)
+                self.model.Add(noches_historico + sum(vars_noche) == noche_var)
                 vars_noches_por_enf[enfermera_id] = noche_var
-            elif total_noches > 0:
-                # Solo tiene noches bloqueadas/históricas: variable constante
-                noche_var = self.model.NewIntVar(total_noches, total_noches, f'noches_{enfermera_id}')
+            elif noches_historico > 0:
+                # Solo tiene noches históricas: variable constante
+                noche_var = self.model.NewIntVar(noches_historico, noches_historico, f'noches_{enfermera_id}')
                 vars_noches_por_enf[enfermera_id] = noche_var
 
         if vars_noches_por_enf:
@@ -586,8 +511,9 @@ class ReparadorCPSAT:
         """
         Penaliza el desequilibrio en fines de semana trabajados.
         Minimiza la diferencia máxima de fines de semana entre enfermeras.
-        Incluye fines de semana bloqueados y acumulado histórico para
-        medir la carga total real, no solo la parte movible.
+        Incluye acumulado histórico para medir la carga total real.
+        
+        No hay fines de semana bloqueados porque las incidencias se aplican post-generación.
         """
         penalizaciones = []
 
@@ -609,18 +535,10 @@ class ReparadorCPSAT:
         if not turno_ids:
             return penalizaciones
 
-        # Para cada enfermera, contar findes trabajados (bloqueados + solver + histórico)
+        # Para cada enfermera, contar findes trabajados (solver + histórico)
         vars_finde_por_enf = {}
         for enfermera_id in self.matriz.enfermeras:
-            # 1. Fines de semana BLOQUEADOS ya asignados
-            findes_bloqueados = 0
-            for fecha in findes:
-                celda = self.matriz.obtener_celda(enfermera_id, fecha)
-                if (celda and not celda.es_modificable and
-                        celda.turno and celda.turno.id in turno_ids):
-                    findes_bloqueados += 1
-
-            # 2. Fines de semana asignables por el SOLVER
+            # Fines de semana asignables por el SOLVER
             vars_finde = []
             for fecha in findes:
                 for turno_id in turno_ids:
@@ -628,22 +546,21 @@ class ReparadorCPSAT:
                     if key in self.solver_vars:
                         vars_finde.append(self.solver_vars[key])
 
-            # 3. Fines de semana HISTÓRICOS acumulados (constante)
+            # Fines de semana HISTÓRICOS acumulados (constante)
             findes_historico = 0
             hist = self.balances_historicos.get(enfermera_id, {})
             findes_historico = hist.get('fines_semana_acumulados', 0)
 
-            total_findes = findes_bloqueados + findes_historico
             if vars_finde:
                 finde_var = self.model.NewIntVar(
-                    0, len(findes) + findes_bloqueados + findes_historico,
+                    0, len(findes) + findes_historico,
                     f'findes_{enfermera_id}'
                 )
-                self.model.Add(total_findes + sum(vars_finde) == finde_var)
+                self.model.Add(findes_historico + sum(vars_finde) == finde_var)
                 vars_finde_por_enf[enfermera_id] = finde_var
-            elif total_findes > 0:
-                # Solo tiene findes bloqueados/históricos: variable constante
-                finde_var = self.model.NewIntVar(total_findes, total_findes, f'findes_{enfermera_id}')
+            elif findes_historico > 0:
+                # Solo tiene findes históricos: variable constante
+                finde_var = self.model.NewIntVar(findes_historico, findes_historico, f'findes_{enfermera_id}')
                 vars_finde_por_enf[enfermera_id] = finde_var
 
         if vars_finde_por_enf:
@@ -674,7 +591,7 @@ class ReparadorCPSAT:
         for (enfermera_id, fecha, turno_id), var in self.solver_vars.items():
             if solver.Value(var) == 1:
                 celda = matriz_resultado.obtener_celda(enfermera_id, fecha)
-                if celda and celda.es_modificable:
+                if celda:
                     if turno_id == self.LIBRE_SENTINEL:
                         # Celda permanece libre
                         celda.turno = None

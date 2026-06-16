@@ -69,6 +69,15 @@ class CeldaPlanificacion:
     pertenece_rotacion_base: bool = False
     desviacion_de_rotacion: bool = False
     
+    # Snapshot inmutable del turno original de la rotacion (Phase 1).
+    # No se modifica por fases posteriores (AjustadorHoras, solver, etc.)
+    _turno_base_original_id: Optional[int] = None
+    
+    @property
+    def turno_base_original_id(self) -> Optional[int]:
+        """ID del turno en la rotacion original (inmutable, sobrevive a ajustes)."""
+        return self._turno_base_original_id
+    
     @property
     def es_libre(self) -> bool:
         return self.tipo_celda == TipoCelda.LIBRE or (self.turno is None and self.tipo_celda == TipoCelda.TURNO)
@@ -135,6 +144,9 @@ class BalanceEnfermera:
     noches_acumuladas: int = 0
     fines_semana_acumulados: int = 0
     festivos_acumulados: int = 0
+    
+    # Incidencias post-generación
+    horas_perdidas_incidencias: float = 0.0
     
     @property
     def horas_totales_con_historico(self) -> float:
@@ -217,6 +229,16 @@ class MatrizPlanificacion:
         """Crea una copia profunda de la matriz"""
         import copy
         return copy.deepcopy(self)
+
+
+@dataclass
+class ResultadoOverlay:
+    """Resultado de aplicar incidencias sobre la planificación generada"""
+    matriz_final: MatrizPlanificacion
+    celdas_sobreescritas: list = field(default_factory=list)
+    # Cada entrada: {enfermera_id, fecha, turno_original_id, tipo_incidencia, horas_perdidas}
+    huecos_cobertura: list = field(default_factory=list)
+    # Cada entrada: {fecha, turno_id, deficit}
 
 
 @dataclass

@@ -289,7 +289,8 @@ class TestPipelinePlanificacion:
         assert resultado.matriz.total_celdas() == 30  # 3 × 10
         assert len(resultado.balances) == 3
     
-    def test_pipeline_con_vacaciones(self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases):
+    def test_pipeline_ignora_incidencias(self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases):
+        """El pipeline NO aplica incidencias automaticamente; solo genera turnos regulares."""
         vacaciones = Incidencia(
             enfermera_id=1,
             enfermera_nombre='María García',
@@ -313,11 +314,19 @@ class TestPipelinePlanificacion:
         
         assert resultado.exitosa is True
         
-        # Verificar que las vacaciones se aplicaron
+        # Verificar que NO hay celdas de vacaciones: el pipeline solo genera turnos regulares
         for dia in range(1, 6):
             celda = resultado.matriz.obtener_celda(1, date(2026, 4, dia))
-            assert celda.tipo_celda == TipoCelda.VACACIONES
-            assert celda.es_modificable is False
+            assert celda.tipo_celda != TipoCelda.VACACIONES, (
+                f"El pipeline no deberia aplicar vacaciones, pero dia {dia} tiene VACACIONES"
+            )
+        
+        # Verificar que todas las celdas son TURNO o LIBRE (sin incidencias)
+        for enf_celdas in resultado.matriz.celdas.values():
+            for celda in enf_celdas.values():
+                assert celda.tipo_celda in (TipoCelda.TURNO, TipoCelda.LIBRE), (
+                    f"Celda inesperada: {celda.tipo_celda} (solo TURNO/LIBRE deberian existir)"
+                )
     
     def test_pipeline_reproducible(self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases):
         """El mismo pipeline debe producir el mismo resultado"""

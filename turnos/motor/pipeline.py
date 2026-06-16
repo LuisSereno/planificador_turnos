@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 Pipeline principal de planificación.
-Orquesta las fases: rotación base → incidencias → cobertura → reparación → validación.
+Orquesta las fases: rotación base → ajuste horas → cobertura → reparación →
+validación.
+
+La generación automática SOLO produce turnos regulares (patrón base + ajustes).
+Las incidencias (vacaciones, permisos, bajas) se aplican manualmente después
+sobre la planificación ya generada, usando OverlayIncidencias como herramienta
+independiente.
 """
 import logging
 from datetime import date
@@ -14,7 +20,7 @@ from ..dominio.dtos import (
     Incidencia,
 )
 from .rotacion_base import RotacionBaseBuilder
-from .incidencias import AplicadorIncidencias
+from .ajuste_horas import AjustadorHoras
 from .cobertura import AnalizadorCobertura
 from .reparador import ReparadorCPSAT
 from .validador_motor import ValidadorMotor
@@ -28,10 +34,14 @@ class PipelinePlanificacion:
     
     Ejecuta las fases secuenciales:
     1. Construcción determinista de rotación base
-    2. Aplicación de incidencias fijas
+    2. Ajuste de horas por contrato (exceso/déficit)
     3. Cálculo de cobertura y desviaciones
     4. Reparación con CP-SAT (si hay conflictos)
-    5. Validación y persistencia de balances
+    5. Validación del resultado
+    
+    Las incidencias (vacaciones, permisos, bajas) NO se aplican durante la
+    generación automática. Se aplican manualmente después usando
+    OverlayIncidencias como herramienta independiente.
     """
     
     def __init__(
@@ -40,8 +50,8 @@ class PipelinePlanificacion:
         enfermeras: Dict[int, str],
         asignaciones_rotacion: Dict[int, RotacionCiclo],
         desfases: Dict[int, int],
-        incidencias: List[Incidencia],
-        horas_objetivo: Dict[int, float],
+        incidencias: List[Incidencia] = None,
+        horas_objetivo: Dict[int, float] = None,
         cobertura_minima: Optional[Dict[int, int]] = None,
         configuracion_solver: Optional[Dict] = None,
         turnos_info: Optional[Dict[int, 'TurnoInfo']] = None,
@@ -53,8 +63,8 @@ class PipelinePlanificacion:
         self.enfermeras = enfermeras
         self.asignaciones_rotacion = asignaciones_rotacion
         self.desfases = desfases
-        self.incidencias = incidencias
-        self.horas_objetivo = horas_objetivo
+        self.incidencias = incidencias or []
+        self.horas_objetivo = horas_objetivo or {}
         self.cobertura_minima = cobertura_minima or {}
         self.configuracion_solver = configuracion_solver or {}
         self.turnos_info = turnos_info or {}
@@ -62,19 +72,40 @@ class PipelinePlanificacion:
         self.restricciones_blandas = restricciones_blandas or []
         self.balances_historicos = balances_historicos or {}
         
+        # Normalizar cobertura_minima para asegurar que sean enteros
+        self.cobertura_minima = self._normalizar_cobertura_minima(self.cobertura_minima)
+    
+    def _normalizar_cobertura_minima(self, cobertura: dict) -> dict:
+        """
+        Normaliza la cobertura mínima para asegurar que los valores sean enteros.
+        
+        Maneja tanto el formato antiguo (int) como el nuevo (dict con min/optimo/max).
+        """
+        cobertura_normalizada = {}
+        for turno_id, valor in cobertura.items():
+            if isinstance(valor, dict):
+                cobertura_normalizada[turno_id] = valor.get('min', 0)
+            else:
+                cobertura_normalizada[turno_id] = int(valor) if valor else 0
+        return cobertura_normalizada
+        
     def ejecutar(self) -> ResultadoPlanificacion:
         """
-        Ejecuta el pipeline completo de planificación.
+        Ejecuta el pipeline de planificación en 5 fases.
+        
+        SOLO genera turnos regulares (patrón base + ajustes del solver).
+        Las incidencias (vacaciones, permisos, bajas) NO se aplican aquí;
+        se aplican manualmente después con OverlayIncidencias.
         
         Returns:
-            ResultadoPlanificacion con la matriz final y métricas
+            ResultadoPlanificacion con la matriz de turnos regulares
         """
         logger.info("=" * 80)
-        logger.info("INICIANDO PIPELINE DE PLANIFICACIÓN")
+        logger.info("INICIANDO PIPELINE DE PLANIFICACIÓN (5 fases)")
         logger.info("=" * 80)
         
         try:
-            # FASE 1: Construcción de rotación base
+            # ── FASE 1: Construcción de rotación base ──────────────────────
             logger.info("FASE 1: Construyendo rotación base...")
             matriz_base = RotacionBaseBuilder(
                 fechas=self.fechas,
@@ -82,26 +113,30 @@ class PipelinePlanificacion:
                 asignaciones_rotacion=self.asignaciones_rotacion,
                 desfases=self.desfases,
             ).construir()
-            logger.info(f"✓ Rotación base: {matriz_base.total_celdas()} celdas generadas")
+            logger.info(f"Rotación base: {matriz_base.total_celdas()} celdas generadas")
             
-            # FASE 2: Aplicación de incidencias
-            logger.info("FASE 2: Aplicando incidencias...")
-            matriz_bloqueada = AplicadorIncidencias(
-                matriz_base=matriz_base,
-                incidencias=self.incidencias,
-            ).aplicar()
-            celdas_bloqueadas = sum(
-                1 
-                for celdas_enf in matriz_bloqueada.celdas.values() 
-                for celda in celdas_enf.values() 
-                if not celda.es_modificable
+            # ── FASE 2: Ajuste de horas por contrato ──────────────────────
+            logger.info("FASE 2: Ajustando horas por contrato...")
+            matriz_ajustada = AjustadorHoras(
+                matriz=matriz_base,
+                horas_objetivo=self.horas_objetivo,
+                turnos_info=self.turnos_info,
+            ).ajustar()
+            
+            # Contar celdas modificadas por el ajuste de horas
+            celdas_modificadas_ajuste = sum(
+                1 for enf_id in matriz_ajustada.celdas
+                for fecha, celda in matriz_ajustada.celdas[enf_id].items()
+                if celda._turno_base_original_id is not None and celda.turno is None
+                or (celda._turno_base_original_id is None and celda.turno is not None)
+                or (celda._turno_base_original_id is not None and celda.turno is not None
+                    and celda._turno_base_original_id != celda.turno.id)
             )
-            logger.info(f"✓ Incidencias aplicadas: {celdas_bloqueadas} celdas bloqueadas")
+            logger.info(f"Ajuste de horas: {celdas_modificadas_ajuste} celdas modificadas")
             
-            # FASE 3: Análisis de cobertura
+            # ── FASE 3: Análisis de cobertura ─────────────────────────────
             logger.info("FASE 3: Analizando cobertura...")
 
-            # Extraer limites de consecutivos desde restricciones duras
             from ..dominio.normalizacion import normalizar_nombre
             max_consecutivos = 6
             max_noches_consecutivas = 3
@@ -119,7 +154,7 @@ class PipelinePlanificacion:
                     )
 
             analisis = AnalizadorCobertura(
-                matriz=matriz_bloqueada,
+                matriz=matriz_ajustada,
                 horas_objetivo_enfermeras=self.horas_objetivo,
                 cobertura_minima_turnos=self.cobertura_minima,
                 balances_historicos=self.balances_historicos,
@@ -128,19 +163,19 @@ class PipelinePlanificacion:
             ).analizar()
             
             if analisis['tiene_conflictos']:
-                logger.warning(f"⚠ {len(analisis['conflictos'])} conflictos de cobertura detectados")
+                logger.warning(f"{len(analisis['conflictos'])} conflictos de cobertura detectados")
             else:
-                logger.info("✓ Sin conflictos de cobertura")
+                logger.info("Sin conflictos de cobertura")
             
-            # FASE 4: Reparación con CP-SAT (si es necesario)
-            matriz_final = matriz_bloqueada
+            # ── FASE 4: Reparación con CP-SAT (si es necesario) ───────────
+            matriz_final = matriz_ajustada
             celdas_modificadas = 0
             estado_solver = 'NO_EJECUTADO'
             
             if analisis['tiene_conflictos']:
                 logger.info("FASE 4: Iniciando reparación con CP-SAT...")
                 reparador = ReparadorCPSAT(
-                    matriz_bloqueada=matriz_bloqueada,
+                    matriz_bloqueada=matriz_ajustada,
                     analisis_cobertura=analisis,
                     turnos_info=self.turnos_info,
                     restricciones_duras=self.restricciones_duras,
@@ -152,44 +187,21 @@ class PipelinePlanificacion:
                 matriz_final = reparador.reparar()
                 estado_solver = reparador.solver_status if hasattr(reparador, 'solver_status') else 'EJECUTADO'
                 
-                # Contar celdas modificadas
                 celdas_modificadas = sum(
                     1
                     for enf_id in matriz_final.celdas
                     for fecha, celda in matriz_final.celdas[enf_id].items()
-                    if matriz_bloqueada.obtener_celda(enf_id, fecha) and \
-                       celda.turno != matriz_bloqueada.obtener_celda(enf_id, fecha).turno
+                    if matriz_ajustada.obtener_celda(enf_id, fecha) and \
+                       celda.turno != matriz_ajustada.obtener_celda(enf_id, fecha).turno
                 )
-                logger.info(f"✓ Reparación completada: {celdas_modificadas} celdas modificadas")
+                logger.info(f"Reparación completada: {celdas_modificadas} celdas modificadas")
             else:
                 logger.info("FASE 4: No se requiere reparación")
             
-            # FASE 5: Validación final con ValidadorMotor
-            logger.info("FASE 5: Validando resultado final...")
+            # ── FASE 5: Validación del resultado ──────────────────────────
+            logger.info("FASE 5: Validando resultado...")
             
-            from ..dominio.normalizacion import normalizar_nombre
-            
-            # Preparar configuración para el validador desde restricciones DURAS reales
-            configuracion_validador = {
-                'COBERTURA_MINIMA': self.cobertura_minima,
-            }
-            
-            # Extraer valores de restricciones duras reales (no defaults hardcodeados)
-            for r in self.restricciones_duras:
-                # Soportar ambos campos: 'nombre' y 'tipo'
-                nombre_raw = r.get('nombre', '') or r.get('tipo', '')
-                nombre_normalizado = normalizar_nombre(nombre_raw)
-                if nombre_normalizado == 'TURNO_CONSECUTIVOS_MAX':
-                    configuracion_validador['TURNO_CONSECUTIVOS_MAX'] = int(r.get('valor', 6))
-                elif nombre_normalizado == 'NOCHES_CONSECUTIVAS_MAX':
-                    configuracion_validador['NOCHES_CONSECUTIVAS_MAX'] = int(r.get('valor', 3))
-                elif nombre_normalizado == 'COBERTURA_MINIMA':
-                    # Ya está en self.cobertura_minima
-                    pass
-            
-            # Defaults solo si no se encontraron en restricciones reales
-            configuracion_validador.setdefault('TURNO_CONSECUTIVOS_MAX', 6)
-            configuracion_validador.setdefault('NOCHES_CONSECUTIVAS_MAX', 3)
+            configuracion_validador = self._extraer_configuracion_validador()
             
             validador = ValidadorMotor(
                 matriz=matriz_final,
@@ -198,8 +210,22 @@ class PipelinePlanificacion:
                 balances_historicos=self.balances_historicos,
             )
             
-            # El resultado final sale del validador, NO se construye directamente
-            resultado = validador.validar()
+            resultado_validacion = validador.validar()
+            
+            # Construir resultado final (solo turnos regulares, sin overlay)
+            resultado = ResultadoPlanificacion(
+                exitosa=resultado_validacion.exitosa,
+                matriz=matriz_final,
+                balances=resultado_validacion.balances,
+                metricas=resultado_validacion.metricas,
+                estado_solver=estado_solver,
+                tiempo_resolucion=resultado_validacion.tiempo_resolucion,
+                celdas_modificadas=celdas_modificadas,
+                celdas_totales=resultado_validacion.celdas_totales,
+                restricciones_duras_cumplidas=resultado_validacion.restricciones_duras_cumplidas,
+                violaciones=resultado_validacion.violaciones,
+                warnings=resultado_validacion.warnings,
+            )
             
             logger.info("=" * 80)
             logger.info("PIPELINE COMPLETADO EXITOSAMENTE")
@@ -208,7 +234,7 @@ class PipelinePlanificacion:
             return resultado
             
         except Exception as e:
-            logger.error(f"✗ Error en pipeline: {str(e)}", exc_info=True)
+            logger.error(f"Error en pipeline: {str(e)}", exc_info=True)
             return ResultadoPlanificacion(
                 exitosa=False,
                 matriz=MatrizPlanificacion(),
@@ -217,3 +243,24 @@ class PipelinePlanificacion:
                 estado_solver='ERROR',
                 violaciones=[str(e)],
             )
+
+    def _extraer_configuracion_validador(self) -> dict:
+        """Extrae configuración para el validador desde restricciones duras."""
+        from ..dominio.normalizacion import normalizar_nombre
+        
+        configuracion = {
+            'COBERTURA_MINIMA': self.cobertura_minima,
+        }
+        
+        for r in self.restricciones_duras:
+            nombre_raw = r.get('nombre', '') or r.get('tipo', '')
+            nombre_normalizado = normalizar_nombre(nombre_raw)
+            if nombre_normalizado == 'TURNO_CONSECUTIVOS_MAX':
+                configuracion['TURNO_CONSECUTIVOS_MAX'] = int(r.get('valor', 6))
+            elif nombre_normalizado == 'NOCHES_CONSECUTIVAS_MAX':
+                configuracion['NOCHES_CONSECUTIVAS_MAX'] = int(r.get('valor', 3))
+        
+        configuracion.setdefault('TURNO_CONSECUTIVOS_MAX', 6)
+        configuracion.setdefault('NOCHES_CONSECUTIVAS_MAX', 3)
+        
+        return configuracion

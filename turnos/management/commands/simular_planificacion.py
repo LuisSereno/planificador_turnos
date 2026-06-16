@@ -18,7 +18,7 @@ from turnos.models import (
     ConfiguracionPlanificacion, Ejecucion,
     Planilla, AsignacionTurno,
 )
-from turnos.dominio.dtos import TurnoInfo, RotacionCiclo, Incidencia, TipoIncidencia
+from turnos.dominio.dtos import TurnoInfo, RotacionCiclo, TipoCelda
 from turnos.motor.pipeline import PipelinePlanificacion
 
 
@@ -219,15 +219,34 @@ def fase5_ejecutar_pipeline(config, enfermeras, turnos):
         for t in turnos.values()
     }
 
-    # Crear rotacion ciclica M->T->N para todas las enfermeras con desfases
+    # Crear rotacion ciclica 2M-2T-2N-2L (8 dias) para todas las enfermeras con desfases
     turno_ids = list(turnos_info.keys())
     _info(f"Turno IDs para rotacion: {[turnos_info[tid].nombre for tid in turno_ids]}")
 
-    # Construir ciclo: 1M-1T-1N (3 dias) usando objetos TurnoInfo
-    celdas_ciclo = [turnos_info[tid] for tid in turno_ids]
+    # Construir ciclo: 2M-2T-2N-2L (8 dias) usando objetos TurnoInfo
+    # Patrón: Mañana, Mañana, Tarde, Tarde, Noche, Noche, Libre, Libre
+    turno_manana = next((t for t in turnos_info.values() if t.nombre == 'MANANA'), None)
+    turno_tarde = next((t for t in turnos_info.values() if t.nombre == 'TARDE'), None)
+    turno_noche = next((t for t in turnos_info.values() if t.nombre == 'NOCHE'), None)
+    
+    if not all([turno_manana, turno_tarde, turno_noche]):
+        _fail("No se encontraron todos los turnos necesarios (MANANA, TARDE, NOCHE)")
+        return
+    
+    celdas_ciclo = [
+        turno_manana,  # Día 1: Mañana
+        turno_manana,  # Día 2: Mañana
+        turno_tarde,   # Día 3: Tarde
+        turno_tarde,   # Día 4: Tarde
+        turno_noche,   # Día 5: Noche
+        turno_noche,   # Día 6: Noche
+        None,          # Día 7: Libre
+        None,          # Día 8: Libre
+    ]
+    
     ciclo = RotacionCiclo(
-        nombre='M-T-N',
-        ciclo_dias=len(turno_ids),
+        nombre='2M-2T-2N-2L',
+        ciclo_dias=8,
         celdas=celdas_ciclo,
     )
 
@@ -235,8 +254,9 @@ def fase5_ejecutar_pipeline(config, enfermeras, turnos):
     desfases = {}
     for i, enf_id in enumerate(enfermeras_dict.keys()):
         asignaciones_rotacion[enf_id] = ciclo
-        desfases[enf_id] = i % len(turno_ids)  # Desfase escalonado
-    _info(f"Rotacion: {len(asignaciones_rotacion)} enfermeras con desfases {[desfases[eid] for eid in desfases]}")
+        desfases[enf_id] = i % 8  # Desfase escalonado en ciclo de 8 días
+    _info(f"Rotacion: {len(asignaciones_rotacion)} enfermeras con patrón 2M-2T-2N-2L")
+    _info(f"Desfases aplicados: {[desfases[eid] for eid in desfases]}")
 
     # Cobertura minima
     cobertura_minima = {tid: 1 for tid in turno_ids}
@@ -244,28 +264,16 @@ def fase5_ejecutar_pipeline(config, enfermeras, turnos):
     # Horas objetivo por enfermera (horas/mes)
     horas_objetivo = {enf_id: 160.0 for enf_id in enfermeras_dict.keys()}
 
-    # Incidencias: simular vacaciones para 1 enfermera (dias 10-17)
-    enf_vacaciones = list(enfermeras_dict.keys())[0]
-    incidencias = [
-        Incidencia(
-            enfermera_id=enf_vacaciones,
-            enfermera_nombre=enfermeras_dict[enf_vacaciones],
-            fecha_inicio=fechas[9],
-            fecha_fin=fechas[16],
-            tipo=TipoIncidencia.VACACIONES,
-            observaciones="Vacaciones simuladas",
-        )
-    ]
-    _info(f"Incidencia: {enfermeras_dict[enf_vacaciones]} vacaciones {fechas[9]} a {fechas[16]}")
+    # Nota: Las incidencias (vacaciones, permisos, etc.) NO se aplican durante
+    # la generación automática. Se aplican manualmente después con OverlayIncidencias.
 
-    # Ejecutar pipeline
+    # Ejecutar pipeline (solo genera turnos regulares)
     _info("Ejecutando PipelinePlanificacion...")
     pipeline = PipelinePlanificacion(
         fechas=fechas,
         enfermeras=enfermeras_dict,
         asignaciones_rotacion=asignaciones_rotacion,
         desfases=desfases,
-        incidencias=incidencias,
         horas_objetivo=horas_objetivo,
         cobertura_minima=cobertura_minima,
         configuracion_solver={"tiempo_maximo_segundos": 30, "seed": 42},
@@ -281,7 +289,18 @@ def fase5_ejecutar_pipeline(config, enfermeras, turnos):
     _ok(f"Estado solver: {resultado.estado_solver}")
     _ok(f"Total celdas: {resultado.matriz.total_celdas()}")
     _ok(f"Balances generados: {len(resultado.balances)}")
-    _ok(f"Metricas: {list(resultado.metricas.keys()) if resultado.metricas else 'N/A'}")
+
+    # Verificar que NO hay celdas de incidencia (la generación es limpia)
+    celdas_incidencia = sum(
+        1 for enf_celdas in resultado.matriz.celdas.values()
+        for celda in enf_celdas.values()
+        if celda.tipo_celda in (TipoCelda.VACACIONES, TipoCelda.PERMISO,
+                                TipoCelda.BAJA, TipoCelda.FORMACION)
+    )
+    if celdas_incidencia == 0:
+        _ok("Generacion limpia: 0 celdas de incidencias (vacaciones/permisos/bajas)")
+    else:
+        _fail(f"Se encontraron {celdas_incidencia} celdas de incidencias en generacion automatica")
 
     if resultado.violaciones:
         _info(f"Violaciones ({len(resultado.violaciones)}):")
@@ -302,7 +321,7 @@ def fase5_ejecutar_pipeline(config, enfermeras, turnos):
     for tid, count in conteo_turnos.items():
         nombre = turnos_info[tid].nombre
         _info(f"  {nombre}: {count} asignaciones")
-    _info(f"  Libres/vacantes: {conteo_libres}")
+    _info(f"  Libres: {conteo_libres}")
 
     return resultado, fechas, enfermeras_dict, turnos_info
 
@@ -351,20 +370,14 @@ def fase6_persistir(config, resultado, fechas, enfermeras_dict, turnos, turnos_i
             for fecha, celda in celdas_enf.items():
                 turno_model = None
                 es_dia_libre = False
-                tipo_celda = 'TURNO'
+                tipo_celda = celda.tipo_celda.value if hasattr(celda.tipo_celda, 'value') else str(celda.tipo_celda)
 
                 if celda.turno is not None:
-                    # celda.turno es un objeto TurnoInfo, buscar por su id
                     turno_info = turnos_info.get(celda.turno.id)
                     if turno_info:
                         turno_model = turno_models.get(turno_info.nombre)
-                elif celda.es_libre:
-                    es_dia_libre = True
-                    tipo_celda = 'LIBRE'
                 else:
-                    # Celda sin turno y sin dia libre: dia libre por defecto
                     es_dia_libre = True
-                    tipo_celda = 'LIBRE'
 
                 AsignacionTurno.objects.create(
                     planilla=planilla,
@@ -480,6 +493,13 @@ def fase9_validar(planilla, enfermeras_dict, fechas):
     ).annotate(total=Count('id')).order_by('turno__nombre')
     for d in dist:
         _info(f"  {d['turno__nombre']} [{d['turno__codigo_corto']}]: {d['total']}")
+
+    # Desglose por tipo_celda (incluye overlay de incidencias)
+    dist_tipo = AsignacionTurno.objects.filter(planilla=planilla).values(
+        'tipo_celda'
+    ).annotate(total=Count('id')).order_by('tipo_celda')
+    for d in dist_tipo:
+        _info(f"  Tipo {d['tipo_celda']}: {d['total']}")
 
     libres = AsignacionTurno.objects.filter(planilla=planilla, es_dia_libre=True).count()
     _info(f"  Dias libres: {libres}")

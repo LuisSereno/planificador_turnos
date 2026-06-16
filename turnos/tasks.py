@@ -337,10 +337,13 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
     
     Este es el reemplazo del generador antiguo, usando el pipeline de 5 fases:
     1. Rotación base determinista
-    2. Aplicación de incidencias
+    2. Ajuste de horas por contrato
     3. Análisis de cobertura
     4. Reparación CP-SAT
-    5. Validación final
+    5. Validación del resultado
+    
+    Las incidencias (vacaciones, permisos, bajas) NO se aplican automáticamente.
+    Se aplican manualmente después sobre la planificación ya generada.
     
     Args:
         configuracion_id: ID de ConfiguracionPlanificacion
@@ -357,13 +360,10 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
         TipoTurno,
         RotacionBase,
         AsignacionRotacionEnfermera,
-        Incidencia,
     )
     from turnos.dominio.dtos import (
         RotacionCiclo,
         TurnoInfo,
-        Incidencia as DTOIncidencia,
-        TipoIncidencia,
     )
     from turnos.motor.pipeline import PipelinePlanificacion
     
@@ -495,44 +495,6 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 asignaciones_rotacion[enf_id] = rotacion_default
                 desfases[enf_id] = 0
         
-        # Incidencias
-        incidencias_db = Incidencia.objects.filter(
-            enfermera_id__in=enfermeras.keys()
-        ).select_related('turno_fijo', 'enfermera')
-        
-        incidencias_list = []
-        for inc_db in incidencias_db:
-            tipo_map = {
-                'VACACIONES': TipoIncidencia.VACACIONES,
-                'PERMISO': TipoIncidencia.PERMISO,
-                'BAJA': TipoIncidencia.BAJA,
-                'FORMACION': TipoIncidencia.FORMACION,
-                'LIBRANZA_BLOQUEADA': TipoIncidencia.LIBRANZA_BLOQUEADA,
-                'ASIGNACION_FIJA': TipoIncidencia.ASIGNACION_FIJA,
-            }
-            
-            # Build turno_fijo object if exists
-            turno_fijo_obj = None
-            if inc_db.turno_fijo:
-                turno_fijo_obj = TurnoInfo(
-                    id=inc_db.turno_fijo.id,
-                    nombre=inc_db.turno_fijo.nombre,
-                    hora_inicio=inc_db.turno_fijo.hora_inicio,
-                    hora_fin=inc_db.turno_fijo.hora_fin,
-                    duracion_horas=inc_db.turno_fijo.duracion_horas,
-                    es_nocturno=inc_db.turno_fijo.es_nocturno,
-                )
-            
-            incidencias_list.append(DTOIncidencia(
-                enfermera_id=inc_db.enfermera_id,
-                enfermera_nombre=inc_db.enfermera.nombre,
-                tipo=tipo_map.get(inc_db.tipo, TipoIncidencia.PERMISO),
-                fecha_inicio=inc_db.fecha_inicio,
-                fecha_fin=inc_db.fecha_fin,
-                turno_fijo=turno_fijo_obj,
-                observaciones=inc_db.observaciones,
-            ))
-        
         # Configuración de restricciones
         configuracion_restricciones = {}
         if config.restricciones_duras:
@@ -588,7 +550,13 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
         if config.demanda_por_turno:
             for turno in config.turnos.all():
                 if turno.nombre in config.demanda_por_turno:
-                    cobertura_minima[turno.id] = config.demanda_por_turno[turno.nombre]
+                    demanda = config.demanda_por_turno[turno.nombre]
+                    # Extraer el valor mínimo del diccionario de demanda
+                    if isinstance(demanda, dict):
+                        cobertura_minima[turno.id] = demanda.get('min', 0)
+                    else:
+                        # Si ya es un número, usarlo directamente
+                        cobertura_minima[turno.id] = demanda
         
         # 4. Ejecutar pipeline
         logger.info("Ejecutando pipeline de planificación...")
@@ -598,7 +566,6 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
             enfermeras=enfermeras,
             asignaciones_rotacion=asignaciones_rotacion,
             desfases=desfases,
-            incidencias=incidencias_list,
             horas_objetivo=horas_objetivo,
             cobertura_minima=cobertura_minima,
             turnos_info=turnos_info,

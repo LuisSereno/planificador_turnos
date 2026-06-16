@@ -4,20 +4,12 @@ Tests del reparador CP-SAT.
 """
 import pytest
 from datetime import date, time
-from ortools.sat.python import cp_model
 
 from turnos.dominio.dtos import (
     TurnoInfo,
     RotacionCiclo,
-    Incidencia,
-    TipoIncidencia,
-    TipoCelda,
-    MatrizPlanificacion,
-    CeldaPlanificacion,
 )
 from turnos.motor.rotacion_base import RotacionBaseBuilder
-from turnos.motor.incidencias import AplicadorIncidencias
-from turnos.motor.cobertura import AnalizadorCobertura
 from turnos.motor.reparador import ReparadorCPSAT
 
 
@@ -88,10 +80,11 @@ def desfases():
 class TestReparadorCPSAT:
     """Tests del reparador CP-SAT"""
     
-    def test_reparador_preserva_celdas_bloqueadas(
+    def test_reparador_usa_turno_base_original_id(
         self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases, turnos_basicos
     ):
-        """El reparador no debe modificar celdas bloqueadas por incidencias"""
+        """El solver usa _turno_base_original_id (inmutable) aunque AjustadorHoras
+        haya modificado celda.turno, preservando el patron de rotacion."""
         # Construir matriz base
         builder = RotacionBaseBuilder(
             fechas=fechas_abril_2026,
@@ -100,44 +93,39 @@ class TestReparadorCPSAT:
             desfases=desfases,
         )
         matriz = builder.construir()
-        
-        # Aplicar vacaciones a María
-        vacaciones = Incidencia(
-            enfermera_id=1,
-            enfermera_nombre='María García',
-            tipo=TipoIncidencia.VACACIONES,
-            fecha_inicio=date(2026, 4, 1),
-            fecha_fin=date(2026, 4, 3),
-        )
-        
-        aplicador = AplicadorIncidencias(matriz, [vacaciones])
-        matriz_bloqueada = aplicador.aplicar()
-        
-        # Verificar que las celdas están bloqueadas
-        for dia in range(1, 4):
-            celda = matriz_bloqueada.obtener_celda(1, date(2026, 4, dia))
-            assert celda.es_modificable is False
-        
-        # Crear análisis de cobertura simulado
+
+        # Simular que AjustadorHoras modifico celda.turno pero _turno_base_original_id
+        # conserva el turno original de la rotacion
+        celda_dia1 = matriz.obtener_celda(1, date(2026, 4, 1))
+        turno_original = celda_dia1.turno  # Deberia ser M
+        assert celda_dia1._turno_base_original_id == turno_original.id
+
+        # Simular corruption: cambiar turno a T (como haria AjustadorHoras)
+        celda_dia1.turno = turnos_basicos[2]  # T en vez de M
+
+        # Verificar que _turno_base_original_id NO cambio (es inmutable)
+        assert celda_dia1._turno_base_original_id == turno_original.id
+
         analisis = {
             'tiene_conflictos': False,
             'conflictos': [],
             'balances': {},
         }
-        
-        # Ejecutar reparador
+
         reparador = ReparadorCPSAT(
-            matriz_bloqueada=matriz_bloqueada,
+            matriz_bloqueada=matriz,
             analisis_cobertura=analisis,
             turnos_info=turnos_basicos,
         )
         matriz_final = reparador.reparar()
-        
-        # Verificar que las celdas bloqueadas permanecen iguales
-        for dia in range(1, 4):
-            celda = matriz_final.obtener_celda(1, date(2026, 4, dia))
-            assert celda.es_modificable is False
-            assert celda.tipo_celda == TipoCelda.VACACIONES
+
+        # El solver debe restaurar M (el turno base original), no T (el corrupto)
+        celda_final = matriz_final.obtener_celda(1, date(2026, 4, 1))
+        assert celda_final.turno is not None
+        assert celda_final.turno.id == turno_original.id, (
+            f"El solver debio restaurar turno {turno_original.id} (base original), "
+            f"pero asigno {celda_final.turno.id}"
+        )
     
     def test_reparador_sol_status(self, fechas_abril_2026, enfermeras, asignaciones_rotacion, desfases, turnos_basicos):
         """El reparador debe establecer el estado del solver"""
@@ -237,9 +225,8 @@ class TestReparadorOptimizacion:
         matriz_final = reparador.reparar()
 
         # Verificar que muy pocas celdas se desviaron de la rotación base.
-        # El solver puede modificar algunas celdas para balancear horas
-        # (peso 10 vs peso 100 de rotación), pero las desviaciones deben
-        # ser mínimas.
+        # Con los pesos actuales (500 rotación vs 5 horas) y sin conflictos,
+        # el solver debe preservar la rotación casi intacta.
         desviaciones = 0
         for enf_id, celdas in matriz_final.celdas.items():
             for fecha, celda in celdas.items():
@@ -254,8 +241,8 @@ class TestReparadorOptimizacion:
             1 for celdas in matriz_final.celdas.values()
             for c in celdas.values() if c.es_modificable
         )
-        # Las desviaciones deben ser menos del 15% de celdas modificables
-        max_desviaciones = max(1, int(total_celdas_modificables * 0.15))
+        # Las desviaciones deben ser menos del 5% de celdas modificables
+        max_desviaciones = max(1, int(total_celdas_modificables * 0.05))
         assert desviaciones <= max_desviaciones, (
             f"Se esperaban pocas desviaciones de la rotación base "
             f"(max {max_desviaciones}), pero se encontraron {desviaciones}"

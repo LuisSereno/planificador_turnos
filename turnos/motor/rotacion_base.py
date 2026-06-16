@@ -76,6 +76,7 @@ class RotacionBaseBuilder:
                     tipo_celda=TipoCelda.TURNO if turno else TipoCelda.LIBRE,
                     es_modificable=True,
                     pertenece_rotacion_base=True,
+                    _turno_base_original_id=turno.id if turno else None,
                 )
                 
                 matriz.asignar_celda(celda)
