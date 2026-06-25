@@ -1,60 +1,105 @@
-﻿# Planificador de Turnos para Enfermeras
+﻿# Planificador de Turnos de Enfermería
 
-Sistema inteligente de planificacion automatica usando OR-Tools CP-SAT.
+Sistema inteligente de planificación automática de cuadrantes de enfermería usando OR-Tools CP-SAT.
 
-## Caracteristicas
+## Características
 
-- Generacion automatica de planificaciones
-- Interfaz web intuitiva
-- Procesamiento asincrono con Celery
-- Exportacion a Excel, PDF, CSV, iCalendar
-- Dashboard con visualizaciones
-- Tests unitarios
+- Generación de planillas mensuales tipo cuadrante real con rotaciones cíclicas
+- Motor de reparación CP-SAT (Google OR-Tools) — no generador libre
+- Equilibrio de horas, noches, fines de semana y festivos
+- Planificación contextual dependiente del histórico mensual
+- Wizard de configuración guiado en 4 pasos
+- Procesamiento asíncrono con Celery + Redis
+- Exportación a Excel, PDF, CSV e iCalendar
+- Dashboard con visualizaciones y estadísticas
+- Sistema multi-workspace para múltiples organizaciones
 
-## Instalacion Rapida
+## Inicio Rápido
+
+### Modo Desarrollo (recomendado para pruebas)
 
 ```bash
-# Clonar
 git clone https://github.com/LuisSereno/planificador_turnos.git
 cd planificador_turnos
 
-# Entorno virtual
-python -m venv venv
-source venv/bin/activate  # Windows: venv\\Scripts\\activate
-
-# Dependencias
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
-# Migraciones
 python manage.py migrate
+python manage.py crear_tipos_turno
+python manage.py generar_datos_prueba
 python manage.py createsuperuser
 
-# Ejecutar
 python manage.py runserver
 ```
 
-## Uso Basico
+O usando el script automático (incluye Celery + Redis):
 
-1. **Configurar Turnos**: Crea los turnos (MaÃ±ana, Tarde, Noche)
-2. **Agregar Enfermeras**: Desde el admin o importando Excel
-3. **Crear Configuracion**: Define parametros de planificacion
-4. **Ejecutar**: Genera la planificacion automaticamente
-5. **Exportar**: Descarga en tu formato preferido
+```bash
+./start.sh --dev
+```
 
-## Tecnologias
+Acceso: http://localhost:8001 | Admin: `admin` / `Admin123!@#`
 
-- Django 5.2
-- OR-Tools (Google)
-- Celery + Redis
-- Bootstrap 5
-- Chart.js
-- PostgreSQL / SQLite
+### Modo Producción (Docker / Podman)
 
-## Documentacion
+```bash
+cp .env.example .env
+# Editar .env con contraseñas seguras
 
-- [Guia de Usuario](GUIA_USUARIO.md)
-- [API](API.md)
-- [Guia del Desarrollador](DEVELOPER.md)
+./start.sh          # Con Podman
+# o
+docker-compose up -d --build
+```
+
+Acceso: http://localhost:8080
+
+## Tecnologías
+
+| Componente | Tecnología |
+|------------|-----------|
+| Backend | Django 5.1 |
+| Solver | OR-Tools CP-SAT 9.14 (Google) |
+| Tareas asíncronas | Celery 5.5 + Redis 7 |
+| Base de datos | PostgreSQL 16 (prod) / SQLite (dev) |
+| Frontend | Bootstrap 5 + Chart.js |
+| Servidor | Gunicorn + Nginx |
+| Contenedores | Docker / Podman (rootless) |
+
+## Documentación
+
+- [Wiki completa](docs/WIKI.md) — arquitectura, modelos, wizard, restricciones, troubleshooting
+- [Arquitectura del sistema](docs/ARQUITECTURA.md)
+- [API REST](docs/API.md)
+- [Resumen de refactorización](docs/FINAL_SUMMARY.md)
+
+## Tests
+
+```bash
+pytest                              # Todos los tests
+pytest turnos/tests/test_dominio/   # Tests de dominio (sin BD)
+pytest turnos/tests/test_motor/     # Tests del motor CP-SAT
+pytest --cov=turnos                 # Con cobertura
+```
+
+Estado: **36 tests pasando (100%)**
+
+## Comandos Útiles
+
+```bash
+# Crear tipos de turno estándar (M, T, N, L, D)
+python manage.py crear_tipos_turno
+
+# Importar enfermeras desde Excel
+python manage.py importar_enfermeras --file enfermeras.xlsx
+
+# Ejecutar planificación desde CLI
+python manage.py run_planificacion --config-id 1
+
+# Ver estadísticas del sistema
+python manage.py estadisticas_sistema
+```
 
 ## Licencia
 
@@ -62,4 +107,4 @@ MIT License
 
 ## Autor
 
-Luis Sereno - [@LuisSereno](https://github.com/LuisSereno)
+Luis Sereno — [@LuisSereno](https://github.com/LuisSereno)

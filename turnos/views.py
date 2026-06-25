@@ -645,6 +645,9 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
                 for enf in context.get('enfermeras_turnos', [])
             ], cls=DjangoJSONEncoder)
 
+        # Construir datos para la pestaña de Análisis Detallado
+        context['analisis'] = self._build_analisis_detallado(ejecucion)
+
         return context
 
     def _get_turno_color(self, asignacion):
@@ -662,6 +665,186 @@ class EjecucionDetailView(LoginRequiredMixin, DetailView):
                 return 'dark'
 
         return 'primary'
+
+    def _build_analisis_detallado(self, ejecucion):
+        """Construye los datos para la pestaña de Análisis Detallado."""
+        from turnos.models import Enfermera
+
+        analisis = {
+            'estado': ejecucion.estado,
+            'es_optima': ejecucion.es_optima,
+            'penalizacion_total': ejecucion.penalizacion_total,
+            'duracion': ejecucion.duracion,
+            'violaciones_duras': [],
+            'violaciones_blandas': [],
+            'warnings': [],
+            'balances': [],
+            'recomendaciones': [],
+            'causas_posibles': [],
+            'resumen_ejecucion': {},
+        }
+
+        resultado = ejecucion.resultado or {}
+        mensajes = ejecucion.mensajes or {}
+
+        # ── Estado general ──────────────────────────────────────────────
+        if ejecucion.estado == 'COMPLETADA':
+            analisis['estado_icono'] = 'fa-check-circle'
+            analisis['estado_color'] = 'success'
+            analisis['estado_texto'] = 'Ejecución completada con éxito'
+        elif ejecucion.estado == 'INVIABLE':
+            analisis['estado_icono'] = 'fa-times-circle'
+            analisis['estado_color'] = 'danger'
+            analisis['estado_texto'] = 'El solver no pudo encontrar una solución factible'
+        elif ejecucion.estado == 'ERROR':
+            analisis['estado_icono'] = 'fa-exclamation-triangle'
+            analisis['estado_color'] = 'danger'
+            analisis['estado_texto'] = 'Error durante la ejecución'
+        else:
+            analisis['estado_icono'] = 'fa-clock'
+            analisis['estado_color'] = 'secondary'
+            analisis['estado_texto'] = f'Estado: {ejecucion.estado}'
+
+        # ── Violaciones desde resultado (motor nuevo) ──────────────────
+        violaciones_raw = resultado.get('violaciones', [])
+        for v in violaciones_raw:
+            if isinstance(v, dict):
+                enfermera_id = v.get('enfermera_id')
+                enfermera_nombre = ''
+                if enfermera_id:
+                    try:
+                        enfermera_nombre = Enfermera.objects.get(pk=enfermera_id).nombre
+                    except Enfermera.DoesNotExist:
+                        enfermera_nombre = f'ID {enfermera_id}'
+                analisis['violaciones_duras'].append({
+                    'tipo': v.get('tipo', 'DESCONOCIDO'),
+                    'descripcion': v.get('descripcion', ''),
+                    'fecha': v.get('fecha', ''),
+                    'enfermera_id': enfermera_id,
+                    'enfermera_nombre': enfermera_nombre,
+                })
+
+        # ── Violaciones desde mensajes (motor legacy) ───────────────────
+        if isinstance(mensajes, dict):
+            for v in mensajes.get('violaciones', []):
+                if isinstance(v, dict):
+                    analisis['violaciones_duras'].append({
+                        'tipo': v.get('nombre', v.get('tipo', 'DESCONOCIDO')),
+                        'descripcion': v.get('detalles', v.get('descripcion', '')),
+                        'fecha': v.get('fecha', ''),
+                        'enfermera_id': v.get('enfermera_id'),
+                        'enfermera_nombre': v.get('enfermera_nombre', ''),
+                    })
+
+        # ── Warnings ────────────────────────────────────────────────────
+        warnings_raw = resultado.get('warnings', [])
+        for w in warnings_raw:
+            if isinstance(w, dict):
+                analisis['warnings'].append({
+                    'tipo': w.get('tipo', 'WARNING'),
+                    'descripcion': w.get('descripcion', w.get('mensaje', '')),
+                })
+            elif isinstance(w, str):
+                analisis['warnings'].append({'tipo': 'WARNING', 'descripcion': w})
+
+        # ── Balances por enfermera ──────────────────────────────────────
+        balances_raw = resultado.get('balances', {})
+        if isinstance(balances_raw, dict):
+            for enf_id_str, bal in balances_raw.items():
+                if isinstance(bal, dict):
+                    enfermera_id = int(enf_id_str) if enf_id_str.isdigit() else enf_id_str
+                    enfermera_nombre = ''
+                    try:
+                        enfermera_nombre = Enfermera.objects.get(pk=enfermera_id).nombre
+                    except (Enfermera.DoesNotExist, ValueError):
+                        enfermera_nombre = f'Enfermera {enf_id_str}'
+                    horas_asignadas = bal.get('horas_asignadas', 0)
+                    horas_objetivo = bal.get('horas_objetivo', 0)
+                    desviacion = bal.get('desviacion_horas', horas_asignadas - horas_objetivo)
+                    analisis['balances'].append({
+                        'enfermera_id': enfermera_id,
+                        'enfermera_nombre': enfermera_nombre,
+                        'horas_asignadas': round(horas_asignadas, 1),
+                        'horas_objetivo': round(horas_objetivo, 1),
+                        'desviacion_horas': round(desviacion, 1),
+                        'desviacion_pct': round((desviacion / horas_objetivo * 100), 1) if horas_objetivo else 0,
+                        'turnos_asignados': bal.get('turnos_asignados', 0),
+                        'noches_asignadas': bal.get('noches_asignadas', 0),
+                        'fines_semana_asignados': bal.get('fines_semana_asignados', 0),
+                    })
+
+        # ── Resumen de ejecución ────────────────────────────────────────
+        config = ejecucion.configuracion
+        analisis['resumen_ejecucion'] = {
+            'nombre_config': config.nombre,
+            'fecha_inicio': config.fecha_inicio.strftime('%d/%m/%Y') if config.fecha_inicio else '-',
+            'num_dias': config.num_dias,
+            'num_enfermeras': config.enfermeras.count(),
+            'num_turnos': config.turnos.count(),
+            'num_restricciones_duras': len(config.restricciones_duras or []),
+            'num_restricciones_blandas': len(config.restricciones_blandas or []),
+            'num_patrones': len(config.patrones_turnos_json or []),
+            'horas_semanales': getattr(config, 'horas_semanales', 40),
+            'horas_mensuales': getattr(config, 'horas_mensuales', 160),
+            'horas_anuales': getattr(config, 'horas_anuales', 1800),
+        }
+
+        # ── Causas posibles ─────────────────────────────────────────────
+        if ejecucion.estado == 'INVIABLE':
+            analisis['causas_posibles'] = [
+                'La demanda de personal es demasiado alta para el número de enfermeras disponibles.',
+                'Las restricciones duras son incompatibles entre sí (ej: cobertura mínima alta + límite bajo de turnos consecutivos).',
+                'No hay suficientes enfermeras para cubrir los turnos mínimos requeridos en todas las fechas.',
+                'Las incidencias (vacaciones, bajas) bloquean demasiadas celdas, reduciendo la capacidad de maniobra del solver.',
+            ]
+        elif ejecucion.estado == 'ERROR':
+            error_msg = resultado.get('error', '')
+            analisis['causas_posibles'] = [
+                f'Error técnico: {error_msg}' if error_msg else 'Error inesperado durante la ejecución.',
+                'Revisa la configuración de la planificación y asegúrate de que todos los datos son correctos.',
+                'Puede ser un problema de timeout: prueba a aumentar el tiempo máximo en la configuración avanzada.',
+            ]
+
+        # ── Recomendaciones ─────────────────────────────────────────────
+        if ejecucion.estado == 'INVIABLE':
+            analisis['recomendaciones'] = [
+                'Reduce la demanda mínima de personal por turno (ej: de 2 a 1 enfermera).',
+                'Aumenta el número de enfermeras seleccionadas en la configuración.',
+                'Relaja las restricciones duras: aumenta el máximo de turnos consecutivos o reduce el descanso mínimo.',
+                'Revisa las incidencias: si hay muchas vacaciones o bajas en el mismo período, considera reprogramar.',
+                'Aumenta el tiempo máximo de resolución en la configuración avanzada.',
+            ]
+        elif ejecucion.estado == 'ERROR':
+            analisis['recomendaciones'] = [
+                'Revisa que todas las enfermeras seleccionadas estén activas.',
+                'Verifica que los tipos de turno seleccionados tengan hora de inicio y fin configuradas.',
+                'Aumenta el tiempo máximo de resolución (actualmente: ' + str(config.tiempo_maximo_segundos) + 's).',
+                'Si el error persiste, revisa los logs del servidor para más detalles.',
+            ]
+        elif ejecucion.estado == 'COMPLETADA' and not ejecucion.es_optima:
+            analisis['recomendaciones'] = [
+                'La solución encontrada es factible pero no óptima. El solver se quedó sin tiempo antes de encontrar la mejor solución.',
+                'Aumenta el tiempo máximo de resolución para permitir al solver explorar más combinaciones.',
+                'Relaja algunas restricciones blandas (reduce su peso) para que el solver tenga más flexibilidad.',
+                'Considera aumentar el número de trabajadores paralelos en la configuración avanzada.',
+            ]
+        elif ejecucion.estado == 'COMPLETADA' and ejecucion.es_optima:
+            analisis['recomendaciones'] = [
+                'La solución es óptima. No se requieren cambios para mejorar la planificación.',
+                'Si deseas explorar alternativas, puedes modificar restricciones blandas y re-ejecutar.',
+            ]
+
+        # Penalizaciones
+        if analisis['balances']:
+            balances_con_desviacion = [b for b in analisis['balances'] if abs(b['desviacion_horas']) > 8]
+            if balances_con_desviacion:
+                nombres = ', '.join(b['enfermera_nombre'] for b in balances_con_desviacion[:5])
+                analisis['recomendaciones'].append(
+                    f'Enfermeras con desviación significativa de horas (>8h): {nombres}. '
+                    f'Considera revisar sus contratos o ajustar las horas semanales de la configuración.'
+                )
+
+        return analisis
 
 
 class EjecucionDeleteView(LoginRequiredMixin, DeleteView):

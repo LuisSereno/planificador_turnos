@@ -186,6 +186,19 @@
                         <i class="fas fa-info-circle"></i> Detalles
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="analisis-tab" data-bs-toggle="tab"
+                            data-bs-target="#analisis" type="button" role="tab">
+                        <i class="fas fa-search-plus"></i> Análisis Detallado
+                        {% if analisis.violaciones_duras %}
+                        <span class="badge bg-danger ms-1">{{ analisis.violaciones_duras|length }}</span>
+                        {% elif analisis.warnings %}
+                        <span class="badge bg-warning text-dark ms-1">{{ analisis.warnings|length }}</span>
+                        {% else %}
+                        <span class="badge bg-success ms-1">OK</span>
+                        {% endif %}
+                    </button>
+                </li>
             </ul>
 
             <!-- Contenido de tabs -->
@@ -376,6 +389,264 @@
                             </table>
                         </div>
                     </div>
+                </div>
+
+                <!-- TAB 4: ANÁLISIS DETALLADO -->
+                <div class="tab-pane fade" id="analisis" role="tabpanel">
+
+                    <!-- Resumen de estado -->
+                    <div class="alert alert-{{ analisis.estado_color }} d-flex align-items-center mb-4" role="alert">
+                        <i class="fas {{ analisis.estado_icono }} fa-2x me-3"></i>
+                        <div>
+                            <h5 class="alert-heading mb-1">{{ analisis.estado_texto }}</h5>
+                            <p class="mb-0 small">
+                                Estado: <strong>{{ analisis.estado }}</strong>
+                                {% if analisis.duracion %}
+                                &middot; Duración: <strong>{{ analisis.duracion }}s</strong>
+                                {% endif %}
+                                {% if analisis.penalizacion_total is not None %}
+                                &middot; Penalización total: <strong>{{ analisis.penalizacion_total|floatformat:1 }}</strong>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Parámetros de la ejecución -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-sliders-h me-2"></i>Parámetros de la Ejecución</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="small text-muted">Configuración</div>
+                                    <strong>{{ analisis.resumen_ejecucion.nombre_config }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="small text-muted">Período</div>
+                                    <strong>{{ analisis.resumen_ejecucion.num_dias }} días</strong>
+                                    <div class="small text-muted">desde {{ analisis.resumen_ejecucion.fecha_inicio }}</div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="small text-muted">Enfermeras</div>
+                                    <strong>{{ analisis.resumen_ejecucion.num_enfermeras }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="small text-muted">Tipos de turno</div>
+                                    <strong>{{ analisis.resumen_ejecucion.num_turnos }}</strong>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="small text-muted">Restricciones</div>
+                                    <strong>{{ analisis.resumen_ejecucion.num_restricciones_duras }} duras</strong> &middot;
+                                    <strong>{{ analisis.resumen_ejecucion.num_restricciones_blandas }} blandas</strong> &middot;
+                                    <strong>{{ analisis.resumen_ejecucion.num_patrones }} patrones</strong>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Horas semanales (por enfermera)</div>
+                                    <strong>{{ analisis.resumen_ejecucion.horas_semanales }} h</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Horas mensuales</div>
+                                    <strong>{{ analisis.resumen_ejecucion.horas_mensuales }} h</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Horas anuales</div>
+                                    <strong>{{ analisis.resumen_ejecucion.horas_anuales }} h</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Violaciones de restricciones duras -->
+                    {% if analisis.violaciones_duras %}
+                    <div class="card mb-4 border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Violaciones de Restricciones Duras ({{ analisis.violaciones_duras|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Tipo</th>
+                                            <th>Enfermera</th>
+                                            <th>Fecha</th>
+                                            <th>Descripción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for v in analisis.violaciones_duras %}
+                                        <tr>
+                                            <td><code class="text-danger">{{ v.tipo }}</code></td>
+                                            <td>{{ v.enfermera_nombre|default:"-" }}</td>
+                                            <td>{{ v.fecha|default:"-" }}</td>
+                                            <td>{{ v.descripcion }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mb-4">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>No hay violaciones de restricciones duras.</strong>
+                        {% if analisis.estado == 'COMPLETADA' %}
+                        La planilla cumple todas las restricciones obligatorias configuradas.
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Warnings -->
+                    {% if analisis.warnings %}
+                    <div class="card mb-4 border-warning">
+                        <div class="card-header bg-warning">
+                            <h6 class="mb-0">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                Advertencias ({{ analisis.warnings|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-0">
+                                {% for w in analisis.warnings %}
+                                <li><strong>{{ w.tipo }}:</strong> {{ w.descripcion }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Balances por enfermera -->
+                    {% if analisis.balances %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Balance de Horas por Enfermera</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Enfermera</th>
+                                            <th class="text-end">Horas asignadas</th>
+                                            <th class="text-end">Horas objetivo</th>
+                                            <th class="text-end">Desviación</th>
+                                            <th class="text-end">Desv. %</th>
+                                            <th class="text-center">Turnos</th>
+                                            <th class="text-center">Noches</th>
+                                            <th class="text-center">Fines de semana</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for b in analisis.balances %}
+                                        <tr>
+                                            <td>{{ b.enfermera_nombre }}</td>
+                                            <td class="text-end">{{ b.horas_asignadas }}</td>
+                                            <td class="text-end">{{ b.horas_objetivo }}</td>
+                                            <td class="text-end">
+                                                {% if b.desviacion_horas > 0 %}
+                                                <span class="text-danger">+{{ b.desviacion_horas }}h</span>
+                                                {% elif b.desviacion_horas < 0 %}
+                                                <span class="text-info">{{ b.desviacion_horas }}h</span>
+                                                {% else %}
+                                                <span class="text-success">0h</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                {% if b.desviacion_pct > 10 %}
+                                                <span class="badge bg-danger">{{ b.desviacion_pct }}%</span>
+                                                {% elif b.desviacion_pct > 5 %}
+                                                <span class="badge bg-warning text-dark">{{ b.desviacion_pct }}%</span>
+                                                {% else %}
+                                                <span class="badge bg-success">{{ b.desviacion_pct }}%</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">{{ b.turnos_asignados }}</td>
+                                            <td class="text-center">{{ b.noches_asignadas }}</td>
+                                            <td class="text-center">{{ b.fines_semana_asignados }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="card-footer small text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Desviación positiva = exceso de horas. Desviación negativa = déficit.
+                            El solver intenta minimizar estas desviaciones como objetivo prioritario.
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Penalización total -->
+                    {% if analisis.penalizacion_total is not None %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Penalización Total del Solver</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-3 text-center">
+                                    <div class="display-4 fw-bold {% if analisis.penalizacion_total == 0 %}text-success{% elif analisis.penalizacion_total < 100 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ analisis.penalizacion_total|floatformat:0 }}
+                                    </div>
+                                    <small class="text-muted">puntos de penalización</small>
+                                </div>
+                                <div class="col-md-9">
+                                    <p class="mb-2">La penalización total refleja cuánto se desvió la solución del escenario ideal.</p>
+                                    <ul class="mb-0 small">
+                                        <li><strong>0 puntos:</strong> Solución perfecta, sin desviaciones.</li>
+                                        <li><strong>1-100 puntos:</strong> Solución buena con desviaciones menores.</li>
+                                        <li><strong>&gt;100 puntos:</strong> Desviaciones significativas, revisar balances.</li>
+                                    </ul>
+                                    <p class="mt-2 small mb-0 text-muted">
+                                        El solver CP-SAT minimiza esta penalización siguiendo los objetivos lexicográficos:
+                                        restricciones duras &gt; rotación base &gt; horas mensuales &gt; saldo anual &gt; noches &gt; fines de semana &gt; festivos.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Causas posibles -->
+                    {% if analisis.causas_posibles %}
+                    <div class="card mb-4 border-info">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fas fa-question-circle me-2"></i>Posibles Causas</h6>
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                {% for causa in analisis.causas_posibles %}
+                                <li class="mb-2">{{ causa }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Recomendaciones -->
+                    {% if analisis.recomendaciones %}
+                    <div class="card mb-4 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Recomendaciones</h6>
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                {% for rec in analisis.recomendaciones %}
+                                <li class="mb-2">{{ rec }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                    </div>
+                    {% endif %}
+
                 </div>
 
             </div>

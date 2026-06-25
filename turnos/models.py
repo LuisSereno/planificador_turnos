@@ -349,6 +349,33 @@ class ConfiguracionPlanificacion(models.Model):
     )
     fecha_inicio = models.DateField(_('Fecha de inicio'))
 
+    # Horas laborales de referencia (normativa estándar)
+    horas_semanales = models.IntegerField(
+        _('Horas semanales'),
+        default=40,
+        validators=[MinValueValidator(1), MaxValueValidator(80)],
+        help_text="Horas de trabajo por semana según normativa laboral"
+    )
+    horas_mensuales = models.IntegerField(
+        _('Horas mensuales'),
+        default=160,
+        validators=[MinValueValidator(1), MaxValueValidator(300)],
+        help_text="Horas de trabajo por mes según normativa laboral"
+    )
+    horas_anuales = models.IntegerField(
+        _('Horas anuales'),
+        default=1800,
+        validators=[MinValueValidator(1), MaxValueValidator(2500)],
+        help_text="Horas de trabajo por año según normativa laboral"
+    )
+    horas_semanales_globales = models.IntegerField(
+        _('Horas semanales globales (equipo)'),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5000)],
+        help_text="Total de horas semanales del equipo completo (opcional, solo informativo)"
+    )
+
     # Enfermeras y turnos
     enfermeras = models.ManyToManyField(Enfermera, verbose_name=_('Enfermeras'))
     turnos = models.ManyToManyField(TipoTurno, verbose_name=_('Turnos'))

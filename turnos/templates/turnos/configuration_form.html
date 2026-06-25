@@ -399,6 +399,55 @@
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Horas laborales de referencia por enfermera según normativa estándar. Modifica los valores si tu centro tiene un convenio distinto.
+                                </small>
+                            </div>
+                            <div class="col-md-3 field-group">
+                                <label class="form-label fw-bold">
+                                    Horas Semanales
+                                </label>
+                                {{ form.horas_semanales }}
+                                <small class="form-text text-muted">Estándar: 40 h/sem</small>
+                                {% if form.horas_semanales.errors %}
+                                    <div class="text-danger mt-1">{{ form.horas_semanales.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 field-group">
+                                <label class="form-label fw-bold">
+                                    Horas Mensuales
+                                </label>
+                                {{ form.horas_mensuales }}
+                                <small class="form-text text-muted">Estándar: 160 h/mes</small>
+                                {% if form.horas_mensuales.errors %}
+                                    <div class="text-danger mt-1">{{ form.horas_mensuales.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 field-group">
+                                <label class="form-label fw-bold">
+                                    Horas Anuales
+                                </label>
+                                {{ form.horas_anuales }}
+                                <small class="form-text text-muted">Estándar: 1800 h/año</small>
+                                {% if form.horas_anuales.errors %}
+                                    <div class="text-danger mt-1">{{ form.horas_anuales.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 field-group">
+                                <label class="form-label fw-bold">
+                                    Horas Globales <span class="badge bg-secondary ms-1">Opcional</span>
+                                </label>
+                                {{ form.horas_semanales_globales }}
+                                <small class="form-text text-muted">Total equipo (informativo)</small>
+                                {% if form.horas_semanales_globales.errors %}
+                                    <div class="text-danger mt-1">{{ form.horas_semanales_globales.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <!-- SECCIÓN 2: ENFERMERAS Y TURNOS -->
                         <h5 class="mb-3 text-primary mt-4">
                             <i class="fas fa-users me-2"></i>Personal y Turnos

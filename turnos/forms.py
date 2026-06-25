@@ -175,6 +175,8 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
         model = ConfiguracionPlanificacion
         fields = [
             'nombre', 'descripcion', 'activa', 'num_dias', 'fecha_inicio',
+            'horas_semanales', 'horas_mensuales', 'horas_anuales',
+            'horas_semanales_globales',
             'enfermeras', 'turnos', 'demanda_por_turno',
             'restricciones_duras', 'restricciones_blandas', 'patrones_turnos_json',
             'num_trabajadores', 'tiempo_maximo_segundos', 'seed'
@@ -186,6 +188,10 @@ class ConfiguracionPlanificacionForm(forms.ModelForm):
             'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'num_dias': forms.NumberInput(attrs={'class': 'form-control', 'min': 7, 'max': 365}),
             'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'horas_semanales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 80}),
+            'horas_mensuales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 300}),
+            'horas_anuales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 2500}),
+            'horas_semanales_globales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 5000, 'placeholder': 'Opcional'}),
             'enfermeras': forms.CheckboxSelectMultiple(),
             'turnos': forms.CheckboxSelectMultiple(),
             'demanda_por_turno': forms.HiddenInput(),
@@ -669,6 +675,8 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
         fields = [
             'nombre', 'descripcion', 'activa',
             'num_dias', 'fecha_inicio',
+            'horas_semanales', 'horas_mensuales', 'horas_anuales',
+            'horas_semanales_globales',
             'enfermeras', 'turnos',
             'demanda_por_turno',
             'num_trabajadores', 'tiempo_maximo_segundos', 'seed'
@@ -679,6 +687,10 @@ class ConfiguracionPlanificacionFormExtendida(forms.ModelForm):
             'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'num_dias': forms.NumberInput(attrs={'class': 'form-control', 'min': 7, 'max': 365}),
             'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'horas_semanales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 80}),
+            'horas_mensuales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 300}),
+            'horas_anuales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 2500}),
+            'horas_semanales_globales': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 5000, 'placeholder': 'Opcional'}),
             'enfermeras': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 5}),
             'turnos': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 3}),
             'demanda_por_turno': forms.Textarea(attrs={'class': 'form-control font-monospace', 'rows': 3}),

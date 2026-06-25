@@ -510,6 +510,9 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
         horas_objetivo = {}
         balances_historicos = {}
         
+        # Valores por defecto desde la configuración (aplican por enfermera cuando no hay contrato)
+        horas_semanales_default = float(getattr(config, 'horas_semanales', 40) or 40)
+        
         for enf_id in enfermeras.keys():
             try:
                 contrato = ContratoEnfermera.objects.get(enfermera_id=enf_id)
@@ -517,8 +520,8 @@ def ejecutar_planificacion_motor_async(self, configuracion_id):
                 semanas_en_periodo = config.num_dias / 7.0
                 horas_objetivo[enf_id] = float(contrato.horas_semana_objetivo * semanas_en_periodo)
             except ContratoEnfermera.DoesNotExist:
-                # Default to 40 hours/week
-                horas_objetivo[enf_id] = 40.0 * (config.num_dias / 7.0)
+                # Fallback: horas semanales configuradas en la planificación (default 40h)
+                horas_objetivo[enf_id] = horas_semanales_default * (config.num_dias / 7.0)
             
             # Determine period reference for this planning (year-month for idempotency)
         periodo_actual = f"{config.fecha_inicio.year}-{config.fecha_inicio.month:02d}"
